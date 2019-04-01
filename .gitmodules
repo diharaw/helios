@@ -1,0 +1,3 @@
+[submodule "external/AssetCore"]
+	path = external/AssetCore
+	url = https://github.com/diharaw/AssetCore.git
