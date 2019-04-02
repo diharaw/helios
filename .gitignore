@@ -30,3 +30,12 @@
 *.exe
 *.out
 *.app
+
+build/*
+build/
+external/*
+external/
+bin/
+lib/
+x64/
+x64/*
