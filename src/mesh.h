@@ -14,8 +14,15 @@ namespace lumen
 		glm::vec3 position;
 		glm::vec3 normal;
 		glm::vec2 uv;
-		uint32_t  mat_id;
 	};
+
+	struct SubMesh
+    {
+        uint32_t  material_index;
+        uint32_t  index_count;
+        uint32_t  base_vertex;
+        uint32_t  base_index;
+    };
 
 	class Mesh
 	{
@@ -24,6 +31,7 @@ namespace lumen
 
 		std::vector<Vertex>					   m_vertices;
 		std::vector<uint32_t>				   m_indices;
+		std::vector<SubMesh>				   m_sub_meshes;
 		std::vector<std::shared_ptr<Material>> m_materials;
 
 		static std::unordered_map<std::string, std::weak_ptr<Mesh>> m_cache;
