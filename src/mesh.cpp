@@ -42,6 +42,8 @@ namespace lumen
 
 				return mesh;
 			}
+			else
+				return nullptr;
 		}
 	}
 }

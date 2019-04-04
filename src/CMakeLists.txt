@@ -16,7 +16,8 @@ else()
     add_executable(Lumen ${LUMEN_HEADERS} ${LUMEN_SOURCES}) 
 endif()
 
-target_link_libraries(Lumen AssetCore)
+target_link_libraries(Lumen AssetCoreRuntime)
+target_link_libraries(Lumen AssetCoreCommon)
 
 if (WIN32)
     set_property(TARGET Lumen PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/$(Configuration)")

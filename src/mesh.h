@@ -16,6 +16,14 @@ namespace lumen
 		glm::vec2 uv;
 	};
 
+	struct Triangle
+	{
+		uint32_t v0;
+		uint32_t v1;
+		uint32_t v2;
+		uint32_t mat_id;
+	};
+
 	struct SubMesh
     {
         uint32_t  material_index;
