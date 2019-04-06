@@ -24,12 +24,14 @@ namespace lumen
 				m_vertices.push_back({ t_p, t_n, v.uv });
 			}
 
+			uint32_t idx_count = 0;
+
 			for (auto& submesh : mesh->m_sub_meshes)
 			{
 				m_materials.push_back(mesh->m_materials[submesh.material_index]);
 				uint32_t mat_id = submesh.material_index + current_material_count;
 
-				for (uint32_t i = submesh.base_index; i < submesh.index_count; i += 3)
+				for (uint32_t i = submesh.base_index; i < (idx_count + submesh.index_count); i += 3)
 				{
 					uint32_t i0 = submesh.base_vertex + mesh->m_indices[i] + current_vertex_count;
 					uint32_t i1 = submesh.base_vertex + mesh->m_indices[i + 1] + current_vertex_count;
@@ -37,6 +39,8 @@ namespace lumen
 		
 					m_triangles.push_back({ i0, i1, i2, mat_id });
 				}
+
+				idx_count += submesh.index_count;
 			}
 
 			return 1;

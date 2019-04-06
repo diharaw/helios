@@ -9,8 +9,8 @@
 
 int main()
 {
-	int w = 400;
-	int h = 400;
+	int w = 1024;
+	int h = 1024;
 
 	lumen::Scene scene;
 	lumen::Camera camera;
@@ -20,27 +20,8 @@ int main()
 	scene.add_mesh(m, glm::mat4(1.0f));
 
 	camera.set_projection(60.0f, float(w) / float(h), 0.1f, 1000.0f);
-	camera.set_orientation(glm::vec3(0.0f, 0.0f, 50.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	camera.set_orientation(glm::vec3(0.0f, 1.0f, 2.5f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	camera.update();
-
-	{
-		glm::vec3 v0 = glm::vec3(-100.0f, 0.0f, 0.0f);
-		glm::vec3 v1 = glm::vec3(0.0f, 100.0f, 0.0f);
-		glm::vec3 v2 = glm::vec3(100.0f, 0.0f, 0.0f);
-		glm::vec3 middle = (v0 + v1 + v2) / 3.0f;
-
-		lumen::Ray ray;
-
-		ray.origin = glm::vec3(0.0f, 0.0f, 50.0f);
-		ray.dir = glm::normalize(middle - ray.origin);
-
-		float u, v, t;
-
-		if (lumen::ray_triangle(v2, v1, v0, ray, u, v, t))
-			std::cout << "HIT" << std::endl;
-		else
-			std::cout << "NOT HIT" << std::endl;
-	}
 
 	struct Pixel
 	{
@@ -53,14 +34,18 @@ int main()
 
 	framebuffer.resize(w * h);
 
-	for (int y = 0; y < h; y++)
+	float scale = 1.0f;
+
+	for (int j = 0; j < h; j++)
 	{
-		for (int x = 0; x < w; x++)
+		for (int i = 0; i < w; i++)
 		{
 			glm::vec3 pixel = glm::vec3(0.0f);
 			
-			lumen::Ray ray = lumen::Ray::compute(x, y, 0.1f, FLT_MAX, camera);
+			lumen::Ray ray = lumen::Ray::compute(i / float(w), 1.0f - (j / float(h)), 0.1f, FLT_MAX, camera);
 
+			float closest = FLT_MAX;
+			
 			for (auto& tri : scene.m_triangles)
 			{
 				lumen::Vertex v0 = scene.m_vertices[tri.v0];
@@ -69,10 +54,10 @@ int main()
 
 				float u, v, t;
 
-				if (lumen::ray_triangle(v0.position, v1.position, v2.position, ray, u, v, t))
+				if (lumen::ray_triangle(v0.position, v1.position, v2.position, ray, u, v, t) && t < closest)
 				{
+					closest = t;
 					pixel = scene.m_materials[tri.mat_id]->albedo;
-					break;
 				}
 			}
 
@@ -84,7 +69,7 @@ int main()
 			p.g = pixel.y * 255;
 			p.b = pixel.z * 255;
 
-			framebuffer[w * y + x] = p;
+			framebuffer[w * j + i] = p;
 		}
 	}
 
