@@ -1,4 +1,4 @@
-#include "ray.h"
+#include "geometry.h"
 
 namespace lumen
 {

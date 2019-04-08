@@ -1,7 +1,8 @@
 #pragma once
 
 #include "../scene.h"
-#include "../ray.h"
+#include "../geometry.h"
+#include "bvh_node.h"
 #include "platform.h"
 #include <algorithm>
 
@@ -30,10 +31,10 @@ public:
     {
         Stats() { clear(); }
         void clear() { memset(this, 0, sizeof(Stats)); }
-        void print() const 
-		{ 
-			printf("Tree stats: [bfactor=%d] %d nodes (%d+%d), %.2f SAHCost, %.1f children/inner, %.1f tris/leaf\n", branching_factor, num_leaf_nodes + num_inner_nodes, num_leaf_nodes, num_inner_nodes, sah_cost, 1.0f * num_child_nodes / std::max(num_inner_nodes, 1), 1.0f * num_tris / std::max(num_leaf_nodes, 1)); 
-		}
+        void print() const
+        {
+            printf("Tree stats: [bfactor=%d] %d nodes (%d+%d), %.2f SAHCost, %.1f children/inner, %.1f tris/leaf\n", branching_factor, num_leaf_nodes + num_inner_nodes, num_leaf_nodes, num_inner_nodes, sah_cost, 1.0f * num_child_nodes / std::max(num_inner_nodes, 1), 1.0f * num_tris / std::max(num_leaf_nodes, 1));
+        }
 
         float   sah_cost;
         int32_t branching_factor;
@@ -72,7 +73,7 @@ public:
     Scene*          scene(void) const { return m_scene; }
     const Platform& platform(void) const { return m_platform; }
     BVHNode*        root(void) const { return m_root; }
-    void            trace(Ray& ray, RayResult& result, RayStats* stats = NULL) const;
+    void            trace(Ray& ray, RayResult& result, bool need_closest_hit, RayStats* stats = NULL) const;
 
     std::vector<int32_t>&       tri_indices(void) { return m_tri_indices; }
     const std::vector<int32_t>& tri_indices(void) const { return m_tri_indices; }

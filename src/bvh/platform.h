@@ -73,7 +73,7 @@ public:
     }
 
     // leaf preferences
-    inline void setLeafPreferences(int32_t minSize, int32_t maxSize)
+    inline void set_leaf_preferences(int32_t minSize, int32_t maxSize)
     {
         m_min_leaf_size = minSize;
         m_max_leaf_size = maxSize;

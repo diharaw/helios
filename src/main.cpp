@@ -1,6 +1,5 @@
-#include "intersect.h"
 #include "material.h"
-#include "ray.h"
+#include "geometry.h"
 #include "scene.h"
 #include <iostream>
 
