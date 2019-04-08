@@ -14,4 +14,9 @@ struct Ray
 
     static Ray compute(float x, float y, float tmin, float tmax, const Camera& camera);
 };
+
+struct RayResult
+{
+
+};
 } // namespace lumen
