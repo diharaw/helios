@@ -18,10 +18,16 @@ std::shared_ptr<Mesh> Mesh::create(const std::string& path)
         {
             std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>();
 
-            mesh->m_vertices.reserve(ast_mesh.vertices.size());
+            mesh->m_vtx_positions.reserve(ast_mesh.vertices.size());
+            mesh->m_vtx_normals.reserve(ast_mesh.vertices.size());
+            mesh->m_vtx_tex_coords.reserve(ast_mesh.vertices.size());
 
             for (auto& v : ast_mesh.vertices)
-                mesh->m_vertices.push_back({ v.position, v.normal, v.tex_coord });
+            {
+                mesh->m_vtx_positions.push_back(v.position);
+                mesh->m_vtx_normals.push_back(v.normal);
+                mesh->m_vtx_tex_coords.push_back(v.tex_coord);
+            }
 
             mesh->m_indices.reserve(ast_mesh.indices.size());
 

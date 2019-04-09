@@ -1,6 +1,7 @@
 #include "material.h"
 #include "geometry.h"
 #include "scene.h"
+#include "external/Nvidia-SBVH/BVH.h"
 #include <iostream>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -17,6 +18,8 @@ int main()
     auto m = lumen::Mesh::create("assets/cornell_box.ast");
 
     scene.add_mesh(m, glm::mat4(1.0f));
+
+	scene.build();
 
     camera.set_projection(60.0f, float(w) / float(h), 0.1f, 1000.0f);
     camera.set_orientation(glm::vec3(0.0f, 1.0f, 2.5f),
@@ -45,23 +48,13 @@ int main()
 
             lumen::Ray ray = lumen::Ray::compute(i / float(w), 1.0f - (j / float(h)), 0.1f, FLT_MAX, camera);
 
-            float closest = FLT_MAX;
+            lumen::RayResult result;
 
-            for (auto& tri : scene.m_triangles)
-            {
-                lumen::Vertex v0 = scene.m_vertices[tri.v0];
-                lumen::Vertex v1 = scene.m_vertices[tri.v1];
-                lumen::Vertex v2 = scene.m_vertices[tri.v2];
+			scene.m_bvh->trace(ray, result, true);
 
-                float u, v, t;
-
-                if (lumen::ray_triangle(v0.position, v1.position, v2.position, ray, u, v, t) && t < closest)
-                {
-                    closest = t;
-                    pixel   = scene.m_materials[tri.mat_id]->albedo;
-                }
-            }
-
+            if (result.hit())
+				pixel   = scene.m_materials[scene.m_triangles[result.id].w]->albedo;
+    
             pixel = glm::pow(pixel / (glm::vec3(1.0f) + pixel), glm::vec3(1.0f / 2.2f));
 
             Pixel p;
