@@ -11,12 +11,12 @@ class Scene
 {
 public:
     static std::shared_ptr<Scene> create(const std::string& path);
-	~Scene();
-    uint32_t                      add_mesh(const std::shared_ptr<Mesh> mesh,
-                                           const glm::mat4&            transform);
-    void                          set_transform(const uint32_t& id, const glm::mat4& transform);
-    void                          remove_mesh(const uint32_t& id);
-    void                          build();
+    ~Scene();
+    uint32_t add_mesh(const std::shared_ptr<Mesh> mesh,
+                      const glm::mat4&            transform);
+    void     set_transform(const uint32_t& id, const glm::mat4& transform);
+    void     remove_mesh(const uint32_t& id);
+    void     build();
 
     inline uint32_t num_vertices() { return m_vtx_positions.size(); }
     inline uint32_t num_triangles() { return m_triangles.size(); }
@@ -34,7 +34,7 @@ public:
     std::vector<glm::ivec4>                m_triangles;
     std::vector<std::shared_ptr<Material>> m_materials;
 
-	BVH* m_bvh = nullptr;
-	GPUScene* m_gpu_scene = nullptr;
+    BVH*      m_bvh       = nullptr;
+    GPUScene* m_gpu_scene = nullptr;
 };
 } // namespace lumen

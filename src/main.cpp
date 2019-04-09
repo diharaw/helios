@@ -19,7 +19,7 @@ int main()
 
     scene.add_mesh(m, glm::mat4(1.0f));
 
-	scene.build();
+    scene.build();
 
     camera.set_projection(60.0f, float(w) / float(h), 0.1f, 1000.0f);
     camera.set_orientation(glm::vec3(0.0f, 1.0f, 2.5f),
@@ -50,11 +50,11 @@ int main()
 
             lumen::RayResult result;
 
-			scene.m_bvh->trace(ray, result, true);
+            scene.m_bvh->trace(ray, result, true);
 
             if (result.hit())
-				pixel   = scene.m_materials[scene.m_triangles[result.id].w]->albedo;
-    
+                pixel = scene.m_materials[scene.m_triangles[result.id].w]->albedo;
+
             pixel = glm::pow(pixel / (glm::vec3(1.0f) + pixel), glm::vec3(1.0f / 2.2f));
 
             Pixel p;

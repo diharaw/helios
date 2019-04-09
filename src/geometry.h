@@ -76,7 +76,7 @@ public:
     inline const glm::vec3& max(void) const { return m_mx; }
     inline glm::vec3&       min(void) { return m_mn; }
     inline glm::vec3&       max(void) { return m_mx; }
-    inline AABB      operator+(const AABB& aabb) const
+    inline AABB             operator+(const AABB& aabb) const
     {
         AABB u(*this);
         u.grow(aabb);
