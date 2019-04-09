@@ -33,8 +33,7 @@
 
 build/*
 build/
-external/*
-external/
+external/AssetCore
 bin/
 lib/
 x64/
