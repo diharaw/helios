@@ -28,7 +28,7 @@
 #pragma once
 #include <glm.hpp>
 #include <vector>
-#include "Util.h"
+#include "platform.h"
 
 #include "geometry.h"
 
