@@ -30,8 +30,10 @@
 #include <vector>
 #include "Util.h"
 
-#include "../../geometry.h"
+#include "geometry.h"
 
+namespace lumen
+{
 enum BVH_STAT
 {
     BVH_STAT_NODE_COUNT,
@@ -41,68 +43,15 @@ enum BVH_STAT
     BVH_STAT_CHILDNODE_COUNT,
 };
 
-class AABB
-{
-public:
-    inline AABB(void) :
-        m_mn(FLT_MAX, FLT_MAX, FLT_MAX), m_mx(-FLT_MAX, -FLT_MAX, -FLT_MAX) {}
-    inline AABB(const glm::vec3& mn, const glm::vec3& mx) :
-        m_mn(mn), m_mx(mx) {}
-
-    inline void grow(const glm::vec3& pt)
-    {
-        m_mn = lumen::min3f(m_mn, pt);
-        m_mx = lumen::max3f(m_mx, pt);
-    } // grows bounds to include 3d point pt
-    inline void grow(const AABB& aabb)
-    {
-        grow(aabb.m_mn);
-        grow(aabb.m_mx);
-    }
-    inline void intersect(const AABB& aabb)
-    {
-        m_mn = lumen::max3f(m_mn, aabb.m_mn);
-        m_mx = lumen::min3f(m_mx, aabb.m_mx);
-    } /// box formed by intersection of 2 AABB boxes
-    inline float volume(void) const
-    {
-        if (!valid()) return 0.0f;
-        return (m_mx.x - m_mn.x) * (m_mx.y - m_mn.y) * (m_mx.z - m_mn.z);
-    } /// volume = AABB side along X-axis * side along Y * side along Z
-    inline float area(void) const
-    {
-        if (!valid()) return 0.0f;
-        glm::vec3 d = m_mx - m_mn;
-        return (d.x * d.y + d.y * d.z + d.z * d.x) * 2.0f;
-    }
-    inline bool         valid(void) const { return m_mn.x <= m_mx.x && m_mn.y <= m_mx.y && m_mn.z <= m_mx.z; }
-    inline glm::vec3        midPoint(void) const { return (m_mn + m_mx) * 0.5f; } // AABB centroid or midpoint
-    inline const glm::vec3& min(void) const { return m_mn; }
-    inline const glm::vec3& max(void) const { return m_mx; }
-    inline glm::vec3&       min(void) { return m_mn; }
-    inline glm::vec3&       max(void) { return m_mx; }
-
-    inline AABB operator+(const AABB& aabb) const
-    {
-        AABB u(*this);
-        u.grow(aabb);
-        return u;
-    }
-
-private:
-    glm::vec3 m_mn; // AABB min bound
-    glm::vec3 m_mx; // AABB max bound
-};
-
 class BVHNode
 {
 public:
     BVHNode() :
         m_probability(1.f), m_parentProbability(1.f), m_treelet(-1), m_index(-1) {}
-    virtual bool     isLeaf() const            = 0;
-    virtual int32_t      getNumChildNodes() const  = 0;
+    virtual bool     isLeaf() const                = 0;
+    virtual int32_t  getNumChildNodes() const      = 0;
     virtual BVHNode* getChildNode(int32_t i) const = 0;
-    virtual int32_t      getNumTriangles() const { return 0; }
+    virtual int32_t  getNumTriangles() const { return 0; }
 
     float getArea() const { return m_bounds.area(); }
 
@@ -136,7 +85,7 @@ public:
     }
 
     bool     isLeaf() const { return false; }
-    int32_t      getNumChildNodes() const { return 2; }
+    int32_t  getNumChildNodes() const { return 2; }
     BVHNode* getChildNode(int32_t i) const
     {
         assert(i >= 0 && i < 2);
@@ -158,10 +107,11 @@ public:
     LeafNode(const LeafNode& s) { *this = s; }
 
     bool     isLeaf() const { return true; }
-    int32_t      getNumChildNodes() const { return 0; } // leafnode has 0 children
+    int32_t  getNumChildNodes() const { return 0; } // leafnode has 0 children
     BVHNode* getChildNode(int32_t) const { return NULL; }
 
     int32_t getNumTriangles() const { return m_hi - m_lo; }
     int32_t m_lo; // lower index in triangle list
     int32_t m_hi; // higher index in triangle list
 };
+}

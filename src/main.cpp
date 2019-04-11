@@ -1,7 +1,7 @@
 #include "material.h"
 #include "geometry.h"
 #include "scene.h"
-#include "external/Nvidia-SBVH/BVH.h"
+#include "bvh.h"
 #include <iostream>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION

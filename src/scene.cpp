@@ -1,5 +1,5 @@
 #include "scene.h"
-#include "external/Nvidia-SBVH/BVH.h"
+#include "bvh.h"
 #include <iostream>
 
 namespace lumen

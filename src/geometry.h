@@ -35,28 +35,28 @@ inline glm::vec3 vmax(const glm::vec3& v1, const glm::vec3& v2)
     for (int i = 0; i < 3; i++) r[i] = glm::max(tp1[i], tp2[i]);
     return r;
 }
-inline glm::vec3 min3f(const glm::vec3& v1, const glm::vec3& v2) 
-{ 
-	return glm::vec3(glm::min(v1.x, v2.x), glm::min(v1.y, v2.y), glm::min(v1.z, v2.z)); 
+inline glm::vec3 min3f(const glm::vec3& v1, const glm::vec3& v2)
+{
+    return glm::vec3(glm::min(v1.x, v2.x), glm::min(v1.y, v2.y), glm::min(v1.z, v2.z));
 }
 inline glm::vec3 max3f(const glm::vec3& v1, const glm::vec3& v2)
-{ 
-	return glm::vec3(glm::max(v1.x, v2.x), glm::max(v1.y, v2.y), glm::max(v1.z, v2.z)); 
+{
+    return glm::vec3(glm::max(v1.x, v2.x), glm::max(v1.y, v2.y), glm::max(v1.z, v2.z));
 }
 
 class AABB
 {
 public:
-    AABB(void) :
+    inline AABB(void) :
         m_mn(FLT_MAX, FLT_MAX, FLT_MAX), m_mx(-FLT_MAX, -FLT_MAX, -FLT_MAX) {}
-    AABB(const glm::vec3& mn, const glm::vec3& mx) :
+    inline AABB(const glm::vec3& mn, const glm::vec3& mx) :
         m_mn(mn), m_mx(mx) {}
 
     inline void grow(const glm::vec3& pt)
     {
-        m_mn = vmin(m_mn, pt);
-        m_mx = vmax(m_mx, pt);
-    }
+        m_mn = lumen::min3f(m_mn, pt);
+        m_mx = lumen::max3f(m_mx, pt);
+    } // grows bounds to include 3d point pt
     inline void grow(const AABB& aabb)
     {
         grow(aabb.m_mn);
@@ -64,14 +64,14 @@ public:
     }
     inline void intersect(const AABB& aabb)
     {
-        m_mn = vmax(m_mn, aabb.m_mn);
-        m_mx = vmin(m_mx, aabb.m_mx);
-    }
+        m_mn = lumen::max3f(m_mn, aabb.m_mn);
+        m_mx = lumen::min3f(m_mx, aabb.m_mx);
+    } /// box formed by intersection of 2 AABB boxes
     inline float volume(void) const
     {
         if (!valid()) return 0.0f;
         return (m_mx.x - m_mn.x) * (m_mx.y - m_mn.y) * (m_mx.z - m_mn.z);
-    }
+    } /// volume = AABB side along X-axis * side along Y * side along Z
     inline float area(void) const
     {
         if (!valid()) return 0.0f;
@@ -79,12 +79,13 @@ public:
         return (d.x * d.y + d.y * d.z + d.z * d.x) * 2.0f;
     }
     inline bool             valid(void) const { return m_mn.x <= m_mx.x && m_mn.y <= m_mx.y && m_mn.z <= m_mx.z; }
-    inline glm::vec3        midPoint(void) const { return (m_mn + m_mx) * 0.5f; }
+    inline glm::vec3        midPoint(void) const { return (m_mn + m_mx) * 0.5f; } // AABB centroid or midpoint
     inline const glm::vec3& min(void) const { return m_mn; }
     inline const glm::vec3& max(void) const { return m_mx; }
     inline glm::vec3&       min(void) { return m_mn; }
     inline glm::vec3&       max(void) { return m_mx; }
-    inline AABB             operator+(const AABB& aabb) const
+
+    inline AABB operator+(const AABB& aabb) const
     {
         AABB u(*this);
         u.grow(aabb);
@@ -92,8 +93,8 @@ public:
     }
 
 private:
-    glm::vec3 m_mn;
-    glm::vec3 m_mx;
+    glm::vec3 m_mn; // AABB min bound
+    glm::vec3 m_mx; // AABB max bound
 };
 
 struct Ray

@@ -27,12 +27,14 @@
 
 #include <cstdio>
 
-#include "BVH.h"
-#include "SplitBVHBuilder.h"
+#include "bvh.h"
+#include "split_bvh_builder.h"
 
+namespace lumen
+{
 BVH::BVH(lumen::Scene* scene, const Platform& platform, const BuildParams& params)
 {
-    FW_ASSERT(scene);
+    assert(scene);
     m_scene    = scene;
     m_platform = platform;
 
@@ -82,20 +84,20 @@ void BVH::traceRecursive(BVHNode* node, lumen::Ray& ray, lumen::RayResult& resul
 
     if (node->isLeaf())
     {
-        const LeafNode*           leaf        = reinterpret_cast<const LeafNode*>(node);
+        const LeafNode*   leaf        = reinterpret_cast<const LeafNode*>(node);
         const glm::ivec4* triVtxIndex = (const glm::ivec4*)m_scene->m_triangles.data();
-        const glm::vec3*              vtxPos      = (const glm::vec3*)m_scene->m_vtx_positions.data();
+        const glm::vec3*  vtxPos      = (const glm::vec3*)m_scene->m_vtx_positions.data();
 
         if (stats)
             stats->numTriangleTests += m_platform.roundToTriangleBatchSize(leaf->getNumTriangles());
 
         for (int i = leaf->m_lo; i < leaf->m_hi; i++)
         {
-            int32_t          index = m_triIndices[i];
+            int32_t           index = m_triIndices[i];
             const glm::ivec4& ind   = triVtxIndex[index];
-            const glm::vec3& v0    = vtxPos[ind.x];
-            const glm::vec3& v1    = vtxPos[ind.y];
-            const glm::vec3& v2    = vtxPos[ind.z];
+            const glm::vec3&  v0    = vtxPos[ind.x];
+            const glm::vec3&  v1    = vtxPos[ind.y];
+            const glm::vec3&  v2    = vtxPos[ind.z];
 
             float u, v, t;
 
@@ -147,4 +149,5 @@ void BVH::traceRecursive(BVHNode* node, lumen::Ray& ray, lumen::RayResult& resul
         if (intersect1)
             traceRecursive(child1, ray, result, needClosestHit, stats);
     }
+}
 }

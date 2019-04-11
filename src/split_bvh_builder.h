@@ -26,9 +26,11 @@
 */
 
 #pragma once
-#include "BVH.h"
-#include "Timer.h"
+#include "bvh.h"
+#include "timer.h"
 
+namespace lumen
+{
 class SplitBVHBuilder
 {
 private:
@@ -41,8 +43,8 @@ private:
 
     struct Reference /// a AABB bounding box enclosing 1 triangle, a reference can be duplicated by a split to be contained in 2 AABB boxes
     {
-        int32_t  triIdx;
-        AABB bounds;
+        int32_t triIdx;
+        AABB    bounds;
 
         Reference(void) :
             triIdx(-1) {} /// constructor
@@ -50,8 +52,8 @@ private:
 
     struct NodeSpec
     {
-        int32_t  numRef; // number of references contained by node
-        AABB bounds;
+        int32_t numRef; // number of references contained by node
+        AABB    bounds;
 
         NodeSpec(void) :
             numRef(0) {}
@@ -59,11 +61,11 @@ private:
 
     struct ObjectSplit
     {
-        float  sah;     // cost
-        int32_t  sortDim; // axis along which triangles are sorted
-        int32_t  numLeft; // number of triangles (references) in left child
-        AABB leftBounds;
-        AABB rightBounds;
+        float   sah;     // cost
+        int32_t sortDim; // axis along which triangles are sorted
+        int32_t numLeft; // number of triangles (references) in left child
+        AABB    leftBounds;
+        AABB    rightBounds;
 
         ObjectSplit(void) :
             sah(FLT_MAX), sortDim(0), numLeft(0) {}
@@ -71,9 +73,9 @@ private:
 
     struct SpatialSplit
     {
-        float sah;
+        float   sah;
         int32_t dim; /// split axis
-        float pos; /// position of split along axis (dim)
+        float   pos; /// position of split along axis (dim)
 
         SpatialSplit(void) :
             sah(FLT_MAX), dim(0), pos(0.0f) {}
@@ -81,9 +83,9 @@ private:
 
     struct SpatialBin
     {
-        AABB bounds;
-        int32_t  enter;
-        int32_t  exit;
+        AABB    bounds;
+        int32_t enter;
+        int32_t exit;
     };
 
 public:
@@ -116,12 +118,13 @@ private:
     const BVH::BuildParams& m_params;
 
     std::vector<Reference> m_refStack;
-    float              m_minOverlap;
+    float                  m_minOverlap;
     std::vector<AABB>      m_rightBounds;
-    int32_t              m_sortDim;
-    SpatialBin       m_bins[3][NumSpatialBins];
+    int32_t                m_sortDim;
+    SpatialBin             m_bins[3][NumSpatialBins];
 
-    FW::Timer m_progressTimer;
-    int32_t       m_numDuplicates;
+    Timer	  m_progressTimer;
+    int32_t   m_numDuplicates;
     int       m_numNodes;
 };
+}

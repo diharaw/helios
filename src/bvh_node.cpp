@@ -25,15 +25,17 @@
 *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "BVHNode.h"
+#include "bvh_node.h"
 
+namespace lumen
+{
 int BVHNode::getSubtreeSize(BVH_STAT stat) const // recursively counts some type of nodes (either leafnodes, innernodes, childnodes) or unmber of triangles
 {
     int cnt;
 
     switch (stat)
     {
-        default: assert(0);                                                                                                // unknown mode
+        default: assert(0);                                                                                                   // unknown mode
         case BVH_STAT_NODE_COUNT: cnt = 1; break;                                                                             // counts all nodes including leafnodes
         case BVH_STAT_LEAF_COUNT: cnt = isLeaf() ? 1 : 0; break;                                                              // counts only leafnodes
         case BVH_STAT_INNER_COUNT: cnt = isLeaf() ? 0 : 1; break;                                                             // counts only innernodes
@@ -125,4 +127,5 @@ void BVHNode::assignIndicesBreadthFirst(int32_t index, bool includeLeafNodes)
         for (int i = 0; i < node->getNumChildNodes(); i++)
             nodes.push_back(node->getChildNode(i));
     }
+}
 }

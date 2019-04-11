@@ -29,9 +29,11 @@
 // project page: http://www.nvidia.com/object/nvidia_research_pub_012.html
 // direct link: http://www.nvidia.com/docs/IO/77714/sbvh.pdf
 
-#include "SplitBVHBuilder.h"
-#include "Sort.h"
+#include "split_bvh_builder.h"
+#include "sort.h"
 
+namespace lumen
+{
 SplitBVHBuilder::SplitBVHBuilder(BVH& bvh, const BVH::BuildParams& params) :
     m_bvh(bvh),
     m_platform(bvh.getPlatform()),
@@ -56,8 +58,8 @@ BVHNode* SplitBVHBuilder::run(int& numNodes) /// returns the rootnode
 
     // Initialize reference stack and determine root bounds.
 
-    const glm::ivec4* tris  = m_bvh.getScene()->m_triangles.data(); // list of all triangles in scene
-    const glm::vec3*  verts = m_bvh.getScene()->m_vtx_positions.data();   // list of all vertices in scene
+    const glm::ivec4* tris  = m_bvh.getScene()->m_triangles.data();     // list of all triangles in scene
+    const glm::vec3*  verts = m_bvh.getScene()->m_vtx_positions.data(); // list of all vertices in scene
 
     NodeSpec rootSpec;
     rootSpec.numRef = m_bvh.getScene()->num_triangles(); // number of triangles/references in entire scene (root)
@@ -79,7 +81,7 @@ BVHNode* SplitBVHBuilder::run(int& numNodes) /// returns the rootnode
     // Initialize rest of the members.
 
     m_minOverlap = rootSpec.bounds.area() * m_params.splitAlpha; /// split alpha (maximum allowable overlap) relative to size of rootnode
-    m_rightBounds.resize(max1i(rootSpec.numRef, (int)NumSpatialBins) - 1);
+    m_rightBounds.resize(glm::max(rootSpec.numRef, (int)NumSpatialBins) - 1);
     m_numDuplicates = 0;
     m_progressTimer.start();
 
@@ -106,8 +108,8 @@ int SplitBVHBuilder::sortCompare(void* data, int idxA, int idxB)
     int                    dim = ptr->m_sortDim;
     const Reference&       ra  = ptr->m_refStack[idxA]; // ra is a reference (struct containing a triIdx and bounds)
     const Reference&       rb  = ptr->m_refStack[idxB]; //
-    float                    ca  = ra.bounds.min()[dim] + ra.bounds.max()[dim];
-    float                    cb  = rb.bounds.min()[dim] + rb.bounds.max()[dim];
+    float                  ca  = ra.bounds.min()[dim] + ra.bounds.max()[dim];
+    float                  cb  = rb.bounds.min()[dim] + rb.bounds.max()[dim];
     return (ca < cb) ? -1 : (ca > cb) ? 1 : (ra.triIdx < rb.triIdx) ? -1 : (ra.triIdx > rb.triIdx) ? 1 : 0;
 }
 
@@ -127,7 +129,7 @@ BVHNode* SplitBVHBuilder::buildNode(const NodeSpec& spec, int level, float progr
 {
     // Display progress.
 
-    if (m_params.enablePrints && m_progressTimer.getElapsed() >= 1.0f)
+    if (m_params.enablePrints && m_progressTimer.elapsed_time_sec() >= 1.0f)
     {
         printf("SplitBVHBuilder: progress %.0f%%, duplicates %.0f%%\r",
                progressStart * 100.0f,
@@ -145,9 +147,9 @@ BVHNode* SplitBVHBuilder::buildNode(const NodeSpec& spec, int level, float progr
 
     // Find split candidates.
 
-    float         area    = spec.bounds.area();
-    float         leafSAH = area * m_platform.getTriangleCost(spec.numRef);
-    float         nodeSAH = area * m_platform.getNodeCost(2);
+    float       area    = spec.bounds.area();
+    float       leafSAH = area * m_platform.getTriangleCost(spec.numRef);
+    float       nodeSAH = area * m_platform.getNodeCost(2);
     ObjectSplit object  = findObjectSplit(spec, nodeSAH);
 
     SpatialSplit spatial;
@@ -183,7 +185,7 @@ BVHNode* SplitBVHBuilder::buildNode(const NodeSpec& spec, int level, float progr
     // Create inner node.
 
     m_numDuplicates += left.numRef + right.numRef - spec.numRef;
-    float      progressMid = lerp(progressStart, progressEnd, (float)right.numRef / (float)(left.numRef + right.numRef));
+    float    progressMid = lerp(progressStart, progressEnd, (float)right.numRef / (float)(left.numRef + right.numRef));
     BVHNode* rightNode   = buildNode(right, level + 1, progressStart, progressMid);
     BVHNode* leftNode    = buildNode(left, level + 1, progressMid, progressEnd);
     return new InnerNode(spec.bounds, leftNode, rightNode);
@@ -195,13 +197,13 @@ BVHNode* SplitBVHBuilder::createLeaf(const NodeSpec& spec)
 {
     std::vector<int32_t>& tris = m_bvh.getTriIndices();
 
-	for (int i = 0; i < spec.numRef; i++)
-	{
-		auto last = m_refStack.back();
-		m_refStack.pop_back();
-		tris.push_back(last.triIdx); // take a triangle from the stack and add it to tris std::vector
-	}
-        
+    for (int i = 0; i < spec.numRef; i++)
+    {
+        auto last = m_refStack.back();
+        m_refStack.pop_back();
+        tris.push_back(last.triIdx); // take a triangle from the stack and add it to tris std::vector
+    }
+
     return new LeafNode(spec.bounds, tris.size() - spec.numRef, tris.size());
 }
 
@@ -364,9 +366,9 @@ void SplitBVHBuilder::performSpatialSplit(NodeSpec& left, NodeSpec& right, const
     // Right-hand side:     [rightStart, refs.getSize()[
 
     std::vector<Reference>& refs       = m_refStack;
-    int               leftStart  = refs.size() - spec.numRef;
-    int               leftEnd    = leftStart;
-    int               rightStart = refs.size();
+    int                     leftStart  = refs.size() - spec.numRef;
+    int                     leftEnd    = leftStart;
+    int                     rightStart = refs.size();
     left.bounds = right.bounds = AABB();
 
     for (int i = leftEnd; i < rightStart; i++)
@@ -461,15 +463,15 @@ void SplitBVHBuilder::splitReference(Reference& left, Reference& right, const Re
     // Loop over vertices/edges.
 
     const glm::ivec4& inds  = m_bvh.getScene()->m_triangles[ref.triIdx];
-    const glm::vec3* verts = m_bvh.getScene()->m_vtx_positions.data();
-    const glm::vec3* v1    = &verts[inds.z];
+    const glm::vec3*  verts = m_bvh.getScene()->m_vtx_positions.data();
+    const glm::vec3*  v1    = &verts[inds.z];
 
     for (int i = 0; i < 3; i++)
     {
         const glm::vec3* v0 = v1;
-        v1              = &verts[inds[i]];
-        float v0p         = (*v0)[dim];
-        float v1p         = (*v1)[dim];
+        v1                  = &verts[inds[i]];
+        float v0p           = (*v0)[dim];
+        float v1p           = (*v1)[dim];
 
         // Insert vertex to the boxes it belongs to.
 
@@ -495,5 +497,5 @@ void SplitBVHBuilder::splitReference(Reference& left, Reference& right, const Re
     left.bounds.intersect(ref.bounds);
     right.bounds.intersect(ref.bounds);
 }
-
+}
 //------------------------------------------------------------------------

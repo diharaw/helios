@@ -25,9 +25,10 @@
 *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "Sort.h"
+#include "sort.h"
+#include <assert.h>
+#include <stdint.h>
 
-#define FW_ASSERT(X) ((void)0)
 #define QSORT_STACK_SIZE 32
 
 static inline void InsertionSort(int start, int size, void* data, SortCompareFunc compareFunc, SortSwapFunc swapFunc);
@@ -36,8 +37,8 @@ static void        Qsort(int low, int high, void* data, SortCompareFunc compareF
 
 void InsertionSort(int start, int size, void* data, SortCompareFunc compareFunc, SortSwapFunc swapFunc)
 {
-    FW_ASSERT(compareFunc && swapFunc);
-    FW_ASSERT(size >= 0);
+    assert(compareFunc && swapFunc);
+    assert(size >= 0);
 
     for (int i = 1; i < size; i++)
     {
@@ -54,8 +55,8 @@ void InsertionSort(int start, int size, void* data, SortCompareFunc compareFunc,
 
 int Median3(int low, int high, void* data, SortCompareFunc compareFunc)
 {
-    FW_ASSERT(compareFunc);
-    FW_ASSERT(low >= 0 && high >= 2);
+    assert(compareFunc);
+    assert(low >= 0 && high >= 2);
 
     int l = low;
     int c = (low + high) >> 1;
@@ -70,8 +71,8 @@ int Median3(int low, int high, void* data, SortCompareFunc compareFunc)
 
 void Qsort(int low, int high, void* data, SortCompareFunc compareFunc, SortSwapFunc swapFunc)
 {
-    FW_ASSERT(compareFunc && swapFunc);
-    FW_ASSERT(low <= high);
+    assert(compareFunc && swapFunc);
+    assert(low <= high);
 
     int stack[QSORT_STACK_SIZE];
     int sp      = 0;
@@ -80,7 +81,7 @@ void Qsort(int low, int high, void* data, SortCompareFunc compareFunc, SortSwapF
     while (sp)
     {
         high = stack[--sp];
-        FW_ASSERT(low <= high);
+        assert(low <= high);
 
         // Use insertion sort for small values or if stack gets full.
 
@@ -108,7 +109,7 @@ void Qsort(int low, int high, void* data, SortCompareFunc compareFunc, SortSwapF
                 j--;
             while (compareFunc(data, j, high - 1) > 0);
 
-            FW_ASSERT(i >= low && j >= low && i < high && j < high);
+            assert(i >= low && j >= low && i < high && j < high);
             if (i >= j)
                 break;
 
@@ -121,7 +122,7 @@ void Qsort(int low, int high, void* data, SortCompareFunc compareFunc, SortSwapF
 
         // Sort sub-partitions.
 
-        FW_ASSERT(sp + 2 <= QSORT_STACK_SIZE);
+        assert(sp + 2 <= QSORT_STACK_SIZE);
         if (high - i > 2)
             stack[sp++] = high;
         if (i - low > 1)
@@ -135,8 +136,8 @@ void Qsort(int low, int high, void* data, SortCompareFunc compareFunc, SortSwapF
 
 void Sort(int start, int end, void* data, SortCompareFunc compareFunc, SortSwapFunc swapFunc)
 {
-    FW_ASSERT(start <= end);
-    FW_ASSERT(compareFunc && swapFunc);
+    assert(start <= end);
+    assert(compareFunc && swapFunc);
 
     if (start + 2 <= end)
         Qsort(start, end, data, compareFunc, swapFunc);
@@ -144,13 +145,10 @@ void Sort(int start, int end, void* data, SortCompareFunc compareFunc, SortSwapF
 
 //------------------------------------------------------------------------
 
-typedef signed int S32;
-typedef float      F32;
-
 int CompareS32(void* data, int idxA, int idxB)
 {
-    S32 a = ((S32*)data)[idxA];
-    S32 b = ((S32*)data)[idxB];
+    int32_t a = ((int32_t*)data)[idxA];
+    int32_t b = ((int32_t*)data)[idxB];
     return (a < b) ? -1 : (a > b) ? 1 : 0;
 }
 
@@ -158,15 +156,15 @@ int CompareS32(void* data, int idxA, int idxB)
 
 void SwapS32(void* data, int idxA, int idxB)
 {
-    swap(((S32*)data)[idxA], ((S32*)data)[idxB]);
+    swap(((int32_t*)data)[idxA], ((int32_t*)data)[idxB]);
 }
 
 //------------------------------------------------------------------------
 
 int CompareF32(void* data, int idxA, int idxB)
 {
-    F32 a = ((F32*)data)[idxA];
-    F32 b = ((F32*)data)[idxB];
+    float a = ((float*)data)[idxA];
+    float b = ((float*)data)[idxB];
     return (a < b) ? -1 : (a > b) ? 1 : 0;
 }
 
@@ -174,7 +172,7 @@ int CompareF32(void* data, int idxA, int idxB)
 
 void SwapF32(void* data, int idxA, int idxB)
 {
-    swap(((F32*)data)[idxA], ((F32*)data)[idxB]);
+    swap(((float*)data)[idxA], ((float*)data)[idxB]);
 }
 
 //------------------------------------------------------------------------

@@ -2,10 +2,10 @@
 
 #include "mesh.h"
 
-class BVH;
-
 namespace lumen
 {
+class BVH;
+
 class Scene
 {
 public:
@@ -33,6 +33,6 @@ public:
     std::vector<glm::ivec4>                m_triangles;
     std::vector<std::shared_ptr<Material>> m_materials;
 
-    BVH*      m_bvh       = nullptr;
+    BVH* m_bvh = nullptr;
 };
 } // namespace lumen

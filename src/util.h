@@ -30,42 +30,8 @@
 #include <string>
 #include <ctime>
 
-#define FW_F32_MIN (1.175494351e-38f)
-#define FW_F32_MAX (3.402823466e+38f)
-#define NULL 0
-#define FW_ASSERT(X) ((void)0)
-
-typedef unsigned char  U8;
-typedef unsigned short U16;
-typedef unsigned int   U32;
-typedef unsigned long  U64;
-typedef signed char    S8;
-typedef signed short   S16;
-typedef signed int     S32;
-typedef signed long    S64;
-typedef float          F32;
-typedef double         F64;
-
-inline F32 bitsToFloat(U32 a) { return *(F32*)&a; }
-inline U32 floatToBits(F32 a) { return *(U32*)&a; }
-
-inline int   max1i(const int& a, const int& b) { return (a < b) ? b : a; }
-inline int   min1i(const int& a, const int& b) { return (a > b) ? b : a; }
-inline float clamp(float x) { return x < 0.0f ? 0.0f : x > 1.0f ? 1.0f : x; }
-inline int   toInt(float x) { return int(pow(clamp(x), 1 / 2.2) * 255 + .5); }
-
-//------------------------------------------------------------------------
-
-struct Clock
+namespace lumen
 {
-    unsigned firstValue;
-    Clock() { reset(); }
-    void     reset() { firstValue = clock(); }
-    unsigned readMS() { return (clock() - firstValue) / (CLOCKS_PER_SEC / 1000); }
-};
-
-unsigned int WangHash(unsigned int a);
-
 class Platform
 {
 public:
@@ -79,7 +45,7 @@ public:
         m_minLeafSize     = 1;
         m_maxLeafSize     = 0x7FFFFFF;
     } /// leafsize = aantal tris
-    Platform(const std::string& name, float nodeCost = 1.f, float triCost = 1.f, S32 nodeBatchSize = 1, S32 triBatchSize = 1)
+    Platform(const std::string& name, float nodeCost = 1.f, float triCost = 1.f, int32_t nodeBatchSize = 1, int32_t triBatchSize = 1)
     {
         m_name            = name;
         m_SAHNodeCost     = nodeCost;
@@ -98,32 +64,33 @@ public:
 
     // SAH costs, raw and batched
     float getCost(int numChildNodes, int numTris) const { return getNodeCost(numChildNodes) + getTriangleCost(numTris); }
-    float getTriangleCost(S32 n) const { return roundToTriangleBatchSize(n) * m_SAHTriangleCost; }
-    float getNodeCost(S32 n) const { return roundToNodeBatchSize(n) * m_SAHNodeCost; }
+    float getTriangleCost(int32_t n) const { return roundToTriangleBatchSize(n) * m_SAHTriangleCost; }
+    float getNodeCost(int32_t n) const { return roundToNodeBatchSize(n) * m_SAHNodeCost; }
 
     // batch processing (how many ops at the price of one)
-    S32  getTriangleBatchSize() const { return m_triBatchSize; }
-    S32  getNodeBatchSize() const { return m_nodeBatchSize; }
-    void setTriangleBatchSize(S32 triBatchSize) { m_triBatchSize = triBatchSize; }
-    void setNodeBatchSize(S32 nodeBatchSize) { m_nodeBatchSize = nodeBatchSize; }
-    S32  roundToTriangleBatchSize(S32 n) const { return ((n + m_triBatchSize - 1) / m_triBatchSize) * m_triBatchSize; }
-    S32  roundToNodeBatchSize(S32 n) const { return ((n + m_nodeBatchSize - 1) / m_nodeBatchSize) * m_nodeBatchSize; }
+    int32_t  getTriangleBatchSize() const { return m_triBatchSize; }
+    int32_t  getNodeBatchSize() const { return m_nodeBatchSize; }
+    void setTriangleBatchSize(int32_t triBatchSize) { m_triBatchSize = triBatchSize; }
+    void setNodeBatchSize(int32_t nodeBatchSize) { m_nodeBatchSize = nodeBatchSize; }
+    int32_t  roundToTriangleBatchSize(int32_t n) const { return ((n + m_triBatchSize - 1) / m_triBatchSize) * m_triBatchSize; }
+    int32_t  roundToNodeBatchSize(int32_t n) const { return ((n + m_nodeBatchSize - 1) / m_nodeBatchSize) * m_nodeBatchSize; }
 
     // leaf preferences
-    void setLeafPreferences(S32 minSize, S32 maxSize)
+    void setLeafPreferences(int32_t minSize, int32_t maxSize)
     {
         m_minLeafSize = minSize;
         m_maxLeafSize = maxSize;
     }
-    S32 getMinLeafSize() const { return m_minLeafSize; }
-    S32 getMaxLeafSize() const { return m_maxLeafSize; }
+    int32_t getMinLeafSize() const { return m_minLeafSize; }
+    int32_t getMaxLeafSize() const { return m_maxLeafSize; }
 
 private:
     std::string m_name;
     float       m_SAHNodeCost;
     float       m_SAHTriangleCost;
-    S32         m_triBatchSize;
-    S32         m_nodeBatchSize;
-    S32         m_minLeafSize;
-    S32         m_maxLeafSize;
+    int32_t         m_triBatchSize;
+    int32_t         m_nodeBatchSize;
+    int32_t         m_minLeafSize;
+    int32_t         m_maxLeafSize;
 };
+}
