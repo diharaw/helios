@@ -26,14 +26,12 @@
 */
 
 #pragma once
-#include "GPUScene.h"
 #include "BVHNode.h"
 #include <cstdio>
 #include <string>
 
+#include "../../scene.h"
 #include "../../geometry.h"
-
-typedef float F32;
 
 struct RayStats
 {
@@ -44,10 +42,10 @@ struct RayStats
         if (numRays > 0) printf("Ray stats: (%s) %d rays, %.1f tris/ray, %.1f nodes/ray (cost=%.2f) %.2f treelets/ray\n", platform.getName().c_str(), numRays, 1.f * numTriangleTests / numRays, 1.f * numNodeTests / numRays, (platform.getSAHTriangleCost() * numTriangleTests / numRays + platform.getSAHNodeCost() * numNodeTests / numRays), 1.f * numTreelets / numRays);
     }
 
-    S32      numRays;
-    S32      numTriangleTests;
-    S32      numNodeTests;
-    S32      numTreelets;
+    int32_t      numRays;
+    int32_t      numTriangleTests;
+    int32_t      numNodeTests;
+    int32_t      numTreelets;
     Platform platform; // set by whoever sets the stats
 };
 
@@ -60,19 +58,19 @@ public:
         void clear() { memset(this, 0, sizeof(Stats)); }
         void print() const {} //printf("Tree stats: [bfactor=%d] %d nodes (%d+%d), %.2f SAHCost, %.1f children/inner, %.1f tris/leaf\n", branchingFactor, numLeafNodes + numInnerNodes, numLeafNodes, numInnerNodes, SAHCost, 1.f*numChildNodes / max1i(numInnerNodes, 1), 1.f*numTris / max1i(numLeafNodes, 1)); }
 
-        F32 SAHCost; // Surface Area Heuristic cost
-        S32 branchingFactor;
-        S32 numInnerNodes;
-        S32 numLeafNodes;
-        S32 numChildNodes;
-        S32 numTris;
+        float SAHCost; // Surface Area Heuristic cost
+        int32_t branchingFactor;
+        int32_t numInnerNodes;
+        int32_t numLeafNodes;
+        int32_t numChildNodes;
+        int32_t numTris;
     };
 
     struct BuildParams
     {
         Stats* stats;
         bool   enablePrints;
-        F32    splitAlpha; // spatial split area threshold, see Nvidia paper on SBVH by Martin Stich, usually 0.05
+        float    splitAlpha; // spatial split area threshold, see Nvidia paper on SBVH by Martin Stich, usually 0.05
 
         BuildParams(void)
         {
@@ -83,28 +81,28 @@ public:
     };
 
 public:
-    BVH(GPUScene* scene, const Platform& platform, const BuildParams& params);
+    BVH(lumen::Scene* scene, const Platform& platform, const BuildParams& params);
     ~BVH(void)
     {
         if (m_root) m_root->deleteSubtree();
     }
 
-    GPUScene*       getScene(void) const { return m_scene; }
+    lumen::Scene*       getScene(void) const { return m_scene; }
     const Platform& getPlatform(void) const { return m_platform; }
     BVHNode*        getRoot(void) const { return m_root; }
 
-    Array<S32>&       getTriIndices(void) { return m_triIndices; }
-    const Array<S32>& getTriIndices(void) const { return m_triIndices; }
+    std::vector<int32_t>&       getTriIndices(void) { return m_triIndices; }
+    const std::vector<int32_t>& getTriIndices(void) const { return m_triIndices; }
     const int         getNumNodes(void) const { return m_numNodes; }
 
     void trace(lumen::Ray& ray, lumen::RayResult& result, bool needClosestHit, RayStats* stats = nullptr) const;
     void traceRecursive(BVHNode* node, lumen::Ray& ray, lumen::RayResult& result, bool needClosestHit, RayStats* stats) const;
 
 private:
-    GPUScene* m_scene;
+    lumen::Scene* m_scene;
     Platform  m_platform;
 
     BVHNode*   m_root;
-    Array<S32> m_triIndices;
+    std::vector<int32_t> m_triIndices;
     int        m_numNodes;
 };

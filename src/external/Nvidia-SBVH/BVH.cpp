@@ -30,14 +30,14 @@
 #include "BVH.h"
 #include "SplitBVHBuilder.h"
 
-BVH::BVH(GPUScene* scene, const Platform& platform, const BuildParams& params)
+BVH::BVH(lumen::Scene* scene, const Platform& platform, const BuildParams& params)
 {
     FW_ASSERT(scene);
     m_scene    = scene;
     m_platform = platform;
 
     if (params.enablePrints)
-        printf("BVH builder: %d tris, %d vertices\n", scene->getNumTriangles(), scene->getNumVertices());
+        printf("BVH builder: %d tris, %d vertices\n", scene->num_triangles(), scene->num_vertices());
 
     // SplitBVHBuilder() builds the actual BVH
     m_root = SplitBVHBuilder(*this, params).run(m_numNodes);
@@ -61,7 +61,7 @@ BVH::BVH(GPUScene* scene, const Platform& platform, const BuildParams& params)
     }
 }
 
-static S32 currentTreelet;
+static int32_t currentTreelet;
 
 void BVH::trace(lumen::Ray& ray, lumen::RayResult& result, bool needClosestHit, RayStats* stats) const
 {
@@ -83,19 +83,19 @@ void BVH::traceRecursive(BVHNode* node, lumen::Ray& ray, lumen::RayResult& resul
     if (node->isLeaf())
     {
         const LeafNode*           leaf        = reinterpret_cast<const LeafNode*>(node);
-        const GPUScene::Triangle* triVtxIndex = (const GPUScene::Triangle*)m_scene->getTrianglePtr();
-        const Vec3f*              vtxPos      = (const Vec3f*)m_scene->getVertexPtr();
+        const glm::ivec4* triVtxIndex = (const glm::ivec4*)m_scene->m_triangles.data();
+        const glm::vec3*              vtxPos      = (const glm::vec3*)m_scene->m_vtx_positions.data();
 
         if (stats)
             stats->numTriangleTests += m_platform.roundToTriangleBatchSize(leaf->getNumTriangles());
 
         for (int i = leaf->m_lo; i < leaf->m_hi; i++)
         {
-            S32          index = m_triIndices[i];
-            const Vec3i& ind   = triVtxIndex[index].vertices;
-            const Vec3f& v0    = vtxPos[ind.x];
-            const Vec3f& v1    = vtxPos[ind.y];
-            const Vec3f& v2    = vtxPos[ind.z];
+            int32_t          index = m_triIndices[i];
+            const glm::ivec4& ind   = triVtxIndex[index];
+            const glm::vec3& v0    = vtxPos[ind.x];
+            const glm::vec3& v1    = vtxPos[ind.y];
+            const glm::vec3& v2    = vtxPos[ind.z];
 
             float u, v, t;
 

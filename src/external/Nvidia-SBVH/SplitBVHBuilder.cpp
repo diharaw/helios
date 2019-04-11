@@ -56,22 +56,22 @@ BVHNode* SplitBVHBuilder::run(int& numNodes) /// returns the rootnode
 
     // Initialize reference stack and determine root bounds.
 
-    const GPUScene::Triangle* tris  = m_bvh.getScene()->getTrianglePtr(); // list of all triangles in scene
-    const Vec3f*              verts = m_bvh.getScene()->getVertexPtr();   // list of all vertices in scene
+    const glm::ivec4* tris  = m_bvh.getScene()->m_triangles.data(); // list of all triangles in scene
+    const glm::vec3*  verts = m_bvh.getScene()->m_vtx_positions.data();   // list of all vertices in scene
 
     NodeSpec rootSpec;
-    rootSpec.numRef = m_bvh.getScene()->getNumTriangles(); // number of triangles/references in entire scene (root)
+    rootSpec.numRef = m_bvh.getScene()->num_triangles(); // number of triangles/references in entire scene (root)
     m_refStack.resize(rootSpec.numRef);
 
     // calculate the bounds of the rootnode by merging the AABBs of all the references
     for (int i = 0; i < rootSpec.numRef; i++)
     {
-        // assign triangle to the array of references
+        // assign triangle to the std::vector of references
         m_refStack[i].triIdx = i;
 
         // grow the bounds of each reference AABB in all 3 dimensions by including the vertex
         for (int j = 0; j < 3; j++)
-            m_refStack[i].bounds.grow(verts[tris[i].vertices._v[j]]);
+            m_refStack[i].bounds.grow(verts[tris[i][j]]);
 
         rootSpec.bounds.grow(m_refStack[i].bounds);
     }
@@ -79,21 +79,21 @@ BVHNode* SplitBVHBuilder::run(int& numNodes) /// returns the rootnode
     // Initialize rest of the members.
 
     m_minOverlap = rootSpec.bounds.area() * m_params.splitAlpha; /// split alpha (maximum allowable overlap) relative to size of rootnode
-    m_rightBounds.reset(max1i(rootSpec.numRef, (int)NumSpatialBins) - 1);
+    m_rightBounds.resize(max1i(rootSpec.numRef, (int)NumSpatialBins) - 1);
     m_numDuplicates = 0;
     m_progressTimer.start();
 
     // Build recursively.
     BVHNode* root = buildNode(rootSpec, 0, 0.0f, 1.0f); /// actual building of splitBVH
     numNodes      = m_numNodes;
-    m_bvh.getTriIndices().compact(); // removes unused memoryspace from triIndices array
+    //m_bvh.getTriIndices().clear(); // removes unused memoryspace from triIndices std::vector
 
     // Done.
 
     if (m_params.enablePrints)
         printf("SplitBVHBuilder: progress %.0f%%, duplicates %.0f%%\n",
                100.0f,
-               (F32)m_numDuplicates / (F32)m_bvh.getScene()->getNumTriangles() * 100.0f);
+               (float)m_numDuplicates / (float)m_bvh.getScene()->num_triangles() * 100.0f);
 
     return root;
 }
@@ -106,8 +106,8 @@ int SplitBVHBuilder::sortCompare(void* data, int idxA, int idxB)
     int                    dim = ptr->m_sortDim;
     const Reference&       ra  = ptr->m_refStack[idxA]; // ra is a reference (struct containing a triIdx and bounds)
     const Reference&       rb  = ptr->m_refStack[idxB]; //
-    F32                    ca  = ra.bounds.min()._v[dim] + ra.bounds.max()._v[dim];
-    F32                    cb  = rb.bounds.min()._v[dim] + rb.bounds.max()._v[dim];
+    float                    ca  = ra.bounds.min()[dim] + ra.bounds.max()[dim];
+    float                    cb  = rb.bounds.min()[dim] + rb.bounds.max()[dim];
     return (ca < cb) ? -1 : (ca > cb) ? 1 : (ra.triIdx < rb.triIdx) ? -1 : (ra.triIdx > rb.triIdx) ? 1 : 0;
 }
 
@@ -121,9 +121,9 @@ void SplitBVHBuilder::sortSwap(void* data, int idxA, int idxB)
 
 //------------------------------------------------------------------------
 
-inline float min1f3(const float& a, const float& b, const float& c) { return min1f(min1f(a, b), c); }
+inline float min1f3(const float& a, const float& b, const float& c) { return glm::min(glm::min(a, b), c); }
 
-BVHNode* SplitBVHBuilder::buildNode(const NodeSpec& spec, int level, F32 progressStart, F32 progressEnd)
+BVHNode* SplitBVHBuilder::buildNode(const NodeSpec& spec, int level, float progressStart, float progressEnd)
 {
     // Display progress.
 
@@ -131,7 +131,7 @@ BVHNode* SplitBVHBuilder::buildNode(const NodeSpec& spec, int level, F32 progres
     {
         printf("SplitBVHBuilder: progress %.0f%%, duplicates %.0f%%\r",
                progressStart * 100.0f,
-               (F32)m_numDuplicates / (F32)m_bvh.getScene()->getNumTriangles() * 100.0f);
+               (float)m_numDuplicates / (float)m_bvh.getScene()->num_triangles() * 100.0f);
         m_progressTimer.start();
     }
     m_numNodes++;
@@ -145,9 +145,9 @@ BVHNode* SplitBVHBuilder::buildNode(const NodeSpec& spec, int level, F32 progres
 
     // Find split candidates.
 
-    F32         area    = spec.bounds.area();
-    F32         leafSAH = area * m_platform.getTriangleCost(spec.numRef);
-    F32         nodeSAH = area * m_platform.getNodeCost(2);
+    float         area    = spec.bounds.area();
+    float         leafSAH = area * m_platform.getTriangleCost(spec.numRef);
+    float         nodeSAH = area * m_platform.getNodeCost(2);
     ObjectSplit object  = findObjectSplit(spec, nodeSAH);
 
     SpatialSplit spatial;
@@ -161,7 +161,7 @@ BVHNode* SplitBVHBuilder::buildNode(const NodeSpec& spec, int level, F32 progres
 
     // Leaf SAH is the lowest => create leaf.
 
-    F32 minSAH = min1f3(leafSAH, object.sah, spatial.sah);
+    float minSAH = min1f3(leafSAH, object.sah, spatial.sah);
     if (minSAH == leafSAH && spec.numRef <= m_platform.getMaxLeafSize())
     {
         return createLeaf(spec);
@@ -183,7 +183,7 @@ BVHNode* SplitBVHBuilder::buildNode(const NodeSpec& spec, int level, F32 progres
     // Create inner node.
 
     m_numDuplicates += left.numRef + right.numRef - spec.numRef;
-    F32      progressMid = lerp(progressStart, progressEnd, (F32)right.numRef / (F32)(left.numRef + right.numRef));
+    float      progressMid = lerp(progressStart, progressEnd, (float)right.numRef / (float)(left.numRef + right.numRef));
     BVHNode* rightNode   = buildNode(right, level + 1, progressStart, progressMid);
     BVHNode* leftNode    = buildNode(left, level + 1, progressMid, progressEnd);
     return new InnerNode(spec.bounds, leftNode, rightNode);
@@ -193,26 +193,30 @@ BVHNode* SplitBVHBuilder::buildNode(const NodeSpec& spec, int level, F32 progres
 
 BVHNode* SplitBVHBuilder::createLeaf(const NodeSpec& spec)
 {
-    Array<S32>& tris = m_bvh.getTriIndices();
+    std::vector<int32_t>& tris = m_bvh.getTriIndices();
 
-    for (int i = 0; i < spec.numRef; i++)
-        tris.add(m_refStack.removeLast().triIdx); // take a triangle from the stack and add it to tris array
-
-    return new LeafNode(spec.bounds, tris.getSize() - spec.numRef, tris.getSize());
+	for (int i = 0; i < spec.numRef; i++)
+	{
+		auto last = m_refStack.back();
+		m_refStack.pop_back();
+		tris.push_back(last.triIdx); // take a triangle from the stack and add it to tris std::vector
+	}
+        
+    return new LeafNode(spec.bounds, tris.size() - spec.numRef, tris.size());
 }
 
 //------------------------------------------------------------------------
 
-SplitBVHBuilder::ObjectSplit SplitBVHBuilder::findObjectSplit(const NodeSpec& spec, F32 nodeSAH)
+SplitBVHBuilder::ObjectSplit SplitBVHBuilder::findObjectSplit(const NodeSpec& spec, float nodeSAH)
 {
     ObjectSplit      split;
-    const Reference* refPtr = m_refStack.getPtr(m_refStack.getSize() - spec.numRef);
+    const Reference* refPtr = &m_refStack[m_refStack.size() - spec.numRef];
 
     // Sort along each dimension.
 
     for (m_sortDim = 0; m_sortDim < 3; m_sortDim++)
     {
-        Sort(m_refStack.getSize() - spec.numRef, m_refStack.getSize(), this, sortCompare, sortSwap);
+        Sort(m_refStack.size() - spec.numRef, m_refStack.size(), this, sortCompare, sortSwap);
 
         // Sweep right to left and determine bounds.
 
@@ -229,7 +233,7 @@ SplitBVHBuilder::ObjectSplit SplitBVHBuilder::findObjectSplit(const NodeSpec& sp
         for (int i = 1; i < spec.numRef; i++)
         {
             leftBounds.grow(refPtr[i - 1].bounds);
-            F32 sah = nodeSAH + leftBounds.area() * m_platform.getTriangleCost(i) + m_rightBounds[i - 1].area() * m_platform.getTriangleCost(spec.numRef - i);
+            float sah = nodeSAH + leftBounds.area() * m_platform.getTriangleCost(i) + m_rightBounds[i - 1].area() * m_platform.getTriangleCost(spec.numRef - i);
             if (sah < split.sah)
             {
                 split.sah         = sah;
@@ -248,7 +252,7 @@ SplitBVHBuilder::ObjectSplit SplitBVHBuilder::findObjectSplit(const NodeSpec& sp
 void SplitBVHBuilder::performObjectSplit(NodeSpec& left, NodeSpec& right, const NodeSpec& spec, const ObjectSplit& split)
 {
     m_sortDim = split.sortDim;
-    Sort(m_refStack.getSize() - spec.numRef, m_refStack.getSize(), this, sortCompare, sortSwap);
+    Sort(m_refStack.size() - spec.numRef, m_refStack.size(), this, sortCompare, sortSwap);
 
     left.numRef  = split.numLeft;
     left.bounds  = split.leftBounds;
@@ -258,22 +262,22 @@ void SplitBVHBuilder::performObjectSplit(NodeSpec& left, NodeSpec& right, const 
 
 //------------------------------------------------------------------------
 
-// clamping functions for int, float and Vec3i
+// clamping functions for int, float and glm::ivec3
 inline int   clamp1i(const int v, const int lo, const int hi) { return v < lo ? lo : v > hi ? hi : v; }
 inline float clamp1f(const float v, const float lo, const float hi) { return v < lo ? lo : v > hi ? hi : v; }
 
-inline Vec3i clamp3i(const Vec3i& v, const Vec3i& lo, const Vec3i& hi)
+inline glm::ivec3 clamp3i(const glm::ivec3& v, const glm::ivec3& lo, const glm::ivec3& hi)
 {
-    return Vec3i(clamp1i(v.x, lo.x, hi.x), clamp1i(v.y, lo.y, hi.y), clamp1i(v.z, lo.z, hi.z));
+    return glm::ivec3(clamp1i(v.x, lo.x, hi.x), clamp1i(v.y, lo.y, hi.y), clamp1i(v.z, lo.z, hi.z));
 }
 
-SplitBVHBuilder::SpatialSplit SplitBVHBuilder::findSpatialSplit(const NodeSpec& spec, F32 nodeSAH)
+SplitBVHBuilder::SpatialSplit SplitBVHBuilder::findSpatialSplit(const NodeSpec& spec, float nodeSAH)
 {
     // Initialize bins.
 
-    Vec3f origin     = spec.bounds.min();
-    Vec3f binSize    = (spec.bounds.max() - origin) * (1.0f / (F32)NumSpatialBins);
-    Vec3f invBinSize = Vec3f(1.0f / binSize.x, 1.0f / binSize.y, 1.0f / binSize.z);
+    glm::vec3 origin     = spec.bounds.min();
+    glm::vec3 binSize    = (spec.bounds.max() - origin) * (1.0f / (float)NumSpatialBins);
+    glm::vec3 invBinSize = glm::vec3(1.0f / binSize.x, 1.0f / binSize.y, 1.0f / binSize.z);
 
     for (int dim = 0; dim < 3; dim++)
     {
@@ -288,26 +292,26 @@ SplitBVHBuilder::SpatialSplit SplitBVHBuilder::findSpatialSplit(const NodeSpec& 
 
     // Chop references into bins.
 
-    for (int refIdx = m_refStack.getSize() - spec.numRef; refIdx < m_refStack.getSize(); refIdx++)
+    for (int refIdx = m_refStack.size() - spec.numRef; refIdx < m_refStack.size(); refIdx++)
     {
         const Reference& ref = m_refStack[refIdx];
 
-        Vec3i firstBin = clamp3i(Vec3i((ref.bounds.min() - origin) * invBinSize), Vec3i(0, 0, 0), Vec3i(NumSpatialBins - 1, NumSpatialBins - 1, NumSpatialBins - 1));
-        Vec3i lastBin  = clamp3i(Vec3i((ref.bounds.max() - origin) * invBinSize), firstBin, Vec3i(NumSpatialBins - 1, NumSpatialBins - 1, NumSpatialBins - 1));
+        glm::ivec3 firstBin = clamp3i(glm::ivec3((ref.bounds.min() - origin) * invBinSize), glm::ivec3(0, 0, 0), glm::ivec3(NumSpatialBins - 1, NumSpatialBins - 1, NumSpatialBins - 1));
+        glm::ivec3 lastBin  = clamp3i(glm::ivec3((ref.bounds.max() - origin) * invBinSize), firstBin, glm::ivec3(NumSpatialBins - 1, NumSpatialBins - 1, NumSpatialBins - 1));
 
         for (int dim = 0; dim < 3; dim++)
         {
             Reference currRef = ref;
-            for (int i = firstBin._v[dim]; i < lastBin._v[dim]; i++)
+            for (int i = firstBin[dim]; i < lastBin[dim]; i++)
             {
                 Reference leftRef, rightRef;
-                splitReference(leftRef, rightRef, currRef, dim, origin._v[dim] + binSize._v[dim] * (F32)(i + 1));
+                splitReference(leftRef, rightRef, currRef, dim, origin[dim] + binSize[dim] * (float)(i + 1));
                 m_bins[dim][i].bounds.grow(leftRef.bounds);
                 currRef = rightRef;
             }
-            m_bins[dim][lastBin._v[dim]].bounds.grow(currRef.bounds);
-            m_bins[dim][firstBin._v[dim]].enter++;
-            m_bins[dim][lastBin._v[dim]].exit++;
+            m_bins[dim][lastBin[dim]].bounds.grow(currRef.bounds);
+            m_bins[dim][firstBin[dim]].enter++;
+            m_bins[dim][lastBin[dim]].exit++;
         }
     }
 
@@ -337,12 +341,12 @@ SplitBVHBuilder::SpatialSplit SplitBVHBuilder::findSpatialSplit(const NodeSpec& 
             leftNum += m_bins[dim][i - 1].enter;
             rightNum -= m_bins[dim][i - 1].exit;
 
-            F32 sah = nodeSAH + leftBounds.area() * m_platform.getTriangleCost(leftNum) + m_rightBounds[i - 1].area() * m_platform.getTriangleCost(rightNum);
+            float sah = nodeSAH + leftBounds.area() * m_platform.getTriangleCost(leftNum) + m_rightBounds[i - 1].area() * m_platform.getTriangleCost(rightNum);
             if (sah < split.sah)
             {
                 split.sah = sah;
                 split.dim = dim;
-                split.pos = origin._v[dim] + binSize._v[dim] * (F32)i;
+                split.pos = origin[dim] + binSize[dim] * (float)i;
             }
         }
     }
@@ -359,17 +363,17 @@ void SplitBVHBuilder::performSpatialSplit(NodeSpec& left, NodeSpec& right, const
     // Uncategorized/split: [leftEnd, rightStart[
     // Right-hand side:     [rightStart, refs.getSize()[
 
-    Array<Reference>& refs       = m_refStack;
-    int               leftStart  = refs.getSize() - spec.numRef;
+    std::vector<Reference>& refs       = m_refStack;
+    int               leftStart  = refs.size() - spec.numRef;
     int               leftEnd    = leftStart;
-    int               rightStart = refs.getSize();
+    int               rightStart = refs.size();
     left.bounds = right.bounds = AABB();
 
     for (int i = leftEnd; i < rightStart; i++)
     {
         // Entirely on the left-hand side?
 
-        if (refs[i].bounds.max()._v[split.dim] <= split.pos)
+        if (refs[i].bounds.max()[split.dim] <= split.pos)
         {
             left.bounds.grow(refs[i].bounds);
             swap(refs[i], refs[leftEnd++]);
@@ -377,7 +381,7 @@ void SplitBVHBuilder::performSpatialSplit(NodeSpec& left, NodeSpec& right, const
 
         // Entirely on the right-hand side?
 
-        else if (refs[i].bounds.min()._v[split.dim] >= split.pos)
+        else if (refs[i].bounds.min()[split.dim] >= split.pos)
         {
             right.bounds.grow(refs[i].bounds);
             swap(refs[i--], refs[--rightStart]);
@@ -404,15 +408,15 @@ void SplitBVHBuilder::performSpatialSplit(NodeSpec& left, NodeSpec& right, const
         ldb.grow(lref.bounds);
         rdb.grow(rref.bounds);
 
-        F32 lac = m_platform.getTriangleCost(leftEnd - leftStart);
-        F32 rac = m_platform.getTriangleCost(refs.getSize() - rightStart);
-        F32 lbc = m_platform.getTriangleCost(leftEnd - leftStart + 1);
-        F32 rbc = m_platform.getTriangleCost(refs.getSize() - rightStart + 1);
+        float lac = m_platform.getTriangleCost(leftEnd - leftStart);
+        float rac = m_platform.getTriangleCost(refs.size() - rightStart);
+        float lbc = m_platform.getTriangleCost(leftEnd - leftStart + 1);
+        float rbc = m_platform.getTriangleCost(refs.size() - rightStart + 1);
 
-        F32 unsplitLeftSAH  = lub.area() * lbc + right.bounds.area() * rac;
-        F32 unsplitRightSAH = left.bounds.area() * lac + rub.area() * rbc;
-        F32 duplicateSAH    = ldb.area() * lbc + rdb.area() * rbc;
-        F32 minSAH          = min1f3(unsplitLeftSAH, unsplitRightSAH, duplicateSAH);
+        float unsplitLeftSAH  = lub.area() * lbc + right.bounds.area() * rac;
+        float unsplitRightSAH = left.bounds.area() * lac + rub.area() * rbc;
+        float duplicateSAH    = ldb.area() * lbc + rdb.area() * rbc;
+        float minSAH          = min1f3(unsplitLeftSAH, unsplitRightSAH, duplicateSAH);
 
         // Unsplit to left?
 
@@ -437,17 +441,17 @@ void SplitBVHBuilder::performSpatialSplit(NodeSpec& left, NodeSpec& right, const
             left.bounds     = ldb;
             right.bounds    = rdb;
             refs[leftEnd++] = lref;
-            refs.add(rref);
+            refs.push_back(rref);
         }
     }
 
     left.numRef  = leftEnd - leftStart;
-    right.numRef = refs.getSize() - rightStart;
+    right.numRef = refs.size() - rightStart;
 }
 
 //------------------------------------------------------------------------
 
-void SplitBVHBuilder::splitReference(Reference& left, Reference& right, const Reference& ref, int dim, F32 pos)
+void SplitBVHBuilder::splitReference(Reference& left, Reference& right, const Reference& ref, int dim, float pos)
 {
     // Initialize references.
 
@@ -456,16 +460,16 @@ void SplitBVHBuilder::splitReference(Reference& left, Reference& right, const Re
 
     // Loop over vertices/edges.
 
-    const Vec3i& inds  = m_bvh.getScene()->getTriangle(ref.triIdx).vertices;
-    const Vec3f* verts = m_bvh.getScene()->getVertexPtr();
-    const Vec3f* v1    = &verts[inds.z];
+    const glm::ivec4& inds  = m_bvh.getScene()->m_triangles[ref.triIdx];
+    const glm::vec3* verts = m_bvh.getScene()->m_vtx_positions.data();
+    const glm::vec3* v1    = &verts[inds.z];
 
     for (int i = 0; i < 3; i++)
     {
-        const Vec3f* v0 = v1;
-        v1              = &verts[inds._v[i]];
-        F32 v0p         = (*v0)._v[dim];
-        F32 v1p         = (*v1)._v[dim];
+        const glm::vec3* v0 = v1;
+        v1              = &verts[inds[i]];
+        float v0p         = (*v0)[dim];
+        float v1p         = (*v1)[dim];
 
         // Insert vertex to the boxes it belongs to.
 
@@ -478,7 +482,7 @@ void SplitBVHBuilder::splitReference(Reference& left, Reference& right, const Re
 
         if ((v0p < pos && v1p > pos) || (v0p > pos && v1p < pos))
         {
-            Vec3f t = lerp(*v0, *v1, clamp1f((pos - v0p) / (v1p - v0p), 0.0f, 1.0f));
+            glm::vec3 t = lerp(*v0, *v1, clamp1f((pos - v0p) / (v1p - v0p), 0.0f, 1.0f));
             left.bounds.grow(t);
             right.bounds.grow(t);
         }
@@ -486,8 +490,8 @@ void SplitBVHBuilder::splitReference(Reference& left, Reference& right, const Re
 
     // Intersect with original bounds.
 
-    left.bounds.max()._v[dim]  = pos;
-    right.bounds.min()._v[dim] = pos;
+    left.bounds.max()[dim]  = pos;
+    right.bounds.min()[dim] = pos;
     left.bounds.intersect(ref.bounds);
     right.bounds.intersect(ref.bounds);
 }

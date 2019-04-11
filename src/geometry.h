@@ -35,6 +35,14 @@ inline glm::vec3 vmax(const glm::vec3& v1, const glm::vec3& v2)
     for (int i = 0; i < 3; i++) r[i] = glm::max(tp1[i], tp2[i]);
     return r;
 }
+inline glm::vec3 min3f(const glm::vec3& v1, const glm::vec3& v2) 
+{ 
+	return glm::vec3(glm::min(v1.x, v2.x), glm::min(v1.y, v2.y), glm::min(v1.z, v2.z)); 
+}
+inline glm::vec3 max3f(const glm::vec3& v1, const glm::vec3& v2)
+{ 
+	return glm::vec3(glm::max(v1.x, v2.x), glm::max(v1.y, v2.y), glm::max(v1.z, v2.z)); 
+}
 
 class AABB
 {

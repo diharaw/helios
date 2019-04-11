@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include "linear_math.h"
 #include <string>
 #include <ctime>
 

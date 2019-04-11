@@ -3,7 +3,6 @@
 #include "mesh.h"
 
 class BVH;
-class GPUScene;
 
 namespace lumen
 {
@@ -35,6 +34,5 @@ public:
     std::vector<std::shared_ptr<Material>> m_materials;
 
     BVH*      m_bvh       = nullptr;
-    GPUScene* m_gpu_scene = nullptr;
 };
 } // namespace lumen

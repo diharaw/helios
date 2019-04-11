@@ -1,6 +1,5 @@
 #include "scene.h"
 #include "external/Nvidia-SBVH/BVH.h"
-#include "external/Nvidia-SBVH/GPUScene.h"
 #include <iostream>
 
 namespace lumen
@@ -14,9 +13,6 @@ Scene::~Scene()
 {
     if (m_bvh)
         delete m_bvh;
-
-    if (m_gpu_scene)
-        delete m_gpu_scene;
 }
 
 uint32_t Scene::add_mesh(const std::shared_ptr<Mesh> mesh,
@@ -76,9 +72,6 @@ void Scene::build()
     if (m_bvh)
         delete m_bvh;
 
-    if (m_gpu_scene)
-        delete m_gpu_scene;
-
     std::vector<MeshInstance> instances = m_instances;
 
     m_instances.clear();
@@ -91,39 +84,11 @@ void Scene::build()
     for (auto& instance : instances)
         add_mesh(instance.mesh, instance.transform);
 
-    Array<GPUScene::Triangle> tris;
-    Array<Vec3f>              verts;
-    tris.clear();
-    verts.clear();
-
-    GPUScene::Triangle newtri;
-
-    // convert Triangle to GPUScene::Triangle
-    int tri_count = int(m_triangles.size());
-
-    for (int i = 0; i < tri_count; i++)
-    {
-        GPUScene::Triangle newtri;
-        newtri.vertices = Vec3i(int(m_triangles[i].x), int(m_triangles[i].y), int(m_triangles[i].z));
-        tris.add(newtri);
-    }
-
-    // fill up Array of vertices
-    int ver_count = int(m_vtx_positions.size());
-
-    for (int i = 0; i < ver_count; i++)
-    {
-        verts.add(Vec3f(m_vtx_positions[i].x, m_vtx_positions[i].y, m_vtx_positions[i].z));
-    }
-
-    std::cout << "Building a new GPU Scene\n";
-    m_gpu_scene = new GPUScene(tri_count, ver_count, tris, verts);
-
     std::cout << "Building BVH with spatial splits\n";
     // create a default platform
     Platform         defaultplatform;
     BVH::BuildParams defaultparams;
     BVH::Stats       stats;
-    m_bvh = new BVH(m_gpu_scene, defaultplatform, defaultparams);
+    m_bvh = new BVH(this, defaultplatform, defaultparams);
 }
 } // namespace lumen

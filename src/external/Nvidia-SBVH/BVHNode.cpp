@@ -26,7 +26,6 @@
 */
 
 #include "BVHNode.h"
-#include "Array.h"
 
 int BVHNode::getSubtreeSize(BVH_STAT stat) const // recursively counts some type of nodes (either leafnodes, innernodes, childnodes) or unmber of triangles
 {
@@ -34,7 +33,7 @@ int BVHNode::getSubtreeSize(BVH_STAT stat) const // recursively counts some type
 
     switch (stat)
     {
-        default: FW_ASSERT(0);                                                                                                // unknown mode
+        default: assert(0);                                                                                                // unknown mode
         case BVH_STAT_NODE_COUNT: cnt = 1; break;                                                                             // counts all nodes including leafnodes
         case BVH_STAT_LEAF_COUNT: cnt = isLeaf() ? 1 : 0; break;                                                              // counts only leafnodes
         case BVH_STAT_INNER_COUNT: cnt = isLeaf() ? 0 : 1; break;                                                             // counts only innernodes
@@ -87,7 +86,7 @@ float BVHNode::computeSubtreeSAHCost(const Platform& p) const
 
 //-------------------------------------------------------------
 
-void assignIndicesDepthFirstRecursive(BVHNode* node, S32& index, bool includeLeafNodes)
+void assignIndicesDepthFirstRecursive(BVHNode* node, int32_t& index, bool includeLeafNodes)
 {
     if (node->isLeaf() && !includeLeafNodes)
         return;
@@ -97,20 +96,20 @@ void assignIndicesDepthFirstRecursive(BVHNode* node, S32& index, bool includeLea
         assignIndicesDepthFirstRecursive(node->getChildNode(i), index, includeLeafNodes);
 }
 
-void BVHNode::assignIndicesDepthFirst(S32 index, bool includeLeafNodes)
+void BVHNode::assignIndicesDepthFirst(int32_t index, bool includeLeafNodes)
 {
     assignIndicesDepthFirstRecursive(this, index, includeLeafNodes);
 }
 
 //-------------------------------------------------------------
 
-void BVHNode::assignIndicesBreadthFirst(S32 index, bool includeLeafNodes)
+void BVHNode::assignIndicesBreadthFirst(int32_t index, bool includeLeafNodes)
 {
-    Array<BVHNode*> nodes; // array acts like a stack
-    nodes.add(this);
-    S32 head = 0;
+    std::vector<BVHNode*> nodes; // std::vector acts like a stack
+    nodes.push_back(this);
+    int32_t head = 0;
 
-    while (head < nodes.getSize())
+    while (head < nodes.size())
     {
         // pop
         BVHNode* node = nodes[head++];
@@ -124,6 +123,6 @@ void BVHNode::assignIndicesBreadthFirst(S32 index, bool includeLeafNodes)
 
         // push children
         for (int i = 0; i < node->getNumChildNodes(); i++)
-            nodes.add(node->getChildNode(i));
+            nodes.push_back(node->getChildNode(i));
     }
 }

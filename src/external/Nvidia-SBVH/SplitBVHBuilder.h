@@ -41,7 +41,7 @@ private:
 
     struct Reference /// a AABB bounding box enclosing 1 triangle, a reference can be duplicated by a split to be contained in 2 AABB boxes
     {
-        S32  triIdx;
+        int32_t  triIdx;
         AABB bounds;
 
         Reference(void) :
@@ -50,7 +50,7 @@ private:
 
     struct NodeSpec
     {
-        S32  numRef; // number of references contained by node
+        int32_t  numRef; // number of references contained by node
         AABB bounds;
 
         NodeSpec(void) :
@@ -59,31 +59,31 @@ private:
 
     struct ObjectSplit
     {
-        F32  sah;     // cost
-        S32  sortDim; // axis along which triangles are sorted
-        S32  numLeft; // number of triangles (references) in left child
+        float  sah;     // cost
+        int32_t  sortDim; // axis along which triangles are sorted
+        int32_t  numLeft; // number of triangles (references) in left child
         AABB leftBounds;
         AABB rightBounds;
 
         ObjectSplit(void) :
-            sah(FW_F32_MAX), sortDim(0), numLeft(0) {}
+            sah(FLT_MAX), sortDim(0), numLeft(0) {}
     };
 
     struct SpatialSplit
     {
-        F32 sah;
-        S32 dim; /// split axis
-        F32 pos; /// position of split along axis (dim)
+        float sah;
+        int32_t dim; /// split axis
+        float pos; /// position of split along axis (dim)
 
         SpatialSplit(void) :
-            sah(FW_F32_MAX), dim(0), pos(0.0f) {}
+            sah(FLT_MAX), dim(0), pos(0.0f) {}
     };
 
     struct SpatialBin
     {
         AABB bounds;
-        S32  enter;
-        S32  exit;
+        int32_t  enter;
+        int32_t  exit;
     };
 
 public:
@@ -96,15 +96,15 @@ private:
     static int  sortCompare(void* data, int idxA, int idxB);
     static void sortSwap(void* data, int idxA, int idxB);
 
-    BVHNode* buildNode(const NodeSpec& spec, int level, F32 progressStart, F32 progressEnd);
+    BVHNode* buildNode(const NodeSpec& spec, int level, float progressStart, float progressEnd);
     BVHNode* createLeaf(const NodeSpec& spec);
 
-    ObjectSplit findObjectSplit(const NodeSpec& spec, F32 nodeSAH);
+    ObjectSplit findObjectSplit(const NodeSpec& spec, float nodeSAH);
     void        performObjectSplit(NodeSpec& left, NodeSpec& right, const NodeSpec& spec, const ObjectSplit& split);
 
-    SpatialSplit findSpatialSplit(const NodeSpec& spec, F32 nodeSAH);
+    SpatialSplit findSpatialSplit(const NodeSpec& spec, float nodeSAH);
     void         performSpatialSplit(NodeSpec& left, NodeSpec& right, const NodeSpec& spec, const SpatialSplit& split);
-    void         splitReference(Reference& left, Reference& right, const Reference& ref, int dim, F32 pos);
+    void         splitReference(Reference& left, Reference& right, const Reference& ref, int dim, float pos);
 
 private:
     SplitBVHBuilder(const SplitBVHBuilder&);            // forbidden
@@ -115,13 +115,13 @@ private:
     const Platform&         m_platform;
     const BVH::BuildParams& m_params;
 
-    Array<Reference> m_refStack;
-    F32              m_minOverlap;
-    Array<AABB>      m_rightBounds;
-    S32              m_sortDim;
+    std::vector<Reference> m_refStack;
+    float              m_minOverlap;
+    std::vector<AABB>      m_rightBounds;
+    int32_t              m_sortDim;
     SpatialBin       m_bins[3][NumSpatialBins];
 
     FW::Timer m_progressTimer;
-    S32       m_numDuplicates;
+    int32_t       m_numDuplicates;
     int       m_numNodes;
 };

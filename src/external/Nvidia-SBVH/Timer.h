@@ -27,7 +27,6 @@
 
 #pragma once
 #include "Util.h"
-#include "linear_math.h"
 
 namespace FW
 {
