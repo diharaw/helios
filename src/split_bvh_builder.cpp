@@ -264,15 +264,6 @@ void SplitBVHBuilder::performObjectSplit(NodeSpec& left, NodeSpec& right, const 
 
 //------------------------------------------------------------------------
 
-// clamping functions for int, float and glm::ivec3
-inline int   clamp1i(const int v, const int lo, const int hi) { return v < lo ? lo : v > hi ? hi : v; }
-inline float clamp1f(const float v, const float lo, const float hi) { return v < lo ? lo : v > hi ? hi : v; }
-
-inline glm::ivec3 clamp3i(const glm::ivec3& v, const glm::ivec3& lo, const glm::ivec3& hi)
-{
-    return glm::ivec3(clamp1i(v.x, lo.x, hi.x), clamp1i(v.y, lo.y, hi.y), clamp1i(v.z, lo.z, hi.z));
-}
-
 SplitBVHBuilder::SpatialSplit SplitBVHBuilder::findSpatialSplit(const NodeSpec& spec, float nodeSAH)
 {
     // Initialize bins.
@@ -298,8 +289,8 @@ SplitBVHBuilder::SpatialSplit SplitBVHBuilder::findSpatialSplit(const NodeSpec& 
     {
         const Reference& ref = m_refStack[refIdx];
 
-        glm::ivec3 firstBin = clamp3i(glm::ivec3((ref.bounds.min() - origin) * invBinSize), glm::ivec3(0, 0, 0), glm::ivec3(NumSpatialBins - 1, NumSpatialBins - 1, NumSpatialBins - 1));
-        glm::ivec3 lastBin  = clamp3i(glm::ivec3((ref.bounds.max() - origin) * invBinSize), firstBin, glm::ivec3(NumSpatialBins - 1, NumSpatialBins - 1, NumSpatialBins - 1));
+        glm::ivec3 firstBin = glm::clamp(glm::ivec3((ref.bounds.min() - origin) * invBinSize), glm::ivec3(0, 0, 0), glm::ivec3(NumSpatialBins - 1, NumSpatialBins - 1, NumSpatialBins - 1));
+        glm::ivec3 lastBin  = glm::clamp(glm::ivec3((ref.bounds.max() - origin) * invBinSize), firstBin, glm::ivec3(NumSpatialBins - 1, NumSpatialBins - 1, NumSpatialBins - 1));
 
         for (int dim = 0; dim < 3; dim++)
         {
@@ -484,7 +475,7 @@ void SplitBVHBuilder::splitReference(Reference& left, Reference& right, const Re
 
         if ((v0p < pos && v1p > pos) || (v0p > pos && v1p < pos))
         {
-            glm::vec3 t = lerp(*v0, *v1, clamp1f((pos - v0p) / (v1p - v0p), 0.0f, 1.0f));
+            glm::vec3 t = lerp(*v0, *v1, glm::clamp((pos - v0p) / (v1p - v0p), 0.0f, 1.0f));
             left.bounds.grow(t);
             right.bounds.grow(t);
         }

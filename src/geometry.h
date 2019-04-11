@@ -5,43 +5,19 @@
 
 namespace lumen
 {
-inline float vmin(const glm::vec3& v)
+inline float min3(const glm::vec3& v)
 {
     const float* tp = &v[0];
     float        r  = tp[0];
     for (int i = 1; i < 3; i++) r = glm::min(r, tp[i]);
     return r;
 }
-inline float vmax(const glm::vec3& v)
+inline float max3(const glm::vec3& v)
 {
     const float* tp = &v[0];
     float        r  = tp[0];
     for (int i = 1; i < 3; i++) r = glm::max(r, tp[i]);
     return r;
-}
-inline glm::vec3 vmin(const glm::vec3& v1, const glm::vec3& v2)
-{
-    const float* tp1 = &v1[0];
-    const float* tp2 = &v2[0];
-    glm::vec3    r;
-    for (int i = 0; i < 3; i++) r[i] = glm::min(tp1[i], tp2[i]);
-    return r;
-}
-inline glm::vec3 vmax(const glm::vec3& v1, const glm::vec3& v2)
-{
-    const float* tp1 = &v1[0];
-    const float* tp2 = &v2[0];
-    glm::vec3    r;
-    for (int i = 0; i < 3; i++) r[i] = glm::max(tp1[i], tp2[i]);
-    return r;
-}
-inline glm::vec3 min3f(const glm::vec3& v1, const glm::vec3& v2)
-{
-    return glm::vec3(glm::min(v1.x, v2.x), glm::min(v1.y, v2.y), glm::min(v1.z, v2.z));
-}
-inline glm::vec3 max3f(const glm::vec3& v1, const glm::vec3& v2)
-{
-    return glm::vec3(glm::max(v1.x, v2.x), glm::max(v1.y, v2.y), glm::max(v1.z, v2.z));
 }
 
 class AABB
@@ -54,8 +30,8 @@ public:
 
     inline void grow(const glm::vec3& pt)
     {
-        m_mn = lumen::min3f(m_mn, pt);
-        m_mx = lumen::max3f(m_mx, pt);
+        m_mn = glm::min(m_mn, pt);
+        m_mx = glm::max(m_mx, pt);
     } // grows bounds to include 3d point pt
     inline void grow(const AABB& aabb)
     {
@@ -64,8 +40,8 @@ public:
     }
     inline void intersect(const AABB& aabb)
     {
-        m_mn = lumen::max3f(m_mn, aabb.m_mn);
-        m_mx = lumen::min3f(m_mx, aabb.m_mx);
+        m_mn = glm::max(m_mn, aabb.m_mn);
+        m_mx = glm::min(m_mx, aabb.m_mx);
     } /// box formed by intersection of 2 AABB boxes
     inline float volume(void) const
     {
@@ -135,8 +111,8 @@ inline glm::vec2 ray_box(const AABB& box, const Ray& ray)
     glm::vec3 t0 = (box.min() - orig) / dir;
     glm::vec3 t1 = (box.max() - orig) / dir;
 
-    float tmin = vmax(vmin(t0, t1));
-    float tmax = vmin(vmax(t0, t1));
+    float tmin = max3(glm::min(t0, t1));
+    float tmax = min3(glm::max(t0, t1));
 
     return glm::vec2(tmin, tmax);
 }
