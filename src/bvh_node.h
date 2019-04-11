@@ -114,4 +114,4 @@ public:
     int32_t m_lo; // lower index in triangle list
     int32_t m_hi; // higher index in triangle list
 };
-}
+} // namespace lumen

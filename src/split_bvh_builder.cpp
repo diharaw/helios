@@ -497,5 +497,5 @@ void SplitBVHBuilder::splitReference(Reference& left, Reference& right, const Re
     left.bounds.intersect(ref.bounds);
     right.bounds.intersect(ref.bounds);
 }
-}
+} // namespace lumen
 //------------------------------------------------------------------------

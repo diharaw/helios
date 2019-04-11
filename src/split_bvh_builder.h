@@ -123,8 +123,8 @@ private:
     int32_t                m_sortDim;
     SpatialBin             m_bins[3][NumSpatialBins];
 
-    Timer	  m_progressTimer;
-    int32_t   m_numDuplicates;
-    int       m_numNodes;
+    Timer   m_progressTimer;
+    int32_t m_numDuplicates;
+    int     m_numNodes;
 };
-}
+} // namespace lumen

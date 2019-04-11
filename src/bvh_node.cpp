@@ -128,4 +128,4 @@ void BVHNode::assignIndicesBreadthFirst(int32_t index, bool includeLeafNodes)
             nodes.push_back(node->getChildNode(i));
     }
 }
-}
+} // namespace lumen

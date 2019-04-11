@@ -68,12 +68,12 @@ public:
     float getNodeCost(int32_t n) const { return roundToNodeBatchSize(n) * m_SAHNodeCost; }
 
     // batch processing (how many ops at the price of one)
-    int32_t  getTriangleBatchSize() const { return m_triBatchSize; }
-    int32_t  getNodeBatchSize() const { return m_nodeBatchSize; }
-    void setTriangleBatchSize(int32_t triBatchSize) { m_triBatchSize = triBatchSize; }
-    void setNodeBatchSize(int32_t nodeBatchSize) { m_nodeBatchSize = nodeBatchSize; }
-    int32_t  roundToTriangleBatchSize(int32_t n) const { return ((n + m_triBatchSize - 1) / m_triBatchSize) * m_triBatchSize; }
-    int32_t  roundToNodeBatchSize(int32_t n) const { return ((n + m_nodeBatchSize - 1) / m_nodeBatchSize) * m_nodeBatchSize; }
+    int32_t getTriangleBatchSize() const { return m_triBatchSize; }
+    int32_t getNodeBatchSize() const { return m_nodeBatchSize; }
+    void    setTriangleBatchSize(int32_t triBatchSize) { m_triBatchSize = triBatchSize; }
+    void    setNodeBatchSize(int32_t nodeBatchSize) { m_nodeBatchSize = nodeBatchSize; }
+    int32_t roundToTriangleBatchSize(int32_t n) const { return ((n + m_triBatchSize - 1) / m_triBatchSize) * m_triBatchSize; }
+    int32_t roundToNodeBatchSize(int32_t n) const { return ((n + m_nodeBatchSize - 1) / m_nodeBatchSize) * m_nodeBatchSize; }
 
     // leaf preferences
     void setLeafPreferences(int32_t minSize, int32_t maxSize)
@@ -88,9 +88,9 @@ private:
     std::string m_name;
     float       m_SAHNodeCost;
     float       m_SAHTriangleCost;
-    int32_t         m_triBatchSize;
-    int32_t         m_nodeBatchSize;
-    int32_t         m_minLeafSize;
-    int32_t         m_maxLeafSize;
+    int32_t     m_triBatchSize;
+    int32_t     m_nodeBatchSize;
+    int32_t     m_minLeafSize;
+    int32_t     m_maxLeafSize;
 };
-}
+} // namespace lumen

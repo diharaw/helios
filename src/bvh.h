@@ -109,4 +109,4 @@ private:
     std::vector<int32_t> m_triIndices;
     int                  m_numNodes;
 };
-}
+} // namespace lumen

@@ -75,4 +75,4 @@ double Timer::elapsed_time_microsec()
 
     return _end_time_microsec - _start_time_microsec;
 }
-}
+} // namespace lumen

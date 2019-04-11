@@ -150,4 +150,4 @@ void BVH::traceRecursive(BVHNode* node, lumen::Ray& ray, lumen::RayResult& resul
             traceRecursive(child1, ray, result, needClosestHit, stats);
     }
 }
-}
+} // namespace lumen
