@@ -84,13 +84,13 @@ public:
     };
 
 public:
-    BVH(lumen::Scene* scene, const Platform& platform, const BuildParams& params);
+    BVH(Scene* scene, const Platform& platform, const BuildParams& params);
     ~BVH(void)
     {
         if (m_root) m_root->deleteSubtree();
     }
 
-    lumen::Scene*   getScene(void) const { return m_scene; }
+    Scene*   getScene(void) const { return m_scene; }
     const Platform& getPlatform(void) const { return m_platform; }
     BVHNode*        getRoot(void) const { return m_root; }
 
@@ -98,11 +98,11 @@ public:
     const std::vector<int32_t>& getTriIndices(void) const { return m_triIndices; }
     const int                   getNumNodes(void) const { return m_numNodes; }
 
-    void trace(lumen::Ray& ray, lumen::RayResult& result, bool needClosestHit, RayStats* stats = nullptr) const;
-    void traceRecursive(BVHNode* node, lumen::Ray& ray, lumen::RayResult& result, bool needClosestHit, RayStats* stats) const;
+    void trace(Ray& ray, RayResult& result, bool needClosestHit, RayStats* stats = nullptr) const;
+    void traceRecursive(BVHNode* node, Ray& ray, RayResult& result, bool needClosestHit, RayStats* stats) const;
 
 private:
-    lumen::Scene* m_scene;
+    Scene* m_scene;
     Platform      m_platform;
 
     BVHNode*             m_root;

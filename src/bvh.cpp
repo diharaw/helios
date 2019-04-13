@@ -32,7 +32,7 @@
 
 namespace lumen
 {
-BVH::BVH(lumen::Scene* scene, const Platform& platform, const BuildParams& params)
+BVH::BVH(Scene* scene, const Platform& platform, const BuildParams& params)
 {
     assert(scene);
     m_scene    = scene;
@@ -65,12 +65,12 @@ BVH::BVH(lumen::Scene* scene, const Platform& platform, const BuildParams& param
 
 static int32_t currentTreelet;
 
-void BVH::trace(lumen::Ray& ray, lumen::RayResult& result, bool needClosestHit, RayStats* stats) const
+void BVH::trace(Ray& ray, RayResult& result, bool needClosestHit, RayStats* stats) const
 {
     traceRecursive(m_root, ray, result, needClosestHit, stats);
 }
 
-void BVH::traceRecursive(BVHNode* node, lumen::Ray& ray, lumen::RayResult& result, bool needClosestHit, RayStats* stats) const
+void BVH::traceRecursive(BVHNode* node, Ray& ray, RayResult& result, bool needClosestHit, RayStats* stats) const
 {
     if (currentTreelet != node->m_treelet)
     {
@@ -101,7 +101,7 @@ void BVH::traceRecursive(BVHNode* node, lumen::Ray& ray, lumen::RayResult& resul
 
             float u, v, t;
 
-            lumen::intersect::ray_triangle({ v0.x, v0.y, v0.z }, { v1.x, v1.y, v1.z }, { v2.x, v2.y, v2.z }, ray, u, v, t);
+            intersect::ray_triangle(v0, v1, v2, ray, u, v, t);
 
             if (t > ray.tmin && t < ray.tmax)
             {
@@ -124,11 +124,9 @@ void BVH::traceRecursive(BVHNode* node, lumen::Ray& ray, lumen::RayResult& resul
         const InnerNode* inner  = reinterpret_cast<const InnerNode*>(node);
         BVHNode*         child0 = inner->m_children[0];
         BVHNode*         child1 = inner->m_children[1];
-        lumen::AABB      b0     = lumen::AABB({ child0->m_bounds.min().x, child0->m_bounds.min().y, child0->m_bounds.min().z }, { child0->m_bounds.max().x, child0->m_bounds.max().y, child0->m_bounds.max().z });
-        lumen::AABB      b1     = lumen::AABB({ child1->m_bounds.min().x, child1->m_bounds.min().y, child1->m_bounds.min().z }, { child1->m_bounds.max().x, child1->m_bounds.max().y, child1->m_bounds.max().z });
 
-        glm::vec2 tspan0     = lumen::intersect::ray_box(b0, ray);
-        glm::vec2 tspan1     = lumen::intersect::ray_box(b1, ray);
+        glm::vec2 tspan0     = intersect::ray_box(child0->m_bounds, ray);
+        glm::vec2 tspan1     = intersect::ray_box(child1->m_bounds, ray);
         bool      intersect0 = (tspan0[TMIN] <= tspan0[TMAX]) && (tspan0[TMAX] >= ray.tmin) && (tspan0[TMIN] <= ray.tmax);
         bool      intersect1 = (tspan1[TMIN] <= tspan1[TMAX]) && (tspan1[TMAX] >= ray.tmin) && (tspan1[TMIN] <= ray.tmax);
 
