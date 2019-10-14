@@ -15,7 +15,7 @@ int main()
     lumen::Scene  scene;
     lumen::Camera camera;
 
-    auto m = lumen::Mesh::create("assets/cornell_box.ast");
+    auto m = lumen::Mesh::create("assets/mesh/cornell_box.ast");
 
     scene.add_mesh(m, glm::mat4(1.0f));
 
@@ -53,8 +53,8 @@ int main()
             scene.m_bvh->trace(ray, result, true);
 
             if (result.hit())
-                pixel = scene.m_materials[scene.m_triangles[result.id].w]->albedo;
-
+				pixel = scene.m_materials[scene.m_triangles[result.id].w]->albedo;
+	
             pixel = glm::pow(pixel / (glm::vec3(1.0f) + pixel), glm::vec3(1.0f / 2.2f));
 
             Pixel p;

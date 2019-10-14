@@ -12,6 +12,7 @@ class Material
 public:
     static std::shared_ptr<Material> create(const std::string& path);
 
+	std::string name;
     glm::vec3 albedo       = glm::vec3(1.0f);
     glm::vec3 emissive     = glm::vec3(0.0f);
     float     shininess    = 0.0f;

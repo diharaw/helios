@@ -37,8 +37,7 @@ std::shared_ptr<Mesh> Mesh::create(const std::string& path)
             mesh->m_sub_meshes.reserve(ast_mesh.submeshes.size());
 
             for (auto& m : ast_mesh.submeshes)
-                mesh->m_sub_meshes.push_back(
-                    { m.material_index, m.index_count, m.base_vertex, m.base_index });
+                mesh->m_sub_meshes.push_back({ m.material_index, m.index_count, m.base_vertex, m.base_index });
 
             mesh->m_materials.reserve(ast_mesh.material_paths.size());
 

@@ -24,5 +24,5 @@ if (WIN32)
 endif()
 
 if(CLANG_FORMAT_EXE)
-    add_custom_target(clang-format-project-files COMMAND ${CLANG_FORMAT_EXE} -i -style=file ${LUMEN_HEADERS} ${LUMEN_SOURCES})
+    add_custom_target(Lumen-Code-Format COMMAND ${CLANG_FORMAT_EXE} -i -style=file ${LUMEN_HEADERS} ${LUMEN_SOURCES})
 endif()
