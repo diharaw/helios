@@ -39,4 +39,9 @@ std::shared_ptr<Material> Material::create(const std::string& path)
             return nullptr;
     }
 }
+
+bool Material::is_light()
+{
+    return emissive.x > 0.0f && emissive.y > 0.0f && emissive.z > 0.0f;
+}
 } // namespace lumen

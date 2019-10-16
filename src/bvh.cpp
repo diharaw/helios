@@ -87,6 +87,7 @@ void BVH::traceRecursive(BVHNode* node, Ray& ray, RayResult& result, bool needCl
         const LeafNode*   leaf        = reinterpret_cast<const LeafNode*>(node);
         const glm::ivec4* triVtxIndex = (const glm::ivec4*)m_scene->m_triangles.data();
         const glm::vec3*  vtxPos      = (const glm::vec3*)m_scene->m_vtx_positions.data();
+        const glm::vec3*  vtxNormals = (const glm::vec3*)m_scene->m_vtx_normals.data();
 
         if (stats)
             stats->numTriangleTests += m_platform.roundToTriangleBatchSize(leaf->getNumTriangles());
@@ -99,6 +100,10 @@ void BVH::traceRecursive(BVHNode* node, Ray& ray, RayResult& result, bool needCl
             const glm::vec3&  v1    = vtxPos[ind.y];
             const glm::vec3&  v2    = vtxPos[ind.z];
 
+			const glm::vec3& n0 = vtxNormals[ind.x];
+            const glm::vec3& n1 = vtxNormals[ind.y];
+            const glm::vec3& n2 = vtxNormals[ind.z];
+
             float u, v, t;
 
             intersect::ray_triangle(v0, v1, v2, ray, u, v, t);
@@ -108,6 +113,8 @@ void BVH::traceRecursive(BVHNode* node, Ray& ray, RayResult& result, bool needCl
                 ray.tmax  = t;
                 result.t  = t;
                 result.id = index;
+                result.position = v0 * u + v1 * v + v2 * t;
+                result.normal   = n0 * u + n1 * v + n2 * t;
 
                 if (!needClosestHit)
                     return;

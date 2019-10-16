@@ -7,6 +7,21 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
+class BRDF
+{
+
+};
+
+class LambertBRDF : public BRDF
+{
+
+};
+
+class MicrofacetBRDF : public BRDF
+{
+
+};
+
 int main()
 {
     int w = 1024;
@@ -48,14 +63,33 @@ int main()
 
             lumen::Ray ray = lumen::Ray::compute(i / float(w), 1.0f - (j / float(h)), 0.1f, FLT_MAX, camera);
 
-            lumen::RayResult result;
+			for (int bounce = 0; bounce < 15; i++)
+			{
+				lumen::RayResult result;
+				
+				scene.m_bvh->trace(ray, result, true);
 
-            scene.m_bvh->trace(ray, result, true);
+				if (result.hit())
+				{
+					std::shared_ptr<lumen::Material> mat = scene.m_materials[scene.m_triangles[result.id].w];
 
-            if (result.hit())
-				pixel = scene.m_materials[scene.m_triangles[result.id].w]->albedo;
-	
-            pixel = glm::pow(pixel / (glm::vec3(1.0f) + pixel), glm::vec3(1.0f / 2.2f));
+					if (mat->is_light())
+					{
+						pixel *= mat->emissive;
+						break;
+					}
+					else
+					{
+						pixel *= mat->albedo * glm::dot(result.normal, -ray.dir);
+						ray.origin = result.position;
+						//ray.dir = 
+					}
+				}
+				else
+					break;
+			}
+
+			pixel = glm::pow(pixel / (glm::vec3(1.0f) + pixel), glm::vec3(1.0f / 2.2f));
 
             Pixel p;
 

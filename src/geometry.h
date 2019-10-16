@@ -92,10 +92,12 @@ struct RayResult
     inline bool hit(void) const { return (id != RAY_NO_HIT); }
     inline void clear(void) { id = RAY_NO_HIT; }
 
-    int32_t id;
-    float   t;
-    int32_t padA;
-    int32_t padB;
+    int32_t   id;
+    float     t;
+    int32_t   padA;
+    int32_t   padB;
+    glm::vec3 position;
+    glm::vec3 normal;
 };
 
 #define kEpsilon 1e-8
