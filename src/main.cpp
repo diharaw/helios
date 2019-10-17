@@ -3,6 +3,8 @@
 #include "scene.h"
 #include "bvh.h"
 #include <iostream>
+#include <random>
+#include <algorithm>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
@@ -22,10 +24,26 @@ class MicrofacetBRDF : public BRDF
 
 };
 
+std::default_random_engine            generator;
+std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
+
+glm::vec3 random_in_unit_sphere()
+{
+    float z   = distribution(generator) * 2.0f - 1.0f;
+    float t   = distribution(generator) * 2.0f * 3.1415926f;
+    float r   = sqrt(std::max(0.0f, 1.0f - z * z));
+    float x   = r * cos(t);
+    float y   = r * sin(t);
+    glm::vec3  res = glm::vec3(x, y, z);
+    res *= pow(distribution(generator), 1.0f / 3.0f);
+    return res;
+}
+
+
 int main()
 {
-    int w = 1024;
-    int h = 1024;
+    int w = 400;
+    int h = 400;
 
     lumen::Scene  scene;
     lumen::Camera camera;
@@ -54,48 +72,62 @@ int main()
     framebuffer.resize(w * h);
 
     float scale = 1.0f;
+    int   misses = 0;
 
     for (int j = 0; j < h; j++)
     {
         for (int i = 0; i < w; i++)
         {
-            glm::vec3 pixel = glm::vec3(0.0f);
+            glm::vec3 accumulate = glm::vec3(0.0f);
 
-            lumen::Ray ray = lumen::Ray::compute(i / float(w), 1.0f - (j / float(h)), 0.1f, FLT_MAX, camera);
-
-			for (int bounce = 0; bounce < 15; i++)
+			for (int sample = 0; sample < 200; sample++)
 			{
-				lumen::RayResult result;
+				glm::vec3 pixel = glm::vec3(1.0f);
 				
-				scene.m_bvh->trace(ray, result, true);
-
-				if (result.hit())
+				lumen::Ray ray = lumen::Ray::compute(i / float(w), 1.0f - (j / float(h)), 0.1f, FLT_MAX, camera);
+				
+				for (int bounce = 0; bounce < 5; bounce++)
 				{
-					std::shared_ptr<lumen::Material> mat = scene.m_materials[scene.m_triangles[result.id].w];
-
-					if (mat->is_light())
-					{
-						pixel *= mat->emissive;
-						break;
-					}
-					else
-					{
-						pixel *= mat->albedo * glm::dot(result.normal, -ray.dir);
-						ray.origin = result.position;
-						//ray.dir = 
-					}
+				    lumen::RayResult result;
+				
+				    scene.m_bvh->trace(ray, result, true);
+				
+				    if (result.hit())
+				    {
+				        std::shared_ptr<lumen::Material> mat = scene.m_materials[scene.m_triangles[result.id].w];
+				
+						//pixel = mat->albedo * glm::dot(result.normal, glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
+				        if (mat->is_light())
+				        {
+				            pixel *= mat->emissive;
+				            break;
+				        }
+				        else
+				        {
+				            pixel *= mat->albedo; // * glm::dot(result.normal, -ray.dir);
+				            ray.origin = result.position;
+				            ray.dir    = random_in_unit_sphere();
+				        }
+				    }
+				    else
+				    {
+						//misses++;
+				        pixel *= 0.0f;
+				        break;
+				    }
 				}
-				else
-					break;
+
+				accumulate += pixel;
 			}
 
-			pixel = glm::pow(pixel / (glm::vec3(1.0f) + pixel), glm::vec3(1.0f / 2.2f));
+			accumulate /= 200.0f;
+			accumulate = glm::pow(accumulate / (glm::vec3(1.0f) + accumulate), glm::vec3(1.0f / 2.2f));
 
             Pixel p;
 
-            p.r = pixel.x * 255;
-            p.g = pixel.y * 255;
-            p.b = pixel.z * 255;
+            p.r = accumulate.x * 255;
+            p.g = accumulate.y * 255;
+            p.b = accumulate.z * 255;
 
             framebuffer[w * j + i] = p;
         }

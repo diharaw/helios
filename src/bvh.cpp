@@ -113,8 +113,8 @@ void BVH::traceRecursive(BVHNode* node, Ray& ray, RayResult& result, bool needCl
                 ray.tmax  = t;
                 result.t  = t;
                 result.id = index;
-                result.position = v0 * u + v1 * v + v2 * t;
-                result.normal   = n0 * u + n1 * v + n2 * t;
+                result.position = (1.0f - u - v) * v0 + u * v1 + v * v2;
+                result.normal   = glm::normalize((1.0f - u - v) * n0 + u * n1 + v * n2);
 
                 if (!needClosestHit)
                     return;
