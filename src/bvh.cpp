@@ -106,9 +106,7 @@ void BVH::traceRecursive(BVHNode* node, Ray& ray, RayResult& result, bool needCl
 
             float u, v, t;
 
-            intersect::ray_triangle(v0, v1, v2, ray, u, v, t);
-
-            if (t > ray.tmin && t < ray.tmax)
+            if (intersect::ray_triangle(v0, v1, v2, ray, u, v, t))
             {
                 ray.tmax  = t;
                 result.t  = t;

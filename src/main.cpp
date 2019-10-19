@@ -9,6 +9,9 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
+#define MAX_BOUNCES 5
+#define MAX_SAMPLES 50
+
 class BRDF
 {
 
@@ -24,8 +27,13 @@ class MicrofacetBRDF : public BRDF
 
 };
 
-std::default_random_engine            generator;
-std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
+static std::default_random_engine            generator;
+static std::uniform_real_distribution<float> distribution(0.0f, 0.9999999f);
+
+float drand48()
+{
+    return distribution(generator);
+}
 
 glm::vec3 random_in_unit_sphere()
 {
@@ -42,8 +50,8 @@ glm::vec3 random_in_unit_sphere()
 
 int main()
 {
-    int w = 400;
-    int h = 400;
+    int w = 1024;
+    int h = 1024;
 
     lumen::Scene  scene;
     lumen::Camera camera;
@@ -74,19 +82,23 @@ int main()
     float scale = 1.0f;
     int   misses = 0;
 
+	#pragma omp parallel for
     for (int j = 0; j < h; j++)
     {
         for (int i = 0; i < w; i++)
         {
             glm::vec3 accumulate = glm::vec3(0.0f);
 
-			for (int sample = 0; sample < 200; sample++)
+			for (int sample = 0; sample < MAX_SAMPLES; sample++)
 			{
 				glm::vec3 pixel = glm::vec3(1.0f);
+
+				float u = float(i + drand48()) / float(w);
+                float v = float(j + drand48()) / float(h);
 				
-				lumen::Ray ray = lumen::Ray::compute(i / float(w), 1.0f - (j / float(h)), 0.1f, FLT_MAX, camera);
+				lumen::Ray ray = lumen::Ray::compute(u, 1.0f - v, 0.1f, FLT_MAX, camera);
 				
-				for (int bounce = 0; bounce < 5; bounce++)
+				for (int bounce = 0; bounce < MAX_BOUNCES; bounce++)
 				{
 				    lumen::RayResult result;
 				
@@ -94,17 +106,17 @@ int main()
 				
 				    if (result.hit())
 				    {
-				        std::shared_ptr<lumen::Material> mat = scene.m_materials[scene.m_triangles[result.id].w];
-				
-						//pixel = mat->albedo * glm::dot(result.normal, glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
+                        uint32_t                         idx = scene.m_triangles[result.id].w;
+                        std::shared_ptr<lumen::Material> mat = scene.m_materials[idx];
+
 				        if (mat->is_light())
 				        {
-				            pixel *= mat->emissive;
+				            pixel = mat->emissive;
 				            break;
 				        }
 				        else
 				        {
-				            pixel *= mat->albedo; // * glm::dot(result.normal, -ray.dir);
+				            pixel *= mat->albedo;// * glm::dot(result.normal, -ray.dir);
 				            ray.origin = result.position;
 				            ray.dir    = random_in_unit_sphere();
 				        }
@@ -120,7 +132,7 @@ int main()
 				accumulate += pixel;
 			}
 
-			accumulate /= 200.0f;
+			accumulate /= float(MAX_SAMPLES);
 			accumulate = glm::pow(accumulate / (glm::vec3(1.0f) + accumulate), glm::vec3(1.0f / 2.2f));
 
             Pixel p;

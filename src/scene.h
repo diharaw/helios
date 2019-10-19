@@ -17,8 +17,8 @@ public:
     void     remove_mesh(const uint32_t& id);
     void     build();
 
-    inline uint32_t num_vertices() { return m_vtx_positions.size(); }
-    inline uint32_t num_triangles() { return m_triangles.size(); }
+    inline uint32_t num_vertices() { return (uint32_t)m_vtx_positions.size(); }
+    inline uint32_t num_triangles() { return (uint32_t)m_triangles.size(); }
 
     struct MeshInstance
     {

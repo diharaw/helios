@@ -149,7 +149,7 @@ inline bool ray_triangle(const glm::vec3& v0, const glm::vec3& v1, const glm::ve
 
     t = glm::dot(v0v2, qvec) * invDet;
 
-    return true;
+    return t > ray.tmin && t < ray.tmax;
 }
 } // namespace intersect
 } // namespace lumen
