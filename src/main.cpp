@@ -62,8 +62,8 @@ int main()
 
     scene.build();
 
-    camera.set_projection(60.0f, float(w) / float(h), 0.1f, 1000.0f);
-    camera.set_orientation(glm::vec3(0.0f, 1.0f, 2.5f),
+    camera.set_projection(40.0f, float(w) / float(h), 0.1f, 1000.0f);
+    camera.set_orientation(glm::vec3(0.0f, 1.0f, 3.7f),
                            glm::vec3(0.0f, 1.0f, 0.0f),
                            glm::vec3(0.0f, 1.0f, 0.0f));
     camera.update();
@@ -103,17 +103,20 @@ int main()
 				
 				    if (result.hit())
 				    {
-                        uint32_t                         idx = scene.m_triangles[result.id].w;
                         std::shared_ptr<lumen::Material> mat = scene.m_materials[result.id];
 
 				        if (mat->is_light())
 				        {
-				            pixel = mat->emissive;
+							if (bounce == 0)
+								pixel = mat->emissive;
+							else 
+								pixel *= mat->emissive;
+
 				            break;
 				        }
 				        else
 				        {
-				            pixel *= mat->albedo;// * glm::dot(result.normal, -ray.dir);
+				            pixel *= mat->albedo;
 				            ray.origin = result.position;
 				            ray.dir    = random_in_unit_sphere();
 				        }
