@@ -2,6 +2,7 @@
 #include "geometry.h"
 #include "scene.h"
 #include "bvh.h"
+#include "bvh_simple.h"
 #include <iostream>
 #include <random>
 #include <algorithm>
@@ -61,6 +62,8 @@ int main()
     scene.add_mesh(m, glm::mat4(1.0f));
 
     scene.build();
+
+	lumen::BVHSimple simple_bvh(&scene);
 
     camera.set_projection(60.0f, float(w) / float(h), 0.1f, 1000.0f);
     camera.set_orientation(glm::vec3(0.0f, 1.0f, 2.5f),
