@@ -2,7 +2,6 @@
 #include "geometry.h"
 #include "scene.h"
 #include "bvh.h"
-#include "bvh_simple.h"
 #include <iostream>
 #include <random>
 #include <algorithm>
@@ -11,7 +10,7 @@
 #include <stb_image_write.h>
 
 #define MAX_BOUNCES 5
-#define MAX_SAMPLES 50
+#define MAX_SAMPLES 1024
 
 class BRDF
 {
@@ -63,8 +62,6 @@ int main()
 
     scene.build();
 
-	lumen::BVHSimple simple_bvh(&scene);
-
     camera.set_projection(60.0f, float(w) / float(h), 0.1f, 1000.0f);
     camera.set_orientation(glm::vec3(0.0f, 1.0f, 2.5f),
                            glm::vec3(0.0f, 1.0f, 0.0f),
@@ -81,9 +78,6 @@ int main()
     std::vector<Pixel> framebuffer;
 
     framebuffer.resize(w * h);
-
-    float scale = 1.0f;
-    int   misses = 0;
 
 	#pragma omp parallel for
     for (int j = 0; j < h; j++)
@@ -110,7 +104,7 @@ int main()
 				    if (result.hit())
 				    {
                         uint32_t                         idx = scene.m_triangles[result.id].w;
-                        std::shared_ptr<lumen::Material> mat = scene.m_materials[idx];
+                        std::shared_ptr<lumen::Material> mat = scene.m_materials[result.id];
 
 				        if (mat->is_light())
 				        {
@@ -126,7 +120,6 @@ int main()
 				    }
 				    else
 				    {
-						//misses++;
 				        pixel *= 0.0f;
 				        break;
 				    }

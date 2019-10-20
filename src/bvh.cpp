@@ -1,156 +1,270 @@
-/*
-*  Copyright (c) 2009-2011, NVIDIA Corporation
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions are met:
-*      * Redistributions of source code must retain the above copyright
-*        notice, this list of conditions and the following disclaimer.
-*      * Redistributions in binary form must reproduce the above copyright
-*        notice, this list of conditions and the following disclaimer in the
-*        documentation and/or other materials provided with the distribution.
-*      * Neither the name of NVIDIA Corporation nor the
-*        names of its contributors may be used to endorse or promote products
-*        derived from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-*  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-*  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-*  DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
-*  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-*  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-*  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-*  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-*  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
-
-#include <cstdio>
-
 #include "bvh.h"
-#include "split_bvh_builder.h"
+#include "scene.h"
+
+#include <algorithm>
+#include <iostream>
 
 namespace lumen
 {
-BVH::BVH(Scene* scene, const Platform& platform, const BuildParams& params)
+Scene* g_scene = nullptr;
+
+bool compare_along_x_axis(glm::ivec4 a, glm::ivec4 b)
 {
-    assert(scene);
-    m_scene    = scene;
-    m_platform = platform;
+    float a_pos_x = (g_scene->m_vtx_positions[a.x].x + g_scene->m_vtx_positions[a.y].x + g_scene->m_vtx_positions[a.z].x) / 3.0f;
+    float b_pos_x = (g_scene->m_vtx_positions[b.x].x + g_scene->m_vtx_positions[b.y].x + g_scene->m_vtx_positions[b.z].x) / 3.0f;
 
-    if (params.enablePrints)
-        printf("BVH builder: %d tris, %d vertices\n", scene->num_triangles(), scene->num_vertices());
-
-    // SplitBVHBuilder() builds the actual BVH
-    m_root = SplitBVHBuilder(*this, params).run(m_numNodes);
-
-    if (params.enablePrints)
-        printf("BVH: Scene bounds: (%.1f,%.1f,%.1f) - (%.1f,%.1f,%.1f)\n", m_root->m_bounds.min().x, m_root->m_bounds.min().y, m_root->m_bounds.min().z, m_root->m_bounds.max().x, m_root->m_bounds.max().y, m_root->m_bounds.max().z);
-
-    float sah = 0.f;
-    m_root->computeSubtreeProbabilities(m_platform, 1.f, sah);
-    if (params.enablePrints)
-        printf("top-down sah: %.2f\n", sah);
-
-    if (params.stats)
-    {
-        params.stats->SAHCost         = sah;
-        params.stats->branchingFactor = 2;
-        params.stats->numLeafNodes    = m_root->getSubtreeSize(BVH_STAT_LEAF_COUNT);
-        params.stats->numInnerNodes   = m_root->getSubtreeSize(BVH_STAT_INNER_COUNT);
-        params.stats->numTris         = m_root->getSubtreeSize(BVH_STAT_TRIANGLE_COUNT);
-        params.stats->numChildNodes   = m_root->getSubtreeSize(BVH_STAT_CHILDNODE_COUNT);
-    }
+    return a_pos_x < b_pos_x;
 }
 
-static int32_t currentTreelet;
-
-void BVH::trace(Ray& ray, RayResult& result, bool needClosestHit, RayStats* stats) const
+bool compare_along_y_axis(glm::ivec4 a, glm::ivec4 b)
 {
-    traceRecursive(m_root, ray, result, needClosestHit, stats);
+    float a_pos_y = (g_scene->m_vtx_positions[a.x].y + g_scene->m_vtx_positions[a.y].y + g_scene->m_vtx_positions[a.z].y) / 3.0f;
+    float b_pos_y = (g_scene->m_vtx_positions[b.x].y + g_scene->m_vtx_positions[b.y].y + g_scene->m_vtx_positions[b.z].y) / 3.0f;
+
+    return a_pos_y < b_pos_y;
 }
 
-void BVH::traceRecursive(BVHNode* node, Ray& ray, RayResult& result, bool needClosestHit, RayStats* stats) const
+bool compare_along_z_axis(glm::ivec4 a, glm::ivec4 b)
 {
-    if (currentTreelet != node->m_treelet)
+    float a_pos_z = (g_scene->m_vtx_positions[a.x].z + g_scene->m_vtx_positions[a.y].z + g_scene->m_vtx_positions[a.z].z) / 3.0f;
+    float b_pos_z = (g_scene->m_vtx_positions[b.x].z + g_scene->m_vtx_positions[b.y].z + g_scene->m_vtx_positions[b.z].z) / 3.0f;
+
+    return a_pos_z < b_pos_z;
+}
+
+BVH::BVH(Scene* scene, BVHBuilder& builder)
+{
+    g_scene = scene;
+    m_scene = scene;
+
+	uint32_t num_nodes = 0;
+
+	RecursiveBVHNode* root = builder.build(scene, scene->m_triangles.data(), scene->m_triangles.size(), num_nodes);
+
+    g_scene = nullptr;
+
+	m_flattened_bvh.resize(num_nodes);
+
+	flatten(root);
+
+	if (root)
+		delete root;
+}
+
+BVH::~BVH()
+{
+    
+}
+
+void BVH::trace(Ray& ray, RayResult& result, bool need_closest_hit)
+{
+    const int TMIN = 0;
+    const int TMAX = 1;
+
+	const glm::vec3* vtx_pos     = m_scene->m_vtx_positions.data();
+    const glm::vec3* vtx_normals = m_scene->m_vtx_normals.data();
+
+	uint32_t stack_size = 1;
+	uint32_t index_stack[64];
+
+	index_stack[0] = 0;
+
+	while (stack_size != 0)
+	{
+		// Pop an index
+		uint32_t idx = index_stack[--stack_size];
+
+        LinearBVHNode& node  = m_flattened_bvh[idx];
+
+		// Is it a leaf node?
+		if (node.triangle_count > 0)
+		{
+			for (uint32_t i = 0; i < node.triangle_count; i++)
+			{
+				glm::ivec4 indices = node.triangles[i];
+
+				const glm::vec3& v0 = vtx_pos[indices.x];
+                const glm::vec3& v1 = vtx_pos[indices.y];
+                const glm::vec3& v2 = vtx_pos[indices.z];
+
+                const glm::vec3& n0 = vtx_normals[indices.x];
+                const glm::vec3& n1 = vtx_normals[indices.y];
+                const glm::vec3& n2 = vtx_normals[indices.z];
+
+                float u, v, t;
+
+                if (intersect::ray_triangle(v0, v1, v2, ray, u, v, t))
+                {
+                    ray.tmax        = t;
+                    result.t        = t;
+                    result.id       = indices.w;
+                    result.position = (1.0f - u - v) * v0 + u * v1 + v * v2;
+                    result.normal   = glm::normalize((1.0f - u - v) * n0 + u * n1 + v * n2);
+
+                    if (!need_closest_hit)
+                        return;
+                }
+			}
+		}
+		else
+		{
+			uint32_t left_idx  = idx + 1;
+			uint32_t right_idx = node.right_child_offset;
+			
+			LinearBVHNode& left_node  = m_flattened_bvh[left_idx];
+			LinearBVHNode& right_node = m_flattened_bvh[right_idx];
+			
+			glm::vec2 left_span  = intersect::ray_box(left_node.aabb, ray);
+			glm::vec2 right_span = intersect::ray_box(right_node.aabb, ray);
+			
+			bool left_intersect  = (left_span[TMIN] <= left_span[TMAX]) && (left_span[TMAX] >= ray.tmin) && (left_span[TMIN] <= ray.tmax);
+			bool right_intersect = (right_span[TMIN] <= right_span[TMAX]) && (right_span[TMAX] >= ray.tmin) && (right_span[TMIN] <= ray.tmax);
+			
+			if (left_intersect && right_intersect)
+			{
+			    if (left_span[TMIN] > right_span[TMIN])
+			    {
+			        std::swap(left_span, right_span);
+			        std::swap(left_idx, right_idx);
+			    }
+			}
+			
+			if (left_intersect)
+			    index_stack[stack_size++] = left_idx;
+			
+			if (result.hit() && !need_closest_hit)
+			    return;
+			
+			if (right_intersect)
+			    index_stack[stack_size++] = right_idx;
+		}
+	}
+}
+
+void BVH::flatten(RecursiveBVHNode* node)
+{
+    uint32_t start_idx = 0;
+    flatten_recursive(node, start_idx);
+}
+
+uint32_t BVH::flatten_recursive(RecursiveBVHNode* node, uint32_t& idx)
+{
+    LinearBVHNode& linear_node = m_flattened_bvh[idx];
+
+	linear_node.aabb = node->aabb;
+
+	uint32_t current_offset = idx++;
+	
+	if (node->is_leaf())
+	{
+		linear_node.triangles = node->triangles;
+		linear_node.triangle_count = node->triangle_count;
+	}
+	else
+	{
+		flatten_recursive(node->left, idx);
+		linear_node.right_child_offset = flatten_recursive(node->right, idx);
+	}
+
+	return current_offset;
+}
+
+RecursiveBVHNode* BVHBuilderEqualCounts::build(Scene* scene, glm::ivec4* triangles, uint32_t num_triangles, uint32_t& num_nodes)
+{
+    return recursive_build(scene, triangles, num_triangles, num_nodes);
+}
+
+RecursiveBVHNode* BVHBuilderEqualCounts::recursive_build(Scene* scene, glm::ivec4* triangles, uint32_t num_triangles, uint32_t& num_nodes)
+{
+    RecursiveBVHNode* node = new RecursiveBVHNode();
+
+    num_nodes++;
+
+    calculate_aabb(node, scene, triangles, num_triangles);
+
+	int sort_axis = find_longest_axis(node);
+
+    if (sort_axis == 0)
+        std::sort(triangles, triangles + num_triangles, compare_along_x_axis);
+    else if (sort_axis == 1)
+        std::sort(triangles, triangles + num_triangles, compare_along_y_axis);
+    else
+        std::sort(triangles, triangles + num_triangles, compare_along_z_axis);
+
+    if (num_triangles < BVH_NODE_MAX_TRIANGLES)
     {
-        if (stats)
-        {
-            //          if(!uniqueTreelets.contains(node->m_treelet))   // count unique treelets (comment this line to count all)
-            stats->numTreelets++;
-        }
-        currentTreelet = node->m_treelet;
-    }
-
-    if (node->isLeaf())
-    {
-        const LeafNode*   leaf        = reinterpret_cast<const LeafNode*>(node);
-        const glm::ivec4* triVtxIndex = (const glm::ivec4*)m_scene->m_triangles.data();
-        const glm::vec3*  vtxPos      = (const glm::vec3*)m_scene->m_vtx_positions.data();
-        const glm::vec3*  vtxNormals = (const glm::vec3*)m_scene->m_vtx_normals.data();
-
-        if (stats)
-            stats->numTriangleTests += m_platform.roundToTriangleBatchSize(leaf->getNumTriangles());
-
-        for (int i = leaf->m_lo; i < leaf->m_hi; i++)
-        {
-            int32_t           index = m_triIndices[i];
-            const glm::ivec4& ind   = triVtxIndex[index];
-            const glm::vec3&  v0    = vtxPos[ind.x];
-            const glm::vec3&  v1    = vtxPos[ind.y];
-            const glm::vec3&  v2    = vtxPos[ind.z];
-
-			const glm::vec3& n0 = vtxNormals[ind.x];
-            const glm::vec3& n1 = vtxNormals[ind.y];
-            const glm::vec3& n2 = vtxNormals[ind.z];
-
-            float u, v, t;
-
-            if (intersect::ray_triangle(v0, v1, v2, ray, u, v, t))
-            {
-                ray.tmax  = t;
-                result.t  = t;
-                result.id = index;
-                result.position = (1.0f - u - v) * v0 + u * v1 + v * v2;
-                result.normal   = glm::normalize((1.0f - u - v) * n0 + u * n1 + v * n2);
-
-                if (!needClosestHit)
-                    return;
-            }
-        }
+        node->triangles      = triangles;
+        node->triangle_count = num_triangles;
     }
     else
     {
-        if (stats)
-            stats->numNodeTests += m_platform.roundToNodeBatchSize(node->getNumChildNodes());
+        uint32_t left_count  = num_triangles / 2;
+        uint32_t right_count = num_triangles - (num_triangles / 2);
 
-        const int        TMIN   = 0;
-        const int        TMAX   = 1;
-        const InnerNode* inner  = reinterpret_cast<const InnerNode*>(node);
-        BVHNode*         child0 = inner->m_children[0];
-        BVHNode*         child1 = inner->m_children[1];
-
-        glm::vec2 tspan0     = intersect::ray_box(child0->m_bounds, ray);
-        glm::vec2 tspan1     = intersect::ray_box(child1->m_bounds, ray);
-        bool      intersect0 = (tspan0[TMIN] <= tspan0[TMAX]) && (tspan0[TMAX] >= ray.tmin) && (tspan0[TMIN] <= ray.tmax);
-        bool      intersect1 = (tspan1[TMIN] <= tspan1[TMAX]) && (tspan1[TMAX] >= ray.tmin) && (tspan1[TMIN] <= ray.tmax);
-
-        if (intersect0 && intersect1)
-            if (tspan0[TMIN] > tspan1[TMIN])
-            {
-                std::swap(tspan0, tspan1);
-                std::swap(child0, child1);
-            }
-
-        if (intersect0)
-            traceRecursive(child0, ray, result, needClosestHit, stats);
-
-        if (result.hit() && !needClosestHit)
-            return;
-
-        //      if(tspan1[TMIN] <= ray.tmax)    // this test helps only about 1-2%
-        if (intersect1)
-            traceRecursive(child1, ray, result, needClosestHit, stats);
+        node->left  = recursive_build(scene, triangles, left_count, num_nodes);
+        node->right = recursive_build(scene, triangles + left_count, right_count, num_nodes);
     }
+
+	return node;
 }
+
+void BVHBuilderEqualCounts::calculate_aabb(RecursiveBVHNode* node, Scene* scene, glm::ivec4* triangles, uint32_t n)
+{
+    glm::vec3  min      = glm::vec3(FLT_MAX);
+    glm::vec3  max      = glm::vec3(-FLT_MAX);
+    glm::vec3* vertices = scene->m_vtx_positions.data();
+
+    for (int i = 0; i < n; i++)
+    {
+        for (int tri = 0; tri < 3; tri++)
+        {
+            int idx = triangles[i][tri];
+
+            if (vertices[idx].x < min.x)
+                min.x = vertices[idx].x;
+            if (vertices[idx].y < min.y)
+                min.y = vertices[idx].y;
+            if (vertices[idx].z < min.z)
+                min.z = vertices[idx].z;
+
+            if (vertices[idx].x > max.x)
+                max.x = vertices[idx].x;
+            if (vertices[idx].y > max.y)
+                max.y = vertices[idx].y;
+            if (vertices[idx].z > max.z)
+                max.z = vertices[idx].z;
+        }
+    }
+
+    node->aabb = AABB(min, max);
+}
+
+uint32_t BVHBuilderEqualCounts::find_longest_axis(RecursiveBVHNode* node)
+{
+    float x_len = node->aabb.max().x - node->aabb.min().x;
+    float y_len = node->aabb.max().y - node->aabb.min().y;
+    float z_len = node->aabb.max().z - node->aabb.min().z;
+
+    if (x_len > y_len && x_len > z_len)
+        return 0;
+    else if (y_len > x_len && y_len > z_len)
+        return 1;
+    else
+        return 2;
+}
+
+bool RecursiveBVHNode::is_leaf()
+{
+    return !left && !right;
+}
+
+RecursiveBVHNode::~RecursiveBVHNode()
+{
+    if (left)
+        delete left;
+
+	if (right)
+        delete right;
+}
+
 } // namespace lumen

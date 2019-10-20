@@ -84,11 +84,8 @@ void Scene::build()
     for (auto& instance : instances)
         add_mesh(instance.mesh, instance.transform);
 
-    std::cout << "Building BVH with spatial splits\n";
-    // create a default platform
-    Platform         defaultplatform;
-    BVH::BuildParams defaultparams;
-    BVH::Stats       stats;
-    m_bvh = new BVH(this, defaultplatform, defaultparams);
+    lumen::BVHBuilderEqualCounts builder;
+
+    m_bvh = new BVH(this, builder);
 }
 } // namespace lumen
