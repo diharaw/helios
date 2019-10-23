@@ -38,7 +38,7 @@ struct LinearBVHNode
 class BVHBuilder
 {
 public:
-    virtual RecursiveBVHNode* build(Scene* scene, glm::ivec4* triangles, uint32_t num_triangles, uint32_t& num_nodes) = 0;
+    virtual RecursiveBVHNode* build(Scene* scene, uint32_t& num_nodes) = 0;
 };
 
 class BVH
@@ -60,11 +60,11 @@ private:
 class BVHBuilderEqualCounts : public BVHBuilder
 {
 public:
-    RecursiveBVHNode* build(Scene* scene, glm::ivec4* triangles, uint32_t num_triangles, uint32_t& num_nodes) override;
+    RecursiveBVHNode* build(Scene* scene, uint32_t& num_nodes) override;
 
 private:
-    RecursiveBVHNode* recursive_build(Scene* scene, glm::ivec4* triangles, uint32_t num_triangles, uint32_t& num_nodes);
-    void              calculate_aabb(RecursiveBVHNode* node, Scene* scene, glm::ivec4* triangles, uint32_t num_triangles);
+    RecursiveBVHNode* recursive_build(Scene* scene, uint32_t start, uint32_t end, uint32_t& num_nodes);
+    void              calculate_aabb(RecursiveBVHNode* node, Scene* scene, uint32_t start, uint32_t end);
     uint32_t          find_longest_axis(RecursiveBVHNode* node);
 };
 

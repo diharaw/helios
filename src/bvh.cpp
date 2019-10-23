@@ -6,8 +6,6 @@
 
 namespace lumen
 {
-Scene* g_scene = nullptr;
-
 bool compare_along_x_axis(glm::ivec4 a, glm::ivec4 b)
 {
     float a_pos_x = (g_scene->m_vtx_positions[a.x].x + g_scene->m_vtx_positions[a.y].x + g_scene->m_vtx_positions[a.z].x) / 3.0f;
@@ -39,7 +37,7 @@ BVH::BVH(Scene* scene, BVHBuilder& builder)
 
 	uint32_t num_nodes = 0;
 
-	RecursiveBVHNode* root = builder.build(scene, scene->m_triangles.data(), scene->m_triangles.size(), num_nodes);
+	RecursiveBVHNode* root = builder.build(scene, num_nodes);
 
     g_scene = nullptr;
 
@@ -169,27 +167,29 @@ uint32_t BVH::flatten_recursive(RecursiveBVHNode* node, uint32_t& idx)
 	return current_offset;
 }
 
-RecursiveBVHNode* BVHBuilderEqualCounts::build(Scene* scene, glm::ivec4* triangles, uint32_t num_triangles, uint32_t& num_nodes)
+RecursiveBVHNode* BVHBuilderEqualCounts::build(Scene* scene, uint32_t& num_nodes)
 {
-    return recursive_build(scene, triangles, num_triangles, num_nodes);
+    return recursive_build(scene, 0, scene->m_triangles.size() - 1, num_nodes);
 }
 
-RecursiveBVHNode* BVHBuilderEqualCounts::recursive_build(Scene* scene, glm::ivec4* triangles, uint32_t num_triangles, uint32_t& num_nodes)
+RecursiveBVHNode* BVHBuilderEqualCounts::recursive_build(Scene* scene, uint32_t start, uint32_t end, uint32_t& num_nodes)
 {
     RecursiveBVHNode* node = new RecursiveBVHNode();
 
     num_nodes++;
 
-    calculate_aabb(node, scene, triangles, num_triangles);
+    calculate_aabb(node, scene, start, end);
 
 	int sort_axis = find_longest_axis(node);
 
-    if (sort_axis == 0)
-        std::sort(triangles, triangles + num_triangles, compare_along_x_axis);
-    else if (sort_axis == 1)
-        std::sort(triangles, triangles + num_triangles, compare_along_y_axis);
-    else
-        std::sort(triangles, triangles + num_triangles, compare_along_z_axis);
+	int mid = (start + end) / 2;
+
+	std::nth_element(&primitiveInfo[start], &primitiveInfo[mid], &primitiveInfo[end - 1] + 1, [scene, sort_axis](const glm::ivec4& a, const glm::ivec4& b) {
+            float a_pos = (scene->m_vtx_positions[a.x][sort_axis] + scene->m_vtx_positions[a.y][sort_axis] + scene->m_vtx_positions[a.z][sort_axis]) / 3.0f;
+            float b_pos = (scene->m_vtx_positions[b.x][sort_axis] + scene->m_vtx_positions[b.y][sort_axis] + scene->m_vtx_positions[b.z][sort_axis]) / 3.0f;
+
+            return a_pos < b_pos;
+        });
 
     if (num_triangles < BVH_NODE_MAX_TRIANGLES)
     {
@@ -208,13 +208,14 @@ RecursiveBVHNode* BVHBuilderEqualCounts::recursive_build(Scene* scene, glm::ivec
 	return node;
 }
 
-void BVHBuilderEqualCounts::calculate_aabb(RecursiveBVHNode* node, Scene* scene, glm::ivec4* triangles, uint32_t n)
+void BVHBuilderEqualCounts::calculate_aabb(RecursiveBVHNode* node, Scene* scene, uint32_t start, uint32_t end)
 {
     glm::vec3  min      = glm::vec3(FLT_MAX);
     glm::vec3  max      = glm::vec3(-FLT_MAX);
+    glm::ivec4* triangles = scene->m_triangles.data();
     glm::vec3* vertices = scene->m_vtx_positions.data();
 
-    for (int i = 0; i < n; i++)
+    for (int i = start; i <= end; i++)
     {
         for (int tri = 0; tri < 3; tri++)
         {

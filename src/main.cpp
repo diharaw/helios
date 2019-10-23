@@ -79,6 +79,9 @@ int main()
 
     framebuffer.resize(w * h);
 
+	bool debug_normals = false;
+    bool debug_albedo  = false;
+
 	#pragma omp parallel for
     for (int j = 0; j < h; j++)
     {
@@ -105,21 +108,28 @@ int main()
 				    {
                         std::shared_ptr<lumen::Material> mat = scene.m_materials[result.id];
 
-				        if (mat->is_light())
-				        {
-							if (bounce == 0)
-								pixel = mat->emissive;
-							else 
-								pixel *= mat->emissive;
-
-				            break;
-				        }
-				        else
-				        {
-				            pixel *= mat->albedo;
-				            ray.origin = result.position;
-				            ray.dir    = random_in_unit_sphere();
-				        }
+						if (debug_albedo)
+                            pixel = mat->albedo;
+						else if (debug_normals)
+							pixel = (0.5f * result.normal + glm::vec3(0.5f)) / 2.0f;
+						else
+						{
+							if (mat->is_light())
+							{
+							    if (bounce == 0)
+							        pixel = mat->emissive;
+							    else
+							        pixel *= mat->emissive;
+							
+							    break;
+							}
+							else
+							{
+							    pixel      = mat->albedo;
+							    ray.origin = result.position;
+							    ray.dir    = random_in_unit_sphere();
+							}
+						}
 				    }
 				    else
 				    {
