@@ -14,17 +14,14 @@
 
 class BRDF
 {
-
 };
 
 class LambertBRDF : public BRDF
 {
-
 };
 
 class MicrofacetBRDF : public BRDF
 {
-
 };
 
 static std::default_random_engine            generator;
@@ -37,16 +34,15 @@ float drand48()
 
 glm::vec3 random_in_unit_sphere()
 {
-    float z   = distribution(generator) * 2.0f - 1.0f;
-    float t   = distribution(generator) * 2.0f * 3.1415926f;
-    float r   = sqrt(std::max(0.0f, 1.0f - z * z));
-    float x   = r * cos(t);
-    float y   = r * sin(t);
-    glm::vec3  res = glm::vec3(x, y, z);
+    float     z   = distribution(generator) * 2.0f - 1.0f;
+    float     t   = distribution(generator) * 2.0f * 3.1415926f;
+    float     r   = sqrt(std::max(0.0f, 1.0f - z * z));
+    float     x   = r * cos(t);
+    float     y   = r * sin(t);
+    glm::vec3 res = glm::vec3(x, y, z);
     res *= pow(distribution(generator), 1.0f / 3.0f);
     return res;
 }
-
 
 int main()
 {
@@ -79,70 +75,70 @@ int main()
 
     framebuffer.resize(w * h);
 
-	bool debug_normals = false;
+    bool debug_normals = false;
     bool debug_albedo  = false;
 
-	#pragma omp parallel for
+#pragma omp parallel for
     for (int j = 0; j < h; j++)
     {
         for (int i = 0; i < w; i++)
         {
             glm::vec3 accumulate = glm::vec3(0.0f);
 
-			for (int sample = 0; sample < MAX_SAMPLES; sample++)
-			{
-				glm::vec3 pixel = glm::vec3(1.0f);
+            for (int sample = 0; sample < MAX_SAMPLES; sample++)
+            {
+                glm::vec3 pixel = glm::vec3(1.0f);
 
-				float u = float(i + drand48()) / float(w);
+                float u = float(i + drand48()) / float(w);
                 float v = float(j + drand48()) / float(h);
-				
-				lumen::Ray ray = lumen::Ray::compute(u, 1.0f - v, 0.1f, FLT_MAX, camera);
-				
-				for (int bounce = 0; bounce < MAX_BOUNCES; bounce++)
-				{
-				    lumen::RayResult result;
-				
-				    scene.m_bvh->trace(ray, result, true);
-				
-				    if (result.hit())
-				    {
+
+                lumen::Ray ray = lumen::Ray::compute(u, 1.0f - v, 0.1f, FLT_MAX, camera);
+
+                for (int bounce = 0; bounce < MAX_BOUNCES; bounce++)
+                {
+                    lumen::RayResult result;
+
+                    scene.m_bvh->trace(ray, result, true);
+
+                    if (result.hit())
+                    {
                         std::shared_ptr<lumen::Material> mat = scene.m_materials[result.id];
 
-						if (debug_albedo)
+                        if (debug_albedo)
                             pixel = mat->albedo;
-						else if (debug_normals)
-							pixel = (0.5f * result.normal + glm::vec3(0.5f)) / 2.0f;
-						else
-						{
-							if (mat->is_light())
-							{
-							    if (bounce == 0)
-							        pixel = mat->emissive;
-							    else
-							        pixel *= mat->emissive;
-							
-							    break;
-							}
-							else
-							{
-							    pixel      = mat->albedo;
-							    ray.origin = result.position;
-							    ray.dir    = random_in_unit_sphere();
-							}
-						}
-				    }
-				    else
-				    {
-				        pixel *= 0.0f;
-				        break;
-				    }
-				}
+                        else if (debug_normals)
+                            pixel = (0.5f * result.normal + glm::vec3(0.5f)) / 2.0f;
+                        else
+                        {
+                            if (mat->is_light())
+                            {
+                                if (bounce == 0)
+                                    pixel = mat->emissive;
+                                else
+                                    pixel *= mat->emissive;
 
-				accumulate += pixel;
-			}
+                                break;
+                            }
+                            else
+                            {
+                                pixel      = mat->albedo;
+                                ray.origin = result.position;
+                                ray.dir    = random_in_unit_sphere();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        pixel *= 0.0f;
+                        break;
+                    }
+                }
 
-			accumulate /= float(MAX_SAMPLES);
-			accumulate = glm::pow(accumulate / (glm::vec3(1.0f) + accumulate), glm::vec3(1.0f / 2.2f));
+                accumulate += pixel;
+            }
+
+            accumulate /= float(MAX_SAMPLES);
+            accumulate = glm::pow(accumulate / (glm::vec3(1.0f) + accumulate), glm::vec3(1.0f / 2.2f));
 
             Pixel p;
 

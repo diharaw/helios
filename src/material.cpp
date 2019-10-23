@@ -17,7 +17,7 @@ std::shared_ptr<Material> Material::create(const std::string& path)
         {
             std::shared_ptr<Material> material = std::make_shared<Material>();
 
-			material->name = ast_material.name;
+            material->name = ast_material.name;
 
             for (auto& prop : ast_material.properties)
             {
