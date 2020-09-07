@@ -2,6 +2,7 @@
 #include "geometry.h"
 #include "scene.h"
 #include "bvh.h"
+#include "sampling.h"
 #include <iostream>
 #include <random>
 #include <algorithm>
@@ -11,38 +12,6 @@
 
 #define MAX_BOUNCES 5
 #define MAX_SAMPLES 1024
-
-class BRDF
-{
-};
-
-class LambertBRDF : public BRDF
-{
-};
-
-class MicrofacetBRDF : public BRDF
-{
-};
-
-static std::default_random_engine            generator;
-static std::uniform_real_distribution<float> distribution(0.0f, 0.9999999f);
-
-float drand48()
-{
-    return distribution(generator);
-}
-
-glm::vec3 random_in_unit_sphere()
-{
-    float     z   = distribution(generator) * 2.0f - 1.0f;
-    float     t   = distribution(generator) * 2.0f * 3.1415926f;
-    float     r   = sqrt(std::max(0.0f, 1.0f - z * z));
-    float     x   = r * cos(t);
-    float     y   = r * sin(t);
-    glm::vec3 res = glm::vec3(x, y, z);
-    res *= pow(distribution(generator), 1.0f / 3.0f);
-    return res;
-}
 
 int main()
 {
@@ -89,10 +58,10 @@ int main()
             {
                 glm::vec3 pixel = glm::vec3(1.0f);
 
-                float u = float(i + drand48()) / float(w);
-                float v = float(j + drand48()) / float(h);
+                float u = float(i + lumen::rand()) / float(w);
+                float v = float(j + lumen::rand()) / float(h);
 
-                lumen::Ray ray = lumen::Ray::compute(u, 1.0f - v, 0.1f, FLT_MAX, camera);
+                lumen::Ray ray = lumen::Ray::compute(u, 1.0f - v, 0.0001f, FLT_MAX, camera);
 
                 for (int bounce = 0; bounce < MAX_BOUNCES; bounce++)
                 {
@@ -121,9 +90,9 @@ int main()
                             }
                             else
                             {
-                                pixel      = mat->albedo;
+                                pixel      += mat->albedo;
                                 ray.origin = result.position;
-                                ray.dir    = random_in_unit_sphere();
+                                ray.dir    = lumen::random_in_unit_sphere();
                             }
                         }
                     }
