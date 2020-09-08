@@ -10,13 +10,13 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
-#define MAX_BOUNCES 5
-#define MAX_SAMPLES 1024
+#define MAX_BOUNCES 10
+#define MAX_SAMPLES 100
 
 int main()
 {
-    int w = 1024;
-    int h = 1024;
+    int w = 256;
+    int h = 256;
 
     lumen::Scene  scene;
     lumen::Camera camera;
@@ -52,11 +52,12 @@ int main()
     {
         for (int i = 0; i < w; i++)
         {
-            glm::vec3 accumulate = glm::vec3(0.0f);
-
+            glm::vec3 accumulate  = glm::vec3(0.0f);
+            
             for (int sample = 0; sample < MAX_SAMPLES; sample++)
             {
-                glm::vec3 pixel = glm::vec3(1.0f);
+                glm::vec3 color = glm::vec3(0.0f);
+                glm::vec3 attenuation = glm::vec3(1.0f);
 
                 float u = float(i + lumen::rand()) / float(w);
                 float v = float(j + lumen::rand()) / float(h);
@@ -69,41 +70,39 @@ int main()
 
                     scene.m_bvh->trace(ray, result, true);
 
-                    if (result.hit())
+                    if (!result.hit())
                     {
-                        std::shared_ptr<lumen::Material> mat = scene.m_materials[result.id];
+                        color = glm::vec3(0.0f);
+                        break;
+                    }
 
-                        if (debug_albedo)
-                            pixel = mat->albedo;
-                        else if (debug_normals)
-                            pixel = (0.5f * result.normal + glm::vec3(0.5f)) / 2.0f;
+                    std::shared_ptr<lumen::Material> mat = scene.m_materials[result.id];
+
+                    if (mat->is_emissive())
+                    {
+                        if (bounce == 0)
+                            color = mat->emissive;
                         else
-                        {
-                            if (mat->is_light())
-                            {
-                                if (bounce == 0)
-                                    pixel = mat->emissive;
-                                else
-                                    pixel *= mat->emissive;
+                            color += mat->emissive * attenuation;
 
-                                break;
-                            }
-                            else
-                            {
-                                pixel      += mat->albedo;
-                                ray.origin = result.position;
-                                ray.dir    = lumen::random_in_unit_sphere();
-                            }
-                        }
+                        break;
                     }
                     else
                     {
-                        pixel *= 0.0f;
-                        break;
+                        lumen::LambertBRDF brdf = mat->create_brdf(result.normal);
+
+                        glm::vec3 next_dir;
+
+                        glm::vec3 weight = brdf.sample(next_dir, -ray.dir);
+
+                        attenuation *= weight;
+
+                        ray.origin = result.position;
+                        ray.dir    = next_dir;
                     }
                 }
 
-                accumulate += pixel;
+                accumulate += color;
             }
 
             accumulate /= float(MAX_SAMPLES);

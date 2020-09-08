@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include "brdf.h"
 
 namespace lumen
 {
@@ -18,7 +19,8 @@ public:
     float       shininess    = 0.0f;
     float       reflectivity = 0.0f;
 
-    bool is_light();
+    bool is_emissive();
+    LambertBRDF create_brdf(glm::vec3 n);
 
 private:
     static std::unordered_map<std::string, std::weak_ptr<Material>> m_cache;

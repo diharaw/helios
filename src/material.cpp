@@ -40,8 +40,13 @@ std::shared_ptr<Material> Material::create(const std::string& path)
     }
 }
 
-bool Material::is_light()
+bool Material::is_emissive()
 {
-    return emissive.x > 0.0f && emissive.y > 0.0f && emissive.z > 0.0f;
+    return emissive.x > 0.0f || emissive.y > 0.0f || emissive.z > 0.0f;
+}
+
+LambertBRDF Material::create_brdf(glm::vec3 n)
+{
+    return LambertBRDF(n, albedo);
 }
 } // namespace lumen

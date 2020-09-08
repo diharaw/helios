@@ -20,9 +20,9 @@ glm::mat3 make_rotation_matrix(glm::vec3 z)
     const glm::vec3 x = glm::normalize(glm::cross(ref, z));
     const glm::vec3 y = glm::cross(z, x);
 
-    assert(!is_nan(x));
-    assert(!is_nan(y));
-    assert(!is_nan(z));
+    //assert(!is_nan(x));
+    //assert(!is_nan(y));
+    //assert(!is_nan(z));
 
     return { x, y, z };
 }
@@ -39,9 +39,9 @@ glm::vec3 random_in_unit_sphere()
     return res;
 }
 
-glm::vec3 sample_cosine_lobe_direction(glm::vec3 n)
+glm::vec3 sample_cosine_lobe_direction(glm::vec3 n, glm::vec2 rand)
 {
-    glm::vec2 sample = glm::max(glm::vec2(0.00001f), glm::vec2(drand48(), drand48()));
+    glm::vec2 sample = glm::max(glm::vec2(0.00001f), rand);
 
     const float phi = 2.0f * M_PI * sample.y;
 
@@ -50,7 +50,7 @@ glm::vec3 sample_cosine_lobe_direction(glm::vec3 n)
 
     glm::vec3 t = glm::vec3(sin_theta * cos(phi), sin_theta * sin(phi), cos_theta);
 
-    assert(!is_nan(t));
+    //assert(!is_nan(t));
 
     return glm::normalize(make_rotation_matrix(n) * t);
 }
