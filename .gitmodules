@@ -1,9 +1,12 @@
-[submodule "external/AssetCore"]
-	path = external/AssetCore
-	url = https://github.com/diharaw/AssetCore.git
 [submodule "external/VulkanMemoryAllocator"]
 	path = external/VulkanMemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
 [submodule "external/glfw"]
 	path = external/glfw
 	url = https://github.com/glfw/glfw.git
+[submodule "external/AssetCore"]
+	path = external/AssetCore
+	url = https://github.com/diharaw/AssetCore.git
+[submodule "external/imgui"]
+	path = external/imgui
+	url = https://github.com/ocornut/imgui.git
