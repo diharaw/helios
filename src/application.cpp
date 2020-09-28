@@ -24,7 +24,7 @@ void imgui_vulkan_error_check(VkResult err)
 
 Application::Application() :
     m_mouse_x(0.0), m_mouse_y(0.0), m_last_mouse_x(0.0), m_last_mouse_y(0.0),
-    m_mouse_delta_x(0.0), m_mouse_delta_y(0.0), m_delta(0.0),
+    m_mouse_delta_x(0.0), m_mouse_delta_y(0.0),
     m_delta_seconds(0.0), m_window(nullptr) {}
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -39,7 +39,7 @@ int Application::run(int argc, const char* argv[])
         return 1;
 
     while (!exit_requested())
-        update_base(m_delta);
+        update_base(m_delta_seconds);
 
     m_vk_backend->wait_idle();
 
@@ -252,6 +252,8 @@ void Application::submit_and_present(const std::vector<vk::CommandBuffer::Ptr>& 
 
 void Application::begin_frame()
 {
+    m_time_start = glfwGetTime();
+
     glfwPollEvents();
 
     if (m_should_recreate_swap_chain)
@@ -277,8 +279,7 @@ void Application::begin_frame()
 
 void Application::end_frame()
 {
-    m_delta         = m_timer.elapsed_time_milisec();
-    m_delta_seconds = m_timer.elapsed_time_sec();
+    m_delta_seconds = glfwGetTime() - m_delta_seconds;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

@@ -33,6 +33,5 @@ include_directories("${LUMEN_INCLUDE_DIRS}"
 					"${VMA_INCLUDE_DIRS}"
 					"${Vulkan_INCLUDE_DIR}")
 
-add_subdirectory(src/engine)
-add_subdirectory(src/runtime)
-add_subdirectory(src/editor)
+add_subdirectory(src)
+add_subdirectory(viewer)

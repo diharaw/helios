@@ -101,7 +101,7 @@ protected:
     double                              m_last_mouse_y;
     double                              m_mouse_delta_x;
     double                              m_mouse_delta_y;
-    double                              m_delta;
+    double                              m_time_start;
     double                              m_delta_seconds;
     std::string                         m_title;
     std::array<bool, MAX_KEYS>          m_keys;

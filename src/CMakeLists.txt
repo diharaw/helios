@@ -9,7 +9,7 @@ find_program(CLANG_FORMAT_EXE NAMES "clang-format" DOC "Path to clang-format exe
 
 file(GLOB_RECURSE LUMEN_HEADERS ${PROJECT_SOURCE_DIR}/include/*.h)
 
-file(GLOB_RECURSE LUMEN_SOURCES ${PROJECT_SOURCE_DIR}/src/engine/*.cpp)
+file(GLOB_RECURSE LUMEN_SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
 list(APPEND LUMEN_HEADERS ${PROJECT_SOURCE_DIR}/external/imgui/imconfig.h
                           ${PROJECT_SOURCE_DIR}/external/imgui/imgui.h
