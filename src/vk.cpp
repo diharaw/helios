@@ -339,62 +339,6 @@ Image::Ptr Image::create_from_swapchain(Backend::Ptr backend, VkImage image, VkI
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Image::Ptr Image::create_from_file(Backend::Ptr backend, std::string path, bool flip_vertical, bool srgb)
-{
-    int x, y, n;
-    stbi_set_flip_vertically_on_load(flip_vertical);
-
-    std::string ext = utility::file_extension(path);
-
-    if (ext == "hdr")
-    {
-        float* data = stbi_loadf(path.c_str(), &x, &y, &n, 0);
-
-        if (!data)
-            return nullptr;
-
-        Image::Ptr image = std::shared_ptr<Image>(new Image(backend, VK_IMAGE_TYPE_2D, (uint32_t)x, (uint32_t)y, 1, 0, 1, VK_FORMAT_R32G32B32_SFLOAT, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, x * y * sizeof(float) * 3, data));
-
-        stbi_image_free(data);
-
-        return image;
-    }
-    else
-    {
-        stbi_uc* data = stbi_load(path.c_str(), &x, &y, &n, 0);
-
-        if (!data)
-            return nullptr;
-
-        if (n == 3)
-        {
-            stbi_image_free(data);
-            data = stbi_load(path.c_str(), &x, &y, &n, 4);
-            n    = 4;
-        }
-
-        VkFormat format;
-
-        if (n == 1)
-            format = VK_FORMAT_R8_UNORM;
-        else
-        {
-            if (srgb)
-                format = VK_FORMAT_R8G8B8A8_SRGB;
-            else
-                format = VK_FORMAT_R8G8B8A8_UNORM;
-        }
-
-        Image::Ptr image = std::shared_ptr<Image>(new Image(backend, VK_IMAGE_TYPE_2D, (uint32_t)x, (uint32_t)y, 1, 0, 1, format, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, x * y * n, data));
-
-        stbi_image_free(data);
-
-        return image;
-    }
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
 Image::Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data) :
     Object(backend), m_type(type), m_width(width), m_height(height), m_depth(depth), m_mip_levels(mip_levels), m_array_size(array_size), m_format(format), m_memory_usage(memory_usage), m_sample_count(sample_count), m_usage(usage)
 {
@@ -3108,6 +3052,7 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
     VmaAllocatorCreateInfo allocator_info = {};
     allocator_info.physicalDevice         = m_vk_physical_device;
     allocator_info.device                 = m_vk_device;
+    allocator_info.instance               = m_vk_instance;
 
     if (vmaCreateAllocator(&allocator_info, &m_vma_allocator) != VK_SUCCESS)
     {
