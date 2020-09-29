@@ -9,7 +9,7 @@
 #include <vk.h>
 
 // Main method macro. Use this at the bottom of any cpp file.
-#define LUMEN_DECLARE_MAIN(class_name)        \
+#define LUMEN_DECLARE_MAIN(class_name)     \
     int main(int argc, const char* argv[]) \
     {                                      \
         class_name app;                    \
@@ -24,11 +24,11 @@ namespace lumen
 {
 struct Settings
 {
-    bool        resizable    = true;
-    bool        maximized    = false;
-    bool        enable_gui   = false;
-    int         width        = 800;
-    int         height       = 600;
+    bool                     resizable    = true;
+    bool                     maximized    = false;
+    bool                     enable_gui   = false;
+    int                      width        = 800;
+    int                      height       = 600;
     void*                    device_pnext = nullptr;
     std::vector<const char*> device_extensions;
 };
@@ -107,9 +107,9 @@ protected:
     std::array<bool, MAX_KEYS>          m_keys;
     std::array<bool, MAX_MOUSE_BUTTONS> m_mouse_buttons;
     GLFWwindow*                         m_window;
-    bool                            m_should_recreate_swap_chain = false;
-    vk::Backend::Ptr                m_vk_backend;
-    std::vector<vk::Semaphore::Ptr> m_image_available_semaphores;
-    std::vector<vk::Semaphore::Ptr> m_render_finished_semaphores;
+    bool                                m_should_recreate_swap_chain = false;
+    vk::Backend::Ptr                    m_vk_backend;
+    std::vector<vk::Semaphore::Ptr>     m_image_available_semaphores;
+    std::vector<vk::Semaphore::Ptr>     m_render_finished_semaphores;
 };
-} // namespace dw
+} // namespace lumen

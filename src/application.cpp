@@ -71,11 +71,11 @@ bool Application::init_base(int argc, const char* argv[])
     // Defaults
     Settings settings = intial_settings();
 
-    bool resizable    = settings.resizable;
-    bool maximized    = settings.maximized;
-    m_width           = settings.width;
-    m_height          = settings.height;
-    m_title           = "Lumen (c) 2020";
+    bool resizable = settings.resizable;
+    bool maximized = settings.maximized;
+    m_width        = settings.width;
+    m_height       = settings.height;
+    m_title        = "Lumen (c) 2020";
 
     if (glfwInit() != GLFW_TRUE)
     {
@@ -107,11 +107,11 @@ bool Application::init_base(int argc, const char* argv[])
     LUMEN_LOG_INFO("Successfully initialized platform!");
 
     m_vk_backend = vk::Backend::create(m_window,
-#    if defined(_DEBUG)
+#if defined(_DEBUG)
                                        true
-#    else
+#else
                                        false
-#    endif
+#endif
                                        ,
                                        true,
                                        settings.device_extensions,
@@ -228,7 +228,6 @@ void Application::shutdown_base()
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
-
 
 void Application::render_gui(vk::CommandBuffer::Ptr cmd_buf)
 {

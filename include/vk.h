@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <stack>
 
 struct GLFWwindow;
 struct VmaAllocator_T;
@@ -919,6 +920,51 @@ private:
 
 private:
     VkQueryPool m_vk_query_pool;
+};
+
+class StagingBuffer
+{
+public:
+    using Ptr = std::shared_ptr<StagingBuffer>;
+
+    static StagingBuffer::Ptr create(Backend::Ptr backend, const size_t& size);
+
+    // Insert the given data into the mapped staging buffer and returns the offset to said data from the start of the buffer.
+    size_t insert_data(void* data, const size_t& size);
+    ~StagingBuffer();
+
+    inline size_t      remaining_size() { return m_total_size - m_current_size; }
+    inline size_t      total_size() { return m_total_size; }
+    inline Buffer::Ptr buffer() { return m_buffer; }
+
+private:
+    StagingBuffer(Backend::Ptr backend, const size_t& size);
+
+private:
+    uint8_t*    m_mapped_ptr;
+    size_t      m_total_size   = 0;
+    size_t      m_current_size = 0;
+    Buffer::Ptr m_buffer;
+};
+
+class BatchUploader
+{
+public:
+    BatchUploader(Backend::Ptr backend);
+    ~BatchUploader();
+
+    void upload_buffer_data(Buffer::Ptr buffer, void* data, const size_t& offset, const size_t& size);
+    void upload_image_data(Image::Ptr image, void* data, const std::vector<size_t>& mip_level_sizes, VkImageLayout src_layout = VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout dst_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    void submit();
+
+private:
+    Buffer::Ptr insert_data(void* data, const size_t& size);
+    void        add_staging_buffer(const size_t& size);
+
+private:
+    CommandBuffer::Ptr             m_cmd;
+    std::weak_ptr<Backend>         m_backend;
+    std::stack<StagingBuffer::Ptr> m_staging_buffers;
 };
 
 namespace utilities

@@ -11,14 +11,14 @@
 #define LUMEN_ZERO_MEMORY(x) memset(&x, 0, sizeof(x))
 
 #define LUMEN_SAFE_DELETE(x) \
-    if (x)                \
-    {                     \
-        delete x;         \
-        x = nullptr;      \
+    if (x)                   \
+    {                        \
+        delete x;            \
+        x = nullptr;         \
     }
 #define LUMEN_SAFE_DELETE_ARRAY(x) \
-    if (x)                      \
-    {                           \
-        delete[] x;             \
-        x = nullptr;            \
+    if (x)                         \
+    {                              \
+        delete[] x;                \
+        x = nullptr;               \
     }

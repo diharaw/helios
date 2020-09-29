@@ -232,9 +232,9 @@ const char* get_vendor_name(uint32_t id)
     }
 }
 
-#    define MAX_DESCRIPTOR_POOL_THREADS 32
-#    define MAX_COMMAND_THREADS 32
-#    define MAX_THREAD_LOCAL_COMMAND_BUFFERS 8
+#define MAX_DESCRIPTOR_POOL_THREADS 32
+#define MAX_COMMAND_THREADS 32
+#define MAX_THREAD_LOCAL_COMMAND_BUFFERS 8
 
 struct ThreadLocalCommandBuffers
 {
@@ -2943,6 +2943,212 @@ QueryPool::QueryPool(Backend::Ptr backend, VkQueryType query_type, uint32_t quer
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+StagingBuffer::Ptr StagingBuffer::create(Backend::Ptr backend, const size_t& size)
+{
+    return std::shared_ptr<StagingBuffer>(new StagingBuffer(backend, size));
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+StagingBuffer::StagingBuffer(Backend::Ptr backend, const size_t& size) :
+    m_total_size(size)
+{
+    m_buffer     = Buffer::create(backend, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size, VMA_MEMORY_USAGE_CPU_ONLY, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+    m_mapped_ptr = (uint8_t*)m_buffer->mapped_ptr();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+StagingBuffer::~StagingBuffer()
+{
+    m_buffer.reset();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+size_t StagingBuffer::insert_data(void* data, const size_t& size)
+{
+    // If not enough space to insert the data, throw an error!
+    if (size > remaining_size())
+        throw std::runtime_error("(Vulkan) Not enough space available in Staging Buffer.");
+
+    // Keep current size as the offset to the start of this data segment.
+    size_t offset = m_current_size;
+
+    // Copy data into the mapped buffer.
+    memcpy(m_mapped_ptr, data, size);
+
+    // Increment pointer and current size.
+    m_mapped_ptr += size;
+    m_current_size += size;
+
+    // Return offset to the data segment.
+    return offset;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+BatchUploader::BatchUploader(Backend::Ptr backend) :
+    m_backend(backend)
+{
+    if (!m_backend.expired())
+    {
+        auto backend = m_backend.lock();
+        m_cmd        = backend->allocate_graphics_command_buffer(true);
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+BatchUploader::~BatchUploader()
+{
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void BatchUploader::upload_buffer_data(Buffer::Ptr buffer, void* data, const size_t& offset, const size_t& size)
+{
+    if (!m_backend.expired())
+    {
+        auto backend = m_backend.lock();
+
+        auto staging_buffer = insert_data(data, size);
+
+        VkBufferCopy copy_region;
+        LUMEN_ZERO_MEMORY(copy_region);
+
+        copy_region.dstOffset = offset;
+        copy_region.size      = size;
+
+        vkCmdCopyBuffer(m_cmd->handle(), staging_buffer->handle(), buffer->handle(), 1, &copy_region);
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void BatchUploader::upload_image_data(Image::Ptr image, void* data, const std::vector<size_t>& mip_level_sizes, VkImageLayout src_layout, VkImageLayout dst_layout)
+{
+    if (!m_backend.expired())
+    {
+        auto backend = m_backend.lock();
+
+        size_t size = 0;
+
+        for (const auto& region_size : mip_level_sizes)
+            size += region_size;
+
+        auto buffer = insert_data(data, size);
+
+        std::vector<VkBufferImageCopy> copy_regions;
+        size_t                         offset     = 0;
+        uint32_t                       region_idx = 0;
+
+        for (int array_idx = 0; array_idx < image->array_size(); array_idx++)
+        {
+            int width  = image->width();
+            int height = image->height();
+
+            for (int i = 0; i < image->mip_levels(); i++)
+            {
+                VkBufferImageCopy buffer_copy_region;
+                LUMEN_ZERO_MEMORY(buffer_copy_region);
+
+                buffer_copy_region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+                buffer_copy_region.imageSubresource.mipLevel       = i;
+                buffer_copy_region.imageSubresource.baseArrayLayer = array_idx;
+                buffer_copy_region.imageSubresource.layerCount     = 1;
+                buffer_copy_region.imageExtent.width               = width;
+                buffer_copy_region.imageExtent.height              = height;
+                buffer_copy_region.imageExtent.depth               = 1;
+                buffer_copy_region.bufferOffset                    = offset;
+
+                copy_regions.push_back(buffer_copy_region);
+
+                width  = std::max(1, width / 2);
+                height = std::max(1, (height / 2));
+
+                offset += mip_level_sizes[region_idx++];
+            }
+        }
+
+        VkImageSubresourceRange subresource_range;
+        LUMEN_ZERO_MEMORY(subresource_range);
+
+        subresource_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        subresource_range.baseMipLevel   = 0;
+        subresource_range.levelCount     = image->mip_levels();
+        subresource_range.layerCount     = image->array_size();
+        subresource_range.baseArrayLayer = 0;
+
+        if (src_layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+        {
+            // Image barrier for optimal image (target)
+            // Optimal image will be used as destination for the copy
+            utilities::set_image_layout(m_cmd->handle(),
+                                        image->handle(),
+                                        src_layout,
+                                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                        subresource_range);
+        }
+
+        // Copy mip levels from staging buffer
+        vkCmdCopyBufferToImage(m_cmd->handle(),
+                               buffer->handle(),
+                               image->handle(),
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                               copy_regions.size(),
+                               copy_regions.data());
+
+        if (dst_layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+        {
+            // Change texture image layout to shader read after all mip levels have been copied
+            utilities::set_image_layout(m_cmd->handle(),
+                                        image->handle(),
+                                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                        dst_layout,
+                                        subresource_range);
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+Buffer::Ptr BatchUploader::insert_data(void* data, const size_t& size)
+{
+    add_staging_buffer(size);
+
+    m_staging_buffers.top()->insert_data(data, size);
+
+    return m_staging_buffers.top()->buffer();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void BatchUploader::submit()
+{
+    if (!m_backend.expired())
+    {
+        auto backend = m_backend.lock();
+
+        vkEndCommandBuffer(m_cmd->handle());
+
+        backend->flush_graphics({ m_cmd });
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void BatchUploader::add_staging_buffer(const size_t& size)
+{
+    if (!m_backend.expired())
+    {
+        auto backend = m_backend.lock();
+        m_staging_buffers.push(StagingBuffer::create(backend, size));
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 Backend::Ptr Backend::create(GLFWwindow* window, bool enable_validation_layers, bool require_ray_tracing, std::vector<const char*> additional_device_extensions, void* pnext)
 {
     std::shared_ptr<Backend> backend = std::shared_ptr<Backend>(new Backend(window, enable_validation_layers, require_ray_tracing, additional_device_extensions, pnext));
@@ -4325,13 +4531,13 @@ VkPresentModeKHR Backend::choose_swap_present_mode(const std::vector<VkPresentMo
 VkExtent2D Backend::choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities)
 {
     // Causes macro issue on windows.
-#    ifdef max
-#        undef max
-#    endif
+#ifdef max
+#    undef max
+#endif
 
-#    ifdef min
-#        undef min
-#    endif
+#ifdef min
+#    undef min
+#endif
 
     VkSurfaceCapabilitiesKHR caps;
 
