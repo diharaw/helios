@@ -19,5 +19,8 @@ private:
 public:
     Texture(vk::Image::Ptr image, vk::ImageView::Ptr image_view);
     ~Texture();
+
+    inline vk::Image::Ptr     image() { return m_image; }
+    inline vk::ImageView::Ptr image_view() { return m_image_view; }
 };
 } // namespace lumen
