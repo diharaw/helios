@@ -40,7 +40,7 @@ public:
              glm::vec4                albedo_value    = glm::vec4(0.0f),
              float                    metallic_value  = 0.0f,
              float                    roughness_value = 0.0f,
-             bool                     orca = false);
+             bool                     orca            = false);
     ~Material();
 };
 } // namespace lumen

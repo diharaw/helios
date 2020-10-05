@@ -22,5 +22,9 @@ public:
          vk::Buffer::Ptr                vbo,
          vk::Buffer::Ptr                ibo);
     ~Mesh();
+
+    inline vk::AccelerationStructure::Ptr acceleration_structure() { return m_blas; }
+    inline vk::Buffer::Ptr                vertex_buffer() { return m_vbo; }
+    inline vk::Buffer::Ptr                index_buffer() { return m_ibo; }
 };
 } // namespace lumen
