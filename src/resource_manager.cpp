@@ -2,6 +2,7 @@
 #include <loader/loader.h>
 #include <logger.h>
 #include <utility.h>
+#include <vk_mem_alloc.h>
 
 namespace lumen
 {
@@ -128,7 +129,8 @@ Texture2D::Ptr ResourceManager::load_texture_2d_internal(const std::string& path
         return m_textures_2d[path];
     else
     {
-        ast::Image image;
+        vk::Backend::Ptr backend = m_backend.lock();
+        ast::Image       image;
 
         if (ast::load_image(absolute ? path : utility::path_for_resource("assets/" + path), image))
         {
@@ -153,19 +155,15 @@ Texture2D::Ptr ResourceManager::load_texture_2d_internal(const std::string& path
                         LUMEN_LOG_ERROR("SRGB textures can only be created from images with 3 or 4 color components!");
                 }
 
-                std::shared_ptr<Texture2D> texture = std::make_shared<Texture2D>(image.data[0][0].width,
-                                                                                 image.data[0][0].height,
-                                                                                 image.array_slices,
-                                                                                 image.mip_slices,
-                                                                                 1,
-                                                                                 internal_format,
-                                                                                 kFormatTable[image.components - 1],
-                                                                                 kTypeTable[type]);
+                vk::Image::Ptr     vk_image      = vk::Image::create(backend, VK_IMAGE_TYPE_2D, image.data[0][0].width, image.data[0][0].height, 1, image.mip_slices, image.array_slices, VK_FORMAT_A1R5G5B5_UNORM_PACK16, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_SAMPLED_BIT, VK_SAMPLE_COUNT_1_BIT);
+                vk::ImageView::Ptr vk_image_view = vk::ImageView::create(backend, vk_image, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT, 0, image.mip_slices, 0, image.array_slices);
+
+                std::shared_ptr<Texture2D> texture = std::make_shared<Texture2D>(vk_image, vk_image_view);
 
                 for (int32_t i = 0; i < image.array_slices; i++)
                 {
                     for (int32_t j = 0; j < image.mip_slices; j++)
-                        texture->set_data(i, j, image.data[i][j].data);
+                        texture->(i, j, image.data[i][j].data);
                 }
 
                 m_textures_2d[path] = texture;
