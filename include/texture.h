@@ -7,6 +7,11 @@ namespace lumen
 {
 class Texture
 {
+public:
+    using Ptr = std::shared_ptr<Texture>;
+
+    friend class ResourceManager;
+
 protected:
     vk::Image::Ptr     m_image;
     vk::ImageView::Ptr m_image_view;
