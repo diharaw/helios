@@ -96,9 +96,9 @@ Texture::Ptr create_image(const ast::Image& image, bool srgb, VkImageViewType im
         uploader.upload_image_data(vk_image, image_data.data(), mip_level_sizes);
 
         if (image_view_type == VK_IMAGE_VIEW_TYPE_2D)
-            return std::make_shared<Texture2D>(vk_image, vk_image_view);
+            return Texture2D::create(vk_image, vk_image_view);
         else if (image_view_type == VK_IMAGE_VIEW_TYPE_CUBE)
-            return std::make_shared<TextureCube>(vk_image, vk_image_view);
+            return TextureCube::create(vk_image, vk_image_view);
     }
 
     return nullptr;
@@ -210,11 +210,11 @@ Texture2D::Ptr ResourceManager::load_texture_2d_internal(const std::string& path
     else
     {
         vk::Backend::Ptr backend = m_backend.lock();
-        ast::Image       image;
+        ast::Image       ast_image;
 
-        if (ast::load_image(absolute ? path : utility::path_for_resource("assets/" + path), image))
+        if (ast::load_image(absolute ? path : utility::path_for_resource("assets/" + path), ast_image))
         {
-            auto texture = create_image(image, srgb, VK_IMAGE_VIEW_TYPE_2D, backend, uploader);
+            auto texture = create_image(ast_image, srgb, VK_IMAGE_VIEW_TYPE_2D, backend, uploader);
 
             if (texture)
             {
@@ -244,11 +244,11 @@ TextureCube::Ptr ResourceManager::load_texture_cube_internal(const std::string& 
     else
     {
         vk::Backend::Ptr backend = m_backend.lock();
-        ast::Image       image;
+        ast::Image       ast_image;
 
-        if (ast::load_image(absolute ? path : utility::path_for_resource("assets/" + path), image))
+        if (ast::load_image(absolute ? path : utility::path_for_resource("assets/" + path), ast_image))
         {
-            auto texture = create_image(image, srgb, VK_IMAGE_VIEW_TYPE_2D, backend, uploader);
+            auto texture = create_image(ast_image, srgb, VK_IMAGE_VIEW_TYPE_CUBE, backend, uploader);
 
             if (texture)
             {
@@ -273,6 +273,66 @@ TextureCube::Ptr ResourceManager::load_texture_cube_internal(const std::string& 
 
 Material::Ptr ResourceManager::load_material_internal(const std::string& path, bool absolute, vk::BatchUploader& uploader)
 {
+    if (m_materials.find(path) != m_materials.end())
+        return m_materials[path];
+    else
+    {
+        vk::Backend::Ptr backend = m_backend.lock();
+        ast::Material    ast_material;
+
+        if (ast::load_material(absolute ? path : utility::path_for_resource("assets/" + path), ast_material))
+        {
+            MaterialType type = ast_material.material_type == ast::MATERIAL_OPAQUE ? MATERIAL_OPAQUE : MATERIAL_TRANSPARENT;
+
+            Texture2D::Ptr albedo_texture    = nullptr;
+            Texture2D::Ptr emissive_texture  = nullptr;
+            Texture2D::Ptr normal_texture    = nullptr;
+            Texture2D::Ptr metallic_texture  = nullptr;
+            Texture2D::Ptr roughness_texture = nullptr;
+
+            glm::vec4 albedo_value    = glm::vec4(0.0f);
+            glm::vec4 emissive_value  = glm::vec4(0.0f);
+            float     metallic_value  = 0.0f;
+            float     roughness_value = 1.0f;
+
+            for (auto ast_texture : ast_material.textures)
+            {
+                if (ast_texture.type == ast::TEXTURE_ALBEDO)
+                    albedo_texture = load_texture_2d(ast_texture.path, ast_texture.srgb);
+                else if (ast_texture.type == ast::TEXTURE_EMISSIVE)
+                    emissive_texture = load_texture_2d(ast_texture.path, ast_texture.srgb);
+                else if (ast_texture.type == ast::TEXTURE_NORMAL)
+                    normal_texture = load_texture_2d(ast_texture.path, ast_texture.srgb);
+                else if (ast_texture.type == ast::TEXTURE_METALNESS_SPECULAR)
+                    metallic_texture = load_texture_2d(ast_texture.path, ast_texture.srgb);
+                else if (ast_texture.type == ast::TEXTURE_ROUGHNESS_GLOSSINESS)
+                    roughness_texture = load_texture_2d(ast_texture.path, ast_texture.srgb);
+            }
+
+            for (auto ast_property : ast_material.properties)
+            {
+                if (ast_property.type == ast::PROPERTY_ALBEDO)
+                    albedo_value = glm::vec4(ast_property.vec4_value[0], ast_property.vec4_value[1], ast_property.vec4_value[2], ast_property.vec4_value[3]);
+                if (ast_property.type == ast::PROPERTY_EMISSIVE)
+                    emissive_value = glm::vec4(ast_property.vec4_value[0], ast_property.vec4_value[1], ast_property.vec4_value[2], ast_property.vec4_value[3]);
+                if (ast_property.type == ast::PROPERTY_METALNESS_SPECULAR)
+                    metallic_value = ast_property.float_value;
+                if (ast_property.type == ast::PROPERTY_ROUGHNESS_GLOSSINESS)
+                    roughness_value = ast_property.float_value;
+            }
+
+            Material::Ptr material = Material::create(type, albedo_texture, normal_texture, metallic_texture, roughness_texture, emissive_texture, albedo_value, emissive_value, metallic_value, roughness_value, ast_material.orca);
+
+            m_materials[path] = material;
+
+            return material;
+        }
+        else
+        {
+            LUMEN_LOG_ERROR("Failed to load Material: " + path);
+            return nullptr;
+        }
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

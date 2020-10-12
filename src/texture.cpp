@@ -14,6 +14,14 @@ Texture::Texture(vk::Image::Ptr image, vk::ImageView::Ptr image_view) :
 Texture::~Texture()
 {
 }
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+Texture2D::Ptr Texture2D::create(vk::Image::Ptr image, vk::ImageView::Ptr image_view)
+{
+    return std::shared_ptr<Texture2D>(new Texture2D(image, image_view));
+}
+
 // -----------------------------------------------------------------------------------------------------------------------------------
 
 Texture2D::Texture2D(vk::Image::Ptr image, vk::ImageView::Ptr image_view) :
@@ -25,6 +33,13 @@ Texture2D::Texture2D(vk::Image::Ptr image, vk::ImageView::Ptr image_view) :
 
 Texture2D::~Texture2D()
 {
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+TextureCube::Ptr TextureCube::create(vk::Image::Ptr image, vk::ImageView::Ptr image_view)
+{
+    return std::shared_ptr<TextureCube>(new TextureCube(image, image_view));
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

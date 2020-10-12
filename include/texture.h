@@ -32,8 +32,11 @@ public:
     friend class ResourceManager;
 
 public:
-    Texture2D(vk::Image::Ptr image, vk::ImageView::Ptr image_view);
+    static Texture2D::Ptr create(vk::Image::Ptr image, vk::ImageView::Ptr image_view);
     ~Texture2D();
+
+private:
+    Texture2D(vk::Image::Ptr image, vk::ImageView::Ptr image_view);
 };
 
 class TextureCube : public Texture
@@ -44,7 +47,10 @@ public:
     friend class ResourceManager;
 
 public:
-    TextureCube(vk::Image::Ptr image, vk::ImageView::Ptr image_view);
+    static TextureCube::Ptr create(vk::Image::Ptr image, vk::ImageView::Ptr image_view);
     ~TextureCube();
+
+private:
+    TextureCube(vk::Image::Ptr image, vk::ImageView::Ptr image_view);
 };
 } // namespace lumen
