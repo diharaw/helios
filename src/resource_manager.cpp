@@ -339,6 +339,37 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
 
 Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool absolute, vk::BatchUploader& uploader)
 {
+    if (m_meshes.find(path) != m_meshes.end())
+        return m_meshes[path];
+    else
+    {
+        vk::Backend::Ptr backend = m_backend.lock();
+        ast::Mesh    ast_mesh;
+
+        if (ast::load_mesh(absolute ? path : utility::path_for_resource("assets/" + path), ast_mesh))
+        {
+            std::vector<Vertex>   vertices;
+            std::vector<uint32_t> indices;
+            std::vector<SubMesh> sub_meshes;
+            std::vector<Material> materials;
+
+            // Copy vertices
+
+            // Copy indices
+            indices = ast_mesh.indices;
+
+            Mesh::Ptr mesh = Mesh::create(backend, vertices, indices, sub_meshes, materials, uploader);
+
+            m_meshes[path] = mesh;
+
+            return mesh;
+        }
+        else
+        {
+            LUMEN_LOG_ERROR("Failed to load Mesh: " + path);
+            return nullptr;
+        }
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
