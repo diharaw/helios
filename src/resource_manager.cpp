@@ -298,15 +298,15 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
             for (auto ast_texture : ast_material.textures)
             {
                 if (ast_texture.type == ast::TEXTURE_ALBEDO)
-                    albedo_texture = load_texture_2d(ast_texture.path, ast_texture.srgb);
+                    albedo_texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, false, uploader);
                 else if (ast_texture.type == ast::TEXTURE_EMISSIVE)
-                    emissive_texture = load_texture_2d(ast_texture.path, ast_texture.srgb);
+                    emissive_texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, false, uploader);
                 else if (ast_texture.type == ast::TEXTURE_NORMAL)
-                    normal_texture = load_texture_2d(ast_texture.path, ast_texture.srgb);
+                    normal_texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, false, uploader);
                 else if (ast_texture.type == ast::TEXTURE_METALNESS_SPECULAR)
-                    metallic_texture = load_texture_2d(ast_texture.path, ast_texture.srgb);
+                    metallic_texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, false, uploader);
                 else if (ast_texture.type == ast::TEXTURE_ROUGHNESS_GLOSSINESS)
-                    roughness_texture = load_texture_2d(ast_texture.path, ast_texture.srgb);
+                    roughness_texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, false, uploader);
             }
 
             for (auto ast_property : ast_material.properties)
@@ -351,7 +351,7 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
             std::vector<Vertex>   vertices;
             std::vector<uint32_t> indices;
             std::vector<SubMesh> sub_meshes;
-            std::vector<Material> materials;
+            std::vector<Material::Ptr> materials;
 
             // Copy vertices
 
