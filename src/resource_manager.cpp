@@ -344,21 +344,44 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
     else
     {
         vk::Backend::Ptr backend = m_backend.lock();
-        ast::Mesh    ast_mesh;
+        ast::Mesh        ast_mesh;
 
         if (ast::load_mesh(absolute ? path : utility::path_for_resource("assets/" + path), ast_mesh))
         {
-            std::vector<Vertex>   vertices;
-            std::vector<uint32_t> indices;
-            std::vector<SubMesh> sub_meshes;
+            std::vector<Vertex>        vertices;
+            std::vector<SubMesh>       submeshes;
             std::vector<Material::Ptr> materials;
 
-            // Copy vertices
+            for (int i = 0; i < ast_mesh.vertices.size(); i++)
+            {
+                vertices[i].position  = glm::vec4(ast_mesh.vertices[i].position, 0.0f);
+                vertices[i].tex_coord = glm::vec4(ast_mesh.vertices[i].tex_coord, 0.0f, 0.0f);
+                vertices[i].normal    = glm::vec4(ast_mesh.vertices[i].normal, 0.0f);
+                vertices[i].tangent   = glm::vec4(ast_mesh.vertices[i].tangent, 0.0f);
+                vertices[i].bitangent = glm::vec4(ast_mesh.vertices[i].bitangent, 0.0f);
+            }
 
-            // Copy indices
-            indices = ast_mesh.indices;
+            for (int i = 0; i < ast_mesh.submeshes.size(); i++)
+            {
+                submeshes[i].name        = ast_mesh.submeshes[i].name;
+                submeshes[i].mat_idx     = ast_mesh.submeshes[i].material_index;
+                submeshes[i].index_count = ast_mesh.submeshes[i].index_count;
+                submeshes[i].base_vertex = ast_mesh.submeshes[i].base_vertex;
+                submeshes[i].base_index  = ast_mesh.submeshes[i].base_index;
+                submeshes[i].max_extents = ast_mesh.submeshes[i].max_extents;
+                submeshes[i].min_extents = ast_mesh.submeshes[i].min_extents;
+            }
 
-            Mesh::Ptr mesh = Mesh::create(backend, vertices, indices, sub_meshes, materials, uploader);
+            for (const auto& submesh : submeshes)
+            {
+                for (int i = submesh.base_index; i < (submesh.base_index + submesh.index_count); i++)
+                    vertices[submesh.base_vertex + ast_mesh.indices[i]].position.w = float(submesh.mat_idx);
+            }
+
+            for (int i = 0; i < ast_mesh.material_paths.size(); i++)
+                materials[i] = load_material(ast_mesh.material_paths[i]);
+
+            Mesh::Ptr mesh = Mesh::create(backend, vertices, ast_mesh.indices, submeshes, materials, uploader);
 
             m_meshes[path] = mesh;
 

@@ -73,11 +73,5 @@ private:
          std::vector<SubMesh>                   submeshes,
          std::vector<std::shared_ptr<Material>> materials,
          vk::BatchUploader&                     uploader);
-    Mesh(vk::Backend::Ptr                       backend,
-         std::vector<Vertex>                    vertices,
-         std::vector<uint32_t>                  indices,
-         std::vector<SubMesh>                   submeshes,
-         std::vector<std::shared_ptr<Material>> materials,
-         vk::BatchUploader&                     uploader);
 };
 } // namespace lumen
