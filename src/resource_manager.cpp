@@ -372,14 +372,16 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
                 submeshes[i].min_extents = ast_mesh.submeshes[i].min_extents;
             }
 
-            for (const auto& submesh : submeshes)
+            for (int submesh_idx = 0; submesh_idx < submeshes.size(); submesh_idx++)
             {
+                const auto& submesh = submeshes[submesh_idx];
+
                 for (int i = submesh.base_index; i < (submesh.base_index + submesh.index_count); i++)
-                    vertices[submesh.base_vertex + ast_mesh.indices[i]].position.w = float(submesh.mat_idx);
+                    vertices[submesh.base_vertex + ast_mesh.indices[i]].position.w = float(submesh_idx);
             }
 
             for (int i = 0; i < ast_mesh.material_paths.size(); i++)
-                materials[i] = load_material(ast_mesh.material_paths[i]);
+                materials[i] = load_material_internal(ast_mesh.material_paths[i], false, uploader);
 
             Mesh::Ptr mesh = Mesh::create(backend, vertices, ast_mesh.indices, submeshes, materials, uploader);
 
