@@ -46,6 +46,7 @@ public:
     {
         using Ptr = std::shared_ptr<TransformNode>;
 
+        bool      is_dirty                   = true;
         glm::vec3 position = glm::vec3(0.0f);
         glm::quat orientation = glm::quat(glm::radians(glm::vec3(0.0f)));
         glm::vec3 scale = glm::vec3(1.0f);
