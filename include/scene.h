@@ -27,32 +27,45 @@ public:
         NODE_IBL
     };
 
-    struct Node
+    class Node
     {
+    public:
         using Ptr = std::shared_ptr<Node>;
 
-        bool                               enabled = true;
-        std::string                        name;
-        Node*                              parent = nullptr;
-        std::vector<std::shared_ptr<Node>> children;
+    private:
+        NodeType                           m_type;
+        bool                               m_enabled = true;
+        std::string                        m_name;
+        Node*                              m_parent = nullptr;
+        std::vector<std::shared_ptr<Node>> m_children;
 
+    public:
+        Node(const NodeType& type, const std::string& name);
+        ~Node();
+        
         virtual void update() = 0;
         void         add_child(Node::Ptr child);
         Node::Ptr    find_child(const std::string& name);
         void         remove_child(const std::string& name);
     };
 
-    struct TransformNode : public Node
+    class TransformNode : public Node
     {
+    public:
         using Ptr = std::shared_ptr<TransformNode>;
 
-        bool      is_dirty                   = true;
-        glm::vec3 position = glm::vec3(0.0f);
-        glm::quat orientation = glm::quat(glm::radians(glm::vec3(0.0f)));
-        glm::vec3 scale = glm::vec3(1.0f);
-        glm::mat4 prev_model_matrix = glm::mat4(1.0f);
-        glm::mat4 model_matrix = glm::mat4(1.0f);
-        glm::mat4 model_matrix_without_scale = glm::mat4(1.0f);
+    private:
+        bool      m_is_dirty                   = true;
+        glm::vec3 m_position = glm::vec3(0.0f);
+        glm::quat m_orientation = glm::quat(glm::radians(glm::vec3(0.0f)));
+        glm::vec3 m_scale = glm::vec3(1.0f);
+        glm::mat4 m_prev_model_matrix = glm::mat4(1.0f);
+        glm::mat4 m_model_matrix = glm::mat4(1.0f);
+        glm::mat4 m_model_matrix_without_scale = glm::mat4(1.0f);
+
+    public:
+        TransformNode(const NodeType& type, const std::string& name);
+        ~TransformNode();
 
         void update() override;
 
@@ -65,29 +78,42 @@ public:
         void      rotate_euler_xyz(const glm::vec3& e);
     };
 
-    struct MeshNode : public TransformNode
+    class MeshNode : public TransformNode
     {
+    public:
         using Ptr = std::shared_ptr<MeshNode>;
 
-        std::string mesh_path;
-        std::string material_override_path;
-        std::shared_ptr<Mesh> mesh;
+    private:
+        std::string m_mesh_path;
+        std::string m_material_override_path;
+        std::shared_ptr<Mesh> m_mesh;
+
+    public:
+        MeshNode(const std::string& name);
+        ~MeshNode();
 
         void update() override;
     };
 
-    struct DirectionalLightNode : public TransformNode
+    class DirectionalLightNode : public TransformNode
     {
+    public:
         using Ptr = std::shared_ptr<TransformNode>;
 
+    private:
         glm::vec3 color;
         float     intensity;
 
+    public:
+        DirectionalLightNode(const std::string& name);
+        ~DirectionalLightNode();
+
         void update() override;
     };
 
-    struct SpotLightNode : public TransformNode
+    class SpotLightNode : public TransformNode
     {
+    public:
         using Ptr = std::shared_ptr<SpotLightNode>;
 
         glm::vec3 color;
@@ -95,40 +121,62 @@ public:
         float     range;
         float     intensity;
 
+    public:
+        SpotLightNode(const std::string& name);
+        ~SpotLightNode();
+
         void update() override;
     };
 
-    struct PointLightNode : public TransformNode
+    class PointLightNode : public TransformNode
     {
+    public:
         using Ptr = std::shared_ptr<PointLightNode>;
 
+    private:
         glm::vec3 color;
         float     range;
         float     intensity;
 
+    public:
+        PointLightNode(const std::string& name);
+        ~PointLightNode();
+
         void update() override;
     };
 
-    struct CameraNode : public TransformNode
+    class CameraNode : public TransformNode
     {
+    public:
         using Ptr = std::shared_ptr<CameraNode>;
 
+    private:
         float near_plane = 1.0f;
         float far_plane = 1000.0f;
         float fov = 60.0f;
         glm::mat4 view_matrix = glm::mat4(1.0f);
         glm::mat4 projection_matrix = glm::mat4(1.0f);
 
+    public:
+        CameraNode(const std::string& name);
+        ~CameraNode();
+
         void update() override;
     };
 
     struct IBLNode : public Node
     {
+    public:
         using Ptr = std::shared_ptr<IBLNode>;
 
+    private:
         std::string image_path;
         std::shared_ptr<TextureCube> image;
     
+    public:
+        IBLNode(const std::string& name);
+        ~IBLNode();
+
         void update() override;
     };
 
