@@ -56,6 +56,14 @@ void Scene::Node::remove_child(const std::string& name)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+void Scene::Node::update_children(RenderState& render_state)
+{
+    for (auto& child : m_children)
+        child->update(render_state);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 Scene::TransformNode::TransformNode(const Scene::NodeType& type, const std::string& name) :
     Node(type, name)
 {
@@ -69,7 +77,7 @@ Scene::TransformNode::~TransformNode()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::TransformNode::update()
+void Scene::TransformNode::update(RenderState& render_state)
 {
     glm::mat4 R = glm::mat4_cast(m_orientation);
     glm::mat4 S = glm::scale(glm::mat4(1.0f), m_scale);
@@ -83,9 +91,6 @@ void Scene::TransformNode::update()
 
     if (parent_transform)
         m_model_matrix = m_model_matrix * parent_transform->m_model_matrix;
-
-    for (auto& child : m_children)
-        child->update();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -178,15 +183,13 @@ Scene::MeshNode::MeshNode(const std::string& name) :
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::TransformNode::~TransformNode()
+void Scene::MeshNode::update(RenderState& render_state)
 {
-}
+    TransformNode::update(render_state);
 
-// -----------------------------------------------------------------------------------------------------------------------------------
+    render_state.meshes.push_back(this);
 
-void Scene::MeshNode::update()
-{
-    TransformNode::update();
+    update_children(render_state);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -204,9 +207,13 @@ Scene::DirectionalLightNode::~DirectionalLightNode()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::DirectionalLightNode::update()
+void Scene::DirectionalLightNode::update(RenderState& render_state)
 {
-    TransformNode::update();
+    TransformNode::update(render_state);
+
+    render_state.directional_lights.push_back(this);
+
+    update_children(render_state);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -224,9 +231,13 @@ Scene::SpotLightNode::~SpotLightNode()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::SpotLightNode::update()
+void Scene::SpotLightNode::update(RenderState& render_state)
 {
-    TransformNode::update();
+    TransformNode::update(render_state);
+
+    render_state.spot_lights.push_back(this);
+
+    update_children(render_state);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -244,9 +255,13 @@ Scene::PointLightNode::~PointLightNode()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::PointLightNode::update()
+void Scene::PointLightNode::update(RenderState& render_state)
 {
-    TransformNode::update();
+    TransformNode::update(render_state);
+
+    render_state.point_lights.push_back(this);
+
+    update_children(render_state);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -264,12 +279,17 @@ Scene::CameraNode::~CameraNode()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::CameraNode::update()
+void Scene::CameraNode::update(RenderState& render_state)
 {
-    TransformNode::update();
+    TransformNode::update(render_state);
 
     m_projection_matrix = glm::perspective(glm::radians(m_fov), 1.0f, m_near_plane, m_far_plane);
     m_view_matrix       = glm::inverse(m_model_matrix_without_scale);
+
+    if (!render_state.camera)
+        render_state.camera = this;
+
+    update_children(render_state);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -287,13 +307,49 @@ Scene::IBLNode::~IBLNode()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::IBLNode::update()
+void Scene::IBLNode::update(RenderState& render_state)
+{
+    if (!render_state.ibl_environment_map)
+        render_state.ibl_environment_map = this;
+
+    update_children(render_state);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+Scene::RenderState::RenderState()
+{
+    meshes.reserve(100000);
+    directional_lights.reserve(100000);
+    spot_lights.reserve(100000);
+    point_lights.reserve(100000);
+
+    clear();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+Scene::RenderState::~RenderState()
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::Scene(vk::Backend::Ptr backend, Node::Ptr root)
+void Scene::RenderState::clear()
+{
+    meshes.clear();
+    directional_lights.clear();
+    spot_lights.clear();
+    point_lights.clear();
+
+    camera              = nullptr;
+    ibl_environment_map = nullptr;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+Scene::Scene(vk::Backend::Ptr backend, Node::Ptr root) :
+    m_backend(backend), m_root(root)
 {
 }
 
@@ -301,6 +357,27 @@ Scene::Scene(vk::Backend::Ptr backend, Node::Ptr root)
 
 Scene::~Scene()
 {
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Scene::update(RenderState& render_state)
+{
+    m_root->update(render_state);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Scene::set_root_node(Node::Ptr node)
+{
+    m_root = node;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+Scene::Node::Ptr Scene::root_node()
+{
+    return m_root;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

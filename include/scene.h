@@ -4,6 +4,7 @@
 #include <glm.hpp>
 #include <gtc/quaternion.hpp>
 #include <memory>
+#include <vector>
 
 namespace lumen
 {
@@ -28,6 +29,8 @@ public:
         NODE_IBL
     };
 
+    struct RenderState;
+
     class Node
     {
     public:
@@ -44,10 +47,14 @@ public:
         Node(const NodeType& type, const std::string& name);
         ~Node();
         
-        virtual void update() = 0;
+        virtual void update(RenderState& render_state) = 0;
+
         void         add_child(Node::Ptr child);
         Node::Ptr    find_child(const std::string& name);
         void         remove_child(const std::string& name);
+
+    protected:
+        void update_children(RenderState& render_state);
     };
 
     class TransformNode : public Node
@@ -68,7 +75,7 @@ public:
         TransformNode(const NodeType& type, const std::string& name);
         ~TransformNode();
 
-        void update() override;
+        void update(RenderState& render_state) override;
 
         glm::vec3 forward();
         glm::vec3 up();
@@ -94,7 +101,7 @@ public:
         MeshNode(const std::string& name);
         ~MeshNode();
 
-        void update() override;
+        void update(RenderState& render_state) override;
 
         inline void set_mesh(std::shared_ptr<Mesh> mesh) { m_mesh = mesh; }
         inline void set_material_override(std::shared_ptr<Material> material_override) { m_material_override = material_override; }
@@ -115,7 +122,7 @@ public:
         DirectionalLightNode(const std::string& name);
         ~DirectionalLightNode();
 
-        void update() override;
+        void update(RenderState& render_state) override;
 
         inline void      set_color(const glm::vec3& color) { m_color = color; }
         inline void      set_intensity(const float& intensity) { m_intensity = intensity; }
@@ -137,7 +144,7 @@ public:
         SpotLightNode(const std::string& name);
         ~SpotLightNode();
 
-        void update() override;
+        void update(RenderState& render_state) override;
 
         inline void      set_color(const glm::vec3& color) { m_color = color; }
         inline void      set_intensity(const float& intensity) { m_intensity = intensity; }
@@ -163,7 +170,7 @@ public:
         PointLightNode(const std::string& name);
         ~PointLightNode();
 
-        void update() override;
+        void update(RenderState& render_state) override;
 
         inline void      set_color(const glm::vec3& color) { m_color = color; }
         inline void      set_intensity(const float& intensity) { m_intensity = intensity; }
@@ -189,7 +196,7 @@ public:
         CameraNode(const std::string& name);
         ~CameraNode();
 
-        void update() override;
+        void update(RenderState& render_state) override;
 
         inline void  set_near_plane(const float& near_plane) { m_near_plane = near_plane; }
         inline void  set_far_plane(const float& far_plane) { m_far_plane = far_plane; }
@@ -213,21 +220,39 @@ public:
         IBLNode(const std::string& name);
         ~IBLNode();
 
-        void update() override;
+        void update(RenderState& render_state) override;
 
         inline void                         set_image(std::shared_ptr<TextureCube> image) { m_image = image; }
         inline std::shared_ptr<TextureCube> image() { return m_image; }
     };
 
+    struct RenderState
+    {
+        std::vector<MeshNode*>             meshes;
+        std::vector<DirectionalLightNode*> directional_lights;
+        std::vector<SpotLightNode*>        spot_lights;
+        std::vector<PointLightNode*>       point_lights;
+        CameraNode*                        camera;
+        IBLNode*                           ibl_environment_map;
+
+        RenderState();
+        ~RenderState();
+
+        void clear();
+    };
+
 public:
-    Scene(vk::Backend::Ptr backend, Node::Ptr root);
+    Scene(vk::Backend::Ptr backend, Node::Ptr root = nullptr);
     ~Scene();
 
-    void update();
+    void update(RenderState& render_state);
+    void      set_root_node(Node::Ptr node);
+    Node::Ptr root_node();
 
 private:
     vk::AccelerationStructure::Ptr m_tlas;
     vk::DescriptorSet::Ptr         m_ds;
     Node::Ptr                      m_root;
+    vk::Backend::Ptr               m_backend;
 };
 } // namespace lumen
