@@ -39,9 +39,9 @@ public:
 
 protected:
     NodeType                           m_type;
-    bool                               m_is_dirty                 = true;
-    bool                               m_is_enabled               = true;
-    bool                               m_is_heirarchy_out_of_date = true;
+    bool                               m_is_enabled         = true;
+    bool                               m_is_transform_dirty = true;
+    bool                               m_is_heirarchy_dirty = true;
     std::string                        m_name;
     Node*                              m_parent = nullptr;
     std::vector<std::shared_ptr<Node>> m_children;
@@ -56,12 +56,13 @@ public:
     Node::Ptr   find_child(const std::string& name);
     void        remove_child(const std::string& name);
     inline bool is_enabled() { return m_is_enabled; }
+    inline bool is_transform_dirty() { return m_is_transform_dirty; }
     inline void enable() { m_is_enabled = true; }
     inline void disable() { m_is_enabled = false; }
 
 protected:
     void update_children(RenderState& render_state);
-    void mark_as_dirty();
+    void mark_transforms_as_dirty();
 };
 
 class TransformNode : public Node
@@ -87,7 +88,6 @@ public:
     glm::vec3 up();
     glm::vec3 left();
     glm::vec3 position();
-    bool      is_dirty();
     void      set_orientation_from_euler_yxz(const glm::vec3& e);
     void      set_orientation_from_euler_xyz(const glm::vec3& e);
     void      set_position(const glm::vec3& position);
@@ -233,11 +233,11 @@ public:
     inline std::shared_ptr<TextureCube> image() { return m_image; }
 };
 
-enum AccelerationStructureState
+enum SceneState
 {
-    ACCELERATION_STRUCTURE_READY,
-    ACCELERATION_STRUCTURE_REQUIRES_REBUILD,
-    ACCELERATION_STRUCTURE_REQUIRES_UPDATE
+    SCENE_STATE_READY,
+    SCENE_STATE_HIERARCHY_UPDATED,
+    SCENE_STATE_TRANSFORMS_UPDATED
 };
 
 struct RenderState
@@ -248,7 +248,7 @@ struct RenderState
     std::vector<PointLightNode*>       point_lights;
     CameraNode*                        camera;
     IBLNode*                           ibl_environment_map;
-    AccelerationStructureState         acceleration_structure_state = ACCELERATION_STRUCTURE_READY;
+    SceneState                         scene_structure_state = SCENE_STATE_READY;
 
     RenderState();
     ~RenderState();

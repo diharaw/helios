@@ -18,8 +18,8 @@ Node::~Node()
 
 void Node::add_child(Node::Ptr child)
 {
-    m_is_heirarchy_out_of_date = true;
-    child->m_parent            = this;
+    m_is_heirarchy_dirty = true;
+    child->m_parent      = this;
     m_children.push_back(child);
 }
 
@@ -40,7 +40,7 @@ Node::Ptr Node::find_child(const std::string& name)
 
 void Node::remove_child(const std::string& name)
 {
-    m_is_heirarchy_out_of_date = true;
+    m_is_heirarchy_dirty = true;
     int child_to_remove        = -1;
 
     for (int i = 0; i < m_children.size(); i++)
@@ -60,10 +60,10 @@ void Node::remove_child(const std::string& name)
 
 void Node::update_children(RenderState& render_state)
 {
-    if (m_is_heirarchy_out_of_date)
+    if (m_is_heirarchy_dirty)
     {
-        render_state.acceleration_structure_state = ACCELERATION_STRUCTURE_REQUIRES_REBUILD;
-        m_is_heirarchy_out_of_date                = false;
+        render_state.scene_structure_state = SCENE_STATE_HIERARCHY_UPDATED;
+        m_is_heirarchy_dirty               = false;
     }
 
     for (auto& child : m_children)
@@ -72,12 +72,12 @@ void Node::update_children(RenderState& render_state)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Node::mark_as_dirty()
+void Node::mark_transforms_as_dirty()
 {
-    m_is_dirty = true;
+    m_is_transform_dirty = true;
 
     for (auto& child : m_children)
-        child->mark_as_dirty();
+        child->mark_transforms_as_dirty();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -97,7 +97,7 @@ TransformNode::~TransformNode()
 
 void TransformNode::update(RenderState& render_state)
 {
-    if (m_is_dirty)
+    if (m_is_transform_dirty)
     {
         glm::mat4 R = glm::mat4_cast(m_orientation);
         glm::mat4 S = glm::scale(glm::mat4(1.0f), m_scale);
@@ -112,10 +112,10 @@ void TransformNode::update(RenderState& render_state)
         if (parent_transform)
             m_model_matrix = m_model_matrix * parent_transform->m_model_matrix;
 
-        if (render_state.acceleration_structure_state != ACCELERATION_STRUCTURE_REQUIRES_REBUILD)
-            render_state.acceleration_structure_state = ACCELERATION_STRUCTURE_REQUIRES_UPDATE;
+        if (render_state.scene_structure_state != SCENE_STATE_HIERARCHY_UPDATED)
+            render_state.scene_structure_state = SCENE_STATE_TRANSFORMS_UPDATED;
 
-        m_is_dirty = false;
+        m_is_transform_dirty = false;
     }
 }
 
@@ -149,13 +149,6 @@ glm::vec3 TransformNode::position()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-bool TransformNode::is_dirty()
-{
-    return m_is_dirty;
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
 void TransformNode::set_orientation_from_euler_yxz(const glm::vec3& e)
 {
     glm::quat pitch = glm::quat(glm::vec3(glm::radians(e.x), glm::radians(0.0f), glm::radians(0.0f)));
@@ -169,7 +162,7 @@ void TransformNode::set_orientation_from_euler_yxz(const glm::vec3& e)
 
 void TransformNode::set_orientation_from_euler_xyz(const glm::vec3& e)
 {
-    mark_as_dirty();
+    mark_transforms_as_dirty();
 
     glm::quat pitch = glm::quat(glm::vec3(glm::radians(e.x), glm::radians(0.0f), glm::radians(0.0f)));
     glm::quat yaw   = glm::quat(glm::vec3(glm::radians(0.0f), glm::radians(e.y), glm::radians(0.0f)));
@@ -182,7 +175,7 @@ void TransformNode::set_orientation_from_euler_xyz(const glm::vec3& e)
 
 void TransformNode::set_position(const glm::vec3& position)
 {
-    mark_as_dirty();
+    mark_transforms_as_dirty();
 
     m_position = position;
 }
@@ -191,7 +184,7 @@ void TransformNode::set_position(const glm::vec3& position)
 
 void TransformNode::rotate_euler_yxz(const glm::vec3& e)
 {
-    mark_as_dirty();
+    mark_transforms_as_dirty();
 
     glm::quat pitch = glm::quat(glm::vec3(glm::radians(e.x), glm::radians(0.0f), glm::radians(0.0f)));
     glm::quat yaw   = glm::quat(glm::vec3(glm::radians(0.0f), glm::radians(e.y), glm::radians(0.0f)));
@@ -205,7 +198,7 @@ void TransformNode::rotate_euler_yxz(const glm::vec3& e)
 
 void TransformNode::rotate_euler_xyz(const glm::vec3& e)
 {
-    mark_as_dirty();
+    mark_transforms_as_dirty();
 
     glm::quat pitch = glm::quat(glm::vec3(glm::radians(e.x), glm::radians(0.0f), glm::radians(0.0f)));
     glm::quat yaw   = glm::quat(glm::vec3(glm::radians(0.0f), glm::radians(e.y), glm::radians(0.0f)));
@@ -410,7 +403,7 @@ void RenderState::clear()
 
     camera                       = nullptr;
     ibl_environment_map          = nullptr;
-    acceleration_structure_state = ACCELERATION_STRUCTURE_READY;
+    scene_structure_state = SCENE_STATE_READY;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
