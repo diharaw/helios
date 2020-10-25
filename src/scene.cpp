@@ -4,27 +4,28 @@ namespace lumen
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::Node::Node(const Scene::NodeType& type, const std::string& name)
+Node::Node(const NodeType& type, const std::string& name)
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::Node::~Node()
+Node::~Node()
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::Node::add_child(Node::Ptr child)
+void Node::add_child(Node::Ptr child)
 {
-    child->m_parent = this;
+    m_is_heirarchy_out_of_date = true;
+    child->m_parent            = this;
     m_children.push_back(child);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::Node::Ptr Scene::Node::find_child(const std::string& name)
+Node::Ptr Node::find_child(const std::string& name)
 {
     for (auto child : m_children)
     {
@@ -37,9 +38,10 @@ Scene::Node::Ptr Scene::Node::find_child(const std::string& name)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::Node::remove_child(const std::string& name)
+void Node::remove_child(const std::string& name)
 {
-    int child_to_remove = -1;
+    m_is_heirarchy_out_of_date = true;
+    int child_to_remove        = -1;
 
     for (int i = 0; i < m_children.size(); i++)
     {
@@ -56,74 +58,105 @@ void Scene::Node::remove_child(const std::string& name)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::Node::update_children(RenderState& render_state)
+void Node::update_children(RenderState& render_state)
 {
+    if (m_is_heirarchy_out_of_date)
+    {
+        render_state.acceleration_structure_state = ACCELERATION_STRUCTURE_REQUIRES_REBUILD;
+        m_is_heirarchy_out_of_date                = false;
+    }
+
     for (auto& child : m_children)
         child->update(render_state);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::TransformNode::TransformNode(const Scene::NodeType& type, const std::string& name) :
+void Node::mark_as_dirty()
+{
+    m_is_dirty = true;
+
+    for (auto& child : m_children)
+        child->mark_as_dirty();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+TransformNode::TransformNode(const NodeType& type, const std::string& name) :
     Node(type, name)
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::TransformNode::~TransformNode()
+TransformNode::~TransformNode()
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::TransformNode::update(RenderState& render_state)
+void TransformNode::update(RenderState& render_state)
 {
-    glm::mat4 R = glm::mat4_cast(m_orientation);
-    glm::mat4 S = glm::scale(glm::mat4(1.0f), m_scale);
-    glm::mat4 T = glm::translate(glm::mat4(1.0f), m_position);
+    if (m_is_dirty)
+    {
+        glm::mat4 R = glm::mat4_cast(m_orientation);
+        glm::mat4 S = glm::scale(glm::mat4(1.0f), m_scale);
+        glm::mat4 T = glm::translate(glm::mat4(1.0f), m_position);
 
-    m_prev_model_matrix          = m_model_matrix;
-    m_model_matrix_without_scale = T * R;
-    m_model_matrix               = m_model_matrix_without_scale * S;
+        m_prev_model_matrix          = m_model_matrix;
+        m_model_matrix_without_scale = T * R;
+        m_model_matrix               = m_model_matrix_without_scale * S;
 
-    TransformNode* parent_transform = dynamic_cast<TransformNode*>(m_parent);
+        TransformNode* parent_transform = dynamic_cast<TransformNode*>(m_parent);
 
-    if (parent_transform)
-        m_model_matrix = m_model_matrix * parent_transform->m_model_matrix;
+        if (parent_transform)
+            m_model_matrix = m_model_matrix * parent_transform->m_model_matrix;
+
+        if (render_state.acceleration_structure_state != ACCELERATION_STRUCTURE_REQUIRES_REBUILD)
+            render_state.acceleration_structure_state = ACCELERATION_STRUCTURE_REQUIRES_UPDATE;
+
+        m_is_dirty = false;
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-glm::vec3 Scene::TransformNode::forward()
+glm::vec3 TransformNode::forward()
 {
     return m_orientation * glm::vec3(0.0f, 0.0f, 1.0f);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-glm::vec3 Scene::TransformNode::up()
+glm::vec3 TransformNode::up()
 {
     return m_orientation * glm::vec3(0.0f, 1.0f, 0.0f);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-glm::vec3 Scene::TransformNode::left()
+glm::vec3 TransformNode::left()
 {
     return m_orientation * glm::vec3(1.0f, 0.0f, 0.0f);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-glm::vec3 Scene::TransformNode::position()
+glm::vec3 TransformNode::position()
 {
     return m_position;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::TransformNode::set_orientation_from_euler_yxz(const glm::vec3& e)
+bool TransformNode::is_dirty()
+{
+    return m_is_dirty;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void TransformNode::set_orientation_from_euler_yxz(const glm::vec3& e)
 {
     glm::quat pitch = glm::quat(glm::vec3(glm::radians(e.x), glm::radians(0.0f), glm::radians(0.0f)));
     glm::quat yaw   = glm::quat(glm::vec3(glm::radians(0.0f), glm::radians(e.y), glm::radians(0.0f)));
@@ -134,8 +167,10 @@ void Scene::TransformNode::set_orientation_from_euler_yxz(const glm::vec3& e)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::TransformNode::set_orientation_from_euler_xyz(const glm::vec3& e)
+void TransformNode::set_orientation_from_euler_xyz(const glm::vec3& e)
 {
+    mark_as_dirty();
+
     glm::quat pitch = glm::quat(glm::vec3(glm::radians(e.x), glm::radians(0.0f), glm::radians(0.0f)));
     glm::quat yaw   = glm::quat(glm::vec3(glm::radians(0.0f), glm::radians(e.y), glm::radians(0.0f)));
     glm::quat roll  = glm::quat(glm::vec3(glm::radians(0.0f), glm::radians(0.0f), glm::radians(e.z)));
@@ -145,15 +180,19 @@ void Scene::TransformNode::set_orientation_from_euler_xyz(const glm::vec3& e)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::TransformNode::set_position(const glm::vec3& position)
+void TransformNode::set_position(const glm::vec3& position)
 {
+    mark_as_dirty();
+
     m_position = position;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::TransformNode::rotate_euler_yxz(const glm::vec3& e)
+void TransformNode::rotate_euler_yxz(const glm::vec3& e)
 {
+    mark_as_dirty();
+
     glm::quat pitch = glm::quat(glm::vec3(glm::radians(e.x), glm::radians(0.0f), glm::radians(0.0f)));
     glm::quat yaw   = glm::quat(glm::vec3(glm::radians(0.0f), glm::radians(e.y), glm::radians(0.0f)));
     glm::quat roll  = glm::quat(glm::vec3(glm::radians(0.0f), glm::radians(0.0f), glm::radians(e.z)));
@@ -164,8 +203,10 @@ void Scene::TransformNode::rotate_euler_yxz(const glm::vec3& e)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::TransformNode::rotate_euler_xyz(const glm::vec3& e)
+void TransformNode::rotate_euler_xyz(const glm::vec3& e)
 {
+    mark_as_dirty();
+
     glm::quat pitch = glm::quat(glm::vec3(glm::radians(e.x), glm::radians(0.0f), glm::radians(0.0f)));
     glm::quat yaw   = glm::quat(glm::vec3(glm::radians(0.0f), glm::radians(e.y), glm::radians(0.0f)));
     glm::quat roll  = glm::quat(glm::vec3(glm::radians(0.0f), glm::radians(0.0f), glm::radians(e.z)));
@@ -176,148 +217,173 @@ void Scene::TransformNode::rotate_euler_xyz(const glm::vec3& e)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::MeshNode::MeshNode(const std::string& name) :
-    TransformNode(Scene::NODE_MESH, name)
+MeshNode::MeshNode(const std::string& name) :
+    TransformNode(NODE_MESH, name)
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::MeshNode::update(RenderState& render_state)
+MeshNode::~MeshNode()
 {
-    TransformNode::update(render_state);
 
-    render_state.meshes.push_back(this);
-
-    update_children(render_state);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::DirectionalLightNode::DirectionalLightNode(const std::string& name) :
-    TransformNode(Scene::NODE_DIRECTIONAL_LIGHT, name)
+void MeshNode::update(RenderState& render_state)
 {
+    if (m_is_enabled)
+    {
+        TransformNode::update(render_state);
+
+        render_state.meshes.push_back(this);
+
+        update_children(render_state);
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::DirectionalLightNode::~DirectionalLightNode()
-{
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-void Scene::DirectionalLightNode::update(RenderState& render_state)
-{
-    TransformNode::update(render_state);
-
-    render_state.directional_lights.push_back(this);
-
-    update_children(render_state);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-Scene::SpotLightNode::SpotLightNode(const std::string& name) :
-    TransformNode(Scene::NODE_SPOT_LIGHT, name)
+DirectionalLightNode::DirectionalLightNode(const std::string& name) :
+    TransformNode(NODE_DIRECTIONAL_LIGHT, name)
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::SpotLightNode::~SpotLightNode()
+DirectionalLightNode::~DirectionalLightNode()
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::SpotLightNode::update(RenderState& render_state)
+void DirectionalLightNode::update(RenderState& render_state)
 {
-    TransformNode::update(render_state);
+    if (m_is_enabled)
+    {
+        TransformNode::update(render_state);
 
-    render_state.spot_lights.push_back(this);
+        render_state.directional_lights.push_back(this);
 
-    update_children(render_state);
+        update_children(render_state);
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::PointLightNode::PointLightNode(const std::string& name) :
-    TransformNode(Scene::NODE_POINT_LIGHT, name)
-{
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-Scene::PointLightNode::~PointLightNode()
+SpotLightNode::SpotLightNode(const std::string& name) :
+    TransformNode(NODE_SPOT_LIGHT, name)
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::PointLightNode::update(RenderState& render_state)
-{
-    TransformNode::update(render_state);
-
-    render_state.point_lights.push_back(this);
-
-    update_children(render_state);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-Scene::CameraNode::CameraNode(const std::string& name) :
-    TransformNode(Scene::NODE_CAMERA, name)
+SpotLightNode::~SpotLightNode()
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::CameraNode::~CameraNode()
+void SpotLightNode::update(RenderState& render_state)
+{
+    if (m_is_enabled)
+    {
+        TransformNode::update(render_state);
+
+        render_state.spot_lights.push_back(this);
+
+        update_children(render_state);
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+PointLightNode::PointLightNode(const std::string& name) :
+    TransformNode(NODE_POINT_LIGHT, name)
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::CameraNode::update(RenderState& render_state)
-{
-    TransformNode::update(render_state);
-
-    m_projection_matrix = glm::perspective(glm::radians(m_fov), 1.0f, m_near_plane, m_far_plane);
-    m_view_matrix       = glm::inverse(m_model_matrix_without_scale);
-
-    if (!render_state.camera)
-        render_state.camera = this;
-
-    update_children(render_state);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-Scene::IBLNode::IBLNode(const std::string& name) :
-    Node(Scene::NODE_IBL, name)
+PointLightNode::~PointLightNode()
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::IBLNode::~IBLNode()
+void PointLightNode::update(RenderState& render_state)
+{
+    if (m_is_enabled)
+    {
+        TransformNode::update(render_state);
+
+        render_state.point_lights.push_back(this);
+
+        update_children(render_state);
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+CameraNode::CameraNode(const std::string& name) :
+    TransformNode(NODE_CAMERA, name)
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::IBLNode::update(RenderState& render_state)
+CameraNode::~CameraNode()
 {
-    if (!render_state.ibl_environment_map)
-        render_state.ibl_environment_map = this;
-
-    update_children(render_state);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::RenderState::RenderState()
+void CameraNode::update(RenderState& render_state)
+{
+    if (m_is_enabled)
+    {
+        TransformNode::update(render_state);
+
+        m_projection_matrix = glm::perspective(glm::radians(m_fov), 1.0f, m_near_plane, m_far_plane);
+        m_view_matrix       = glm::inverse(m_model_matrix_without_scale);
+
+        if (!render_state.camera)
+            render_state.camera = this;
+
+        update_children(render_state);
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+IBLNode::IBLNode(const std::string& name) :
+    Node(NODE_IBL, name)
+{
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+IBLNode::~IBLNode()
+{
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void IBLNode::update(RenderState& render_state)
+{
+    if (m_is_enabled)
+    {
+        if (!render_state.ibl_environment_map)
+            render_state.ibl_environment_map = this;
+
+        update_children(render_state);
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+RenderState::RenderState()
 {
     meshes.reserve(100000);
     directional_lights.reserve(100000);
@@ -329,21 +395,22 @@ Scene::RenderState::RenderState()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::RenderState::~RenderState()
+RenderState::~RenderState()
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Scene::RenderState::clear()
+void RenderState::clear()
 {
     meshes.clear();
     directional_lights.clear();
     spot_lights.clear();
     point_lights.clear();
 
-    camera              = nullptr;
-    ibl_environment_map = nullptr;
+    camera                       = nullptr;
+    ibl_environment_map          = nullptr;
+    acceleration_structure_state = ACCELERATION_STRUCTURE_READY;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -375,7 +442,7 @@ void Scene::set_root_node(Node::Ptr node)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::Node::Ptr Scene::root_node()
+Node::Ptr Scene::root_node()
 {
     return m_root;
 }

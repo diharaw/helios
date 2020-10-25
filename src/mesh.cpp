@@ -22,9 +22,8 @@ Mesh::Ptr Mesh::create(vk::Backend::Ptr                       backend,
                        std::vector<uint32_t>                  indices,
                        std::vector<SubMesh>                   submeshes,
                        std::vector<std::shared_ptr<Material>> materials,
-                       vk::BatchUploader&                     uploader) 
+                       vk::BatchUploader&                     uploader)
 {
-    
     vk::Buffer::Ptr vbo = vk::Buffer::create(backend, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Vertex) * vertices.size(), VMA_MEMORY_USAGE_GPU_ONLY, 0);
     vk::Buffer::Ptr ibo = vk::Buffer::create(backend, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(uint32_t) * indices.size(), VMA_MEMORY_USAGE_GPU_ONLY, 0);
 

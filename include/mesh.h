@@ -37,11 +37,11 @@ public:
     friend class ResourceManager;
 
 private:
-    vk::AccelerationStructure::Ptr m_blas;
-    vk::Buffer::Ptr                m_vbo;
-    vk::Buffer::Ptr                m_ibo;
-    std::vector<VkGeometryNV>      m_geometries;
-    std::vector<SubMesh>           m_sub_meshes;
+    vk::AccelerationStructure::Ptr         m_blas;
+    vk::Buffer::Ptr                        m_vbo;
+    vk::Buffer::Ptr                        m_ibo;
+    std::vector<VkGeometryNV>              m_geometries;
+    std::vector<SubMesh>                   m_sub_meshes;
     std::vector<std::shared_ptr<Material>> m_materials;
 
 public:
@@ -60,11 +60,11 @@ public:
     ~Mesh();
 
     inline const std::vector<std::shared_ptr<Material>>& materials() { return m_materials; }
-    inline const std::vector<SubMesh>&      sub_meshes() { return m_sub_meshes; }
-    inline const std::vector<VkGeometryNV>& geometries() { return m_geometries; }
-    inline vk::AccelerationStructure::Ptr acceleration_structure() { return m_blas; }
-    inline vk::Buffer::Ptr                vertex_buffer() { return m_vbo; }
-    inline vk::Buffer::Ptr                index_buffer() { return m_ibo; }
+    inline const std::vector<SubMesh>&                   sub_meshes() { return m_sub_meshes; }
+    inline const std::vector<VkGeometryNV>&              geometries() { return m_geometries; }
+    inline vk::AccelerationStructure::Ptr                acceleration_structure() { return m_blas; }
+    inline vk::Buffer::Ptr                               vertex_buffer() { return m_vbo; }
+    inline vk::Buffer::Ptr                               index_buffer() { return m_ibo; }
 
 private:
     Mesh(vk::Backend::Ptr                       backend,
