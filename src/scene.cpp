@@ -41,7 +41,7 @@ Node::Ptr Node::find_child(const std::string& name)
 void Node::remove_child(const std::string& name)
 {
     m_is_heirarchy_dirty = true;
-    int child_to_remove        = -1;
+    int child_to_remove  = -1;
 
     for (int i = 0; i < m_children.size(); i++)
     {
@@ -62,8 +62,8 @@ void Node::update_children(RenderState& render_state)
 {
     if (m_is_heirarchy_dirty)
     {
-        render_state.scene_structure_state = SCENE_STATE_HIERARCHY_UPDATED;
-        m_is_heirarchy_dirty               = false;
+        render_state.scene_state = SCENE_STATE_HIERARCHY_UPDATED;
+        m_is_heirarchy_dirty     = false;
     }
 
     for (auto& child : m_children)
@@ -112,8 +112,8 @@ void TransformNode::update(RenderState& render_state)
         if (parent_transform)
             m_model_matrix = m_model_matrix * parent_transform->m_model_matrix;
 
-        if (render_state.scene_structure_state != SCENE_STATE_HIERARCHY_UPDATED)
-            render_state.scene_structure_state = SCENE_STATE_TRANSFORMS_UPDATED;
+        if (render_state.scene_state != SCENE_STATE_HIERARCHY_UPDATED)
+            render_state.scene_state = SCENE_STATE_TRANSFORMS_UPDATED;
 
         m_is_transform_dirty = false;
     }
@@ -219,7 +219,6 @@ MeshNode::MeshNode(const std::string& name) :
 
 MeshNode::~MeshNode()
 {
-
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -401,9 +400,9 @@ void RenderState::clear()
     spot_lights.clear();
     point_lights.clear();
 
-    camera                       = nullptr;
-    ibl_environment_map          = nullptr;
-    scene_structure_state = SCENE_STATE_READY;
+    camera              = nullptr;
+    ibl_environment_map = nullptr;
+    scene_state         = SCENE_STATE_READY;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -411,6 +410,11 @@ void RenderState::clear()
 Scene::Scene(vk::Backend::Ptr backend, Node::Ptr root) :
     m_backend(backend), m_root(root)
 {
+    // TODO: Create acceleration structure
+    // TODO: Create descriptor pool
+    // TODO: Allocate descriptor set
+    // TODO: Create light data buffer
+    // TODO: Create material data buffer
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -424,6 +428,22 @@ Scene::~Scene()
 void Scene::update(RenderState& render_state)
 {
     m_root->update(render_state);
+
+    if (render_state.scene_state != SCENE_STATE_READY)
+    {
+        if (render_state.scene_state == SCENE_STATE_HIERARCHY_UPDATED)
+        {
+            // TODO: Copy material data
+            // TODO: Recreate material indices buffers
+            // TODO: Recreate texture descriptor array
+            // TODO: Recreate vbo descriptor array
+            // TODO: Recreate ibo descriptor array
+            // TODO: Recreate material indices buffer descriptor array
+            // TODO: Copy descriptors 
+        }
+
+        // TODO: Copy lights 
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

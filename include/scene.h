@@ -248,7 +248,7 @@ struct RenderState
     std::vector<PointLightNode*>       point_lights;
     CameraNode*                        camera;
     IBLNode*                           ibl_environment_map;
-    SceneState                         scene_structure_state = SCENE_STATE_READY;
+    SceneState                         scene_state = SCENE_STATE_READY;
 
     RenderState();
     ~RenderState();
@@ -274,6 +274,10 @@ public:
 private:
     AccelerationStructureData m_tlas;
     Node::Ptr                 m_root;
+    vk::DescriptorSet::Ptr    m_descriptor_set;
+    vk::Buffer::Ptr           m_light_data_buffer;
+    vk::Buffer::Ptr           m_material_data_buffer;
+    std::vector<vk::Buffer::Ptr> m_material_indices_buffers;
     vk::Backend::Ptr          m_backend;
 };
 } // namespace lumen
