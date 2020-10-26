@@ -1,7 +1,27 @@
 #include <scene.h>
+#include <macros.h>
+#include <vk_mem_alloc.h>
 
 namespace lumen
 {
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+struct GPUMaterial
+{
+    glm::ivec4 texture_indices0;
+    glm::ivec4 texture_indices1;
+    glm::vec4  albedo;
+    glm::vec4  emissive;
+    glm::vec4  roughness_metallic_orca;
+};
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+struct GPULight
+{
+
+};
+
 // -----------------------------------------------------------------------------------------------------------------------------------
 
 Node::Node(const NodeType& type, const std::string& name)
@@ -410,11 +430,54 @@ void RenderState::clear()
 Scene::Scene(vk::Backend::Ptr backend, Node::Ptr root) :
     m_backend(backend), m_root(root)
 {
-    // TODO: Create acceleration structure
-    // TODO: Create descriptor pool
-    // TODO: Allocate descriptor set
-    // TODO: Create light data buffer
-    // TODO: Create material data buffer
+    // Allocate instance buffers
+    m_tlas.instance_buffer_device = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
+    m_tlas.instance_buffer_host   = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_CPU_COPY, 0);
+
+    // Create top-level acceleration structure
+    vk::AccelerationStructure::Desc desc;
+
+    desc.set_instance_count(MAX_SCENE_MESH_COUNT);
+    desc.set_type(VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV);
+
+    m_tlas.tlas = vk::AccelerationStructure::create(backend, desc);
+
+    // Allocate descriptor set
+    vk::DescriptorSetLayout::Desc ds_layout_desc;
+
+    // VBOs
+    ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    // IBOs
+    ds_layout_desc.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    // Material Data
+    ds_layout_desc.add_binding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    // Material Indices
+    ds_layout_desc.add_binding(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    // Material Textures
+    ds_layout_desc.add_binding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SCENE_MATERIAL_TEXTURE_COUNT, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
+
+    std::vector<VkDescriptorBindingFlagsEXT> descriptor_binding_flags = {
+        VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT
+    };
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT set_layout_binding_flags;
+    LUMEN_ZERO_MEMORY(set_layout_binding_flags);
+
+    set_layout_binding_flags.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
+    set_layout_binding_flags.bindingCount  = 1;
+    set_layout_binding_flags.pBindingFlags = descriptor_binding_flags.data();
+
+    ds_layout_desc.set_next_ptr(&set_layout_binding_flags);
+
+    m_descriptor_set_layout = vk::DescriptorSetLayout::create(backend, ds_layout_desc);
+
+    m_descriptor_set = backend->allocate_descriptor_set(m_descriptor_set_layout);
+
+    // Create light data buffer
+    m_light_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(GPULight) * MAX_SCENE_LIGHT_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, 0);
+
+    // Create material data buffer
+    m_material_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(GPUMaterial) * MAX_SCENE_MATERIAL_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, 0);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -439,10 +502,10 @@ void Scene::update(RenderState& render_state)
             // TODO: Recreate vbo descriptor array
             // TODO: Recreate ibo descriptor array
             // TODO: Recreate material indices buffer descriptor array
-            // TODO: Copy descriptors 
+            // TODO: Copy descriptors
         }
 
-        // TODO: Copy lights 
+        // TODO: Copy lights
     }
 }
 

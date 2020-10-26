@@ -8,6 +8,11 @@
 
 namespace lumen
 {
+#define MAX_SCENE_MESH_COUNT 100000
+#define MAX_SCENE_LIGHT_COUNT 100000
+#define MAX_SCENE_MATERIAL_COUNT 4096
+#define MAX_SCENE_MATERIAL_TEXTURE_COUNT (MAX_SCENE_MATERIAL_COUNT * 4)
+
 class Mesh;
 class Material;
 class TextureCube;
@@ -256,6 +261,16 @@ struct RenderState
     void clear();
 };
 
+struct RTGeometryInstance
+{
+    glm::mat3x4 transform;
+    uint32_t    instanceCustomIndex : 24;
+    uint32_t    mask : 8;
+    uint32_t    instanceOffset : 24;
+    uint32_t    flags : 8;
+    uint64_t    accelerationStructureHandle;
+};
+
 class Scene
 {
 public:
@@ -274,6 +289,7 @@ public:
 private:
     AccelerationStructureData m_tlas;
     Node::Ptr                 m_root;
+    vk::DescriptorSetLayout::Ptr m_descriptor_set_layout;
     vk::DescriptorSet::Ptr    m_descriptor_set;
     vk::Buffer::Ptr           m_light_data_buffer;
     vk::Buffer::Ptr           m_material_data_buffer;
