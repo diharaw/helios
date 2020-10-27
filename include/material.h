@@ -32,6 +32,7 @@ private:
     float                    m_metallic_value  = 0.0f;
     float                    m_roughness_value = 0.0f;
     bool                     m_orca            = false;
+    uint32_t                 m_id;
 
 public:
     static Material::Ptr create(MaterialType             type,
@@ -46,6 +47,8 @@ public:
                                 float                    roughness_value = 0.0f,
                                 bool                     orca            = false);
     ~Material();
+
+    inline uint32_t id() { return m_id; }
 
 private:
     Material(MaterialType             type,

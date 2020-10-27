@@ -1,6 +1,10 @@
 #include <scene.h>
 #include <macros.h>
 #include <vk_mem_alloc.h>
+#include <mesh.h>
+#include <material.h>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace lumen
 {
@@ -19,7 +23,6 @@ struct GPUMaterial
 
 struct GPULight
 {
-
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -450,7 +453,7 @@ Scene::Scene(vk::Backend::Ptr backend, Node::Ptr root) :
     // IBOs
     ds_layout_desc.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
     // Material Data
-    ds_layout_desc.add_binding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    ds_layout_desc.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
     // Material Indices
     ds_layout_desc.add_binding(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
     // Material Textures
@@ -484,6 +487,15 @@ Scene::Scene(vk::Backend::Ptr backend, Node::Ptr root) :
 
 Scene::~Scene()
 {
+    m_descriptor_set.reset();
+    m_descriptor_set_layout.reset();
+    m_tlas.tlas.reset();
+    m_tlas.instance_buffer_host.reset();
+    m_tlas.instance_buffer_device.reset();
+    m_tlas.scratch_buffer.reset();
+    m_light_data_buffer.reset();
+    m_material_data_buffer.reset();
+    m_root.reset();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -496,8 +508,80 @@ void Scene::update(RenderState& render_state)
     {
         if (render_state.scene_state == SCENE_STATE_HIERARCHY_UPDATED)
         {
+            std::unordered_set<uint32_t> processed_meshes;
+            std::unordered_set<uint32_t> processed_materials;
+            std::unordered_set<uint32_t> processed_textures;
+            std::unordered_map<uint32_t, uint32_t> global_material_indices;
+
+            std::vector<VkDescriptorBufferInfo>    vbo_descriptors;
+            std::vector<VkDescriptorBufferInfo>    ibo_descriptors;
+            std::vector<VkDescriptorImageInfo>     image_descriptors;
+            std::vector<VkDescriptorBufferInfo>    mat_indices_descriptors;
+            std::vector<GPUMaterial>               gpu_materials;
+            
+            for (auto& mesh_node : render_state.meshes)
+            {
+                auto mesh = mesh_node->mesh();
+                const auto& materials = mesh->materials();
+                const auto& submeshes = mesh->sub_meshes();
+          
+                if (processed_meshes.find(mesh->id()) == processed_meshes.end())
+                {
+                    processed_meshes.insert(mesh->id());
+
+                    VkDescriptorBufferInfo ibo_info;
+
+                    ibo_info.buffer = mesh->index_buffer()->handle();
+                    ibo_info.offset = 0;
+                    ibo_info.range  = VK_WHOLE_SIZE;
+
+                    ibo_descriptors.push_back(ibo_info);
+
+                    VkDescriptorBufferInfo vbo_info;
+
+                    vbo_info.buffer = mesh->vertex_buffer()->handle();
+                    vbo_info.offset = 0;
+                    vbo_info.range  = VK_WHOLE_SIZE;
+
+                    vbo_descriptors.push_back(vbo_info);
+
+                    
+                    for (uint32_t i = 0; i < submeshes.size(); i++)
+                    {
+                        auto material = materials[submeshes[i].mat_idx];
+
+                        if (processed_materials.find(material->id()) == processed_materials.end())
+                        {
+                            processed_materials.insert(material->id());
+
+                            GPUMaterial gpu_material;
+
+                            // TODO: Fill GPUMaterial
+                            
+
+                            global_material_indices[material->id()] = gpu_materials.size();
+
+                            gpu_materials.push_back(gpu_material);
+                        }
+                    }
+                }
+
+                VkDescriptorBufferInfo mat_indices_info;
+
+                mat_indices_info.buffer = mesh_node->material_indices_buffer()->handle();
+                mat_indices_info.offset = 0;
+                mat_indices_info.range  = VK_WHOLE_SIZE;
+
+                mat_indices_descriptors.push_back(mat_indices_info);
+
+                // Update material indices
+                int32_t*    material_indices = (int32_t*)mesh_node->material_indices_buffer()->mapped_ptr();
+       
+                for (uint32_t i = 0; i < submeshes.size(); i++)
+                    material_indices[i] = global_material_indices[materials[submeshes[i].mat_idx]->id()];
+            }
             // TODO: Copy material data
-            // TODO: Recreate material indices buffers
+            // TODO: Populate material indices buffers
             // TODO: Recreate texture descriptor array
             // TODO: Recreate vbo descriptor array
             // TODO: Recreate ibo descriptor array

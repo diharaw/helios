@@ -43,6 +43,7 @@ private:
     std::vector<VkGeometryNV>              m_geometries;
     std::vector<SubMesh>                   m_sub_meshes;
     std::vector<std::shared_ptr<Material>> m_materials;
+    uint32_t                               m_id;
 
 public:
     static Mesh::Ptr create(vk::Backend::Ptr                       backend,
@@ -65,6 +66,7 @@ public:
     inline vk::AccelerationStructure::Ptr                acceleration_structure() { return m_blas; }
     inline vk::Buffer::Ptr                               vertex_buffer() { return m_vbo; }
     inline vk::Buffer::Ptr                               index_buffer() { return m_ibo; }
+    inline uint32_t                                      id() { return m_id; }
 
 private:
     Mesh(vk::Backend::Ptr                       backend,

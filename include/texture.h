@@ -15,6 +15,7 @@ public:
 protected:
     vk::Image::Ptr     m_image;
     vk::ImageView::Ptr m_image_view;
+    uint32_t           m_id;
 
 public:
     Texture(vk::Image::Ptr image, vk::ImageView::Ptr image_view);
@@ -22,6 +23,7 @@ public:
 
     inline vk::Image::Ptr     image() { return m_image; }
     inline vk::ImageView::Ptr image_view() { return m_image_view; }
+    inline uint32_t           id() { return m_id; }
 };
 
 class Texture2D : public Texture
