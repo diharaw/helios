@@ -108,7 +108,7 @@ public:
 private:
     std::shared_ptr<Mesh>     m_mesh;
     std::shared_ptr<Material> m_material_override;
-    vk::Buffer::Ptr           m_material_indices_buffer;
+    vk::Buffer::Ptr           m_instance_data_buffer;
 
 public:
     MeshNode(const std::string& name);
@@ -120,7 +120,7 @@ public:
     inline void                      set_material_override(std::shared_ptr<Material> material_override) { m_material_override = material_override; }
     inline std::shared_ptr<Mesh>     mesh() { return m_mesh; }
     inline std::shared_ptr<Material> material_override() { return m_material_override; }
-    inline vk::Buffer::Ptr           material_indices_buffer() { return m_material_indices_buffer; }
+    inline vk::Buffer::Ptr           instance_data_buffer() { return m_instance_data_buffer; }
 };
 
 class DirectionalLightNode : public TransformNode
@@ -289,12 +289,16 @@ public:
     Node::Ptr root_node();
 
 private:
+    void create_gpu_resources(RenderState& render_state);
+
+private:
     AccelerationStructureData    m_tlas;
     Node::Ptr                    m_root;
     vk::DescriptorSetLayout::Ptr m_descriptor_set_layout;
     vk::DescriptorSet::Ptr       m_descriptor_set;
     vk::Buffer::Ptr              m_light_data_buffer;
     vk::Buffer::Ptr              m_material_data_buffer;
+    vk::Sampler::Ptr             m_material_sampler;
     std::weak_ptr<vk::Backend>   m_backend;
 };
 } // namespace lumen

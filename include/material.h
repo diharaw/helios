@@ -48,6 +48,17 @@ public:
                                 bool                     orca            = false);
     ~Material();
 
+    inline MaterialType             type() { return m_type; }
+    inline std::shared_ptr<Texture> albedo_texture() { return m_albedo_texture; }
+    inline std::shared_ptr<Texture> normal_texture() { return m_normal_texture; }
+    inline std::shared_ptr<Texture> metallic_texture() { return m_metallic_texture; }
+    inline std::shared_ptr<Texture> roughness_texture() { return m_roughness_texture; }
+    inline std::shared_ptr<Texture> emissive_texture() { return m_emissive_texture; }
+    inline glm::vec4                albedo_value() { return m_albedo_value; }
+    inline glm::vec4                emissive_value() { return m_emissive_value; }
+    inline float                    metallic_value() { return m_metallic_value; }
+    inline float                    roughness_value() { return m_roughness_value; }
+    inline bool                     is_orca() { return m_orca; }
     inline uint32_t id() { return m_id; }
 
 private:
