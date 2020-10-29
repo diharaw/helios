@@ -38,9 +38,10 @@ public:
 
 private:
     vk::AccelerationStructure::Ptr         m_blas;
+    VkAccelerationStructureInfoNV          m_blas_info;
+    std::vector<VkGeometryNV>              m_geometries;
     vk::Buffer::Ptr                        m_vbo;
     vk::Buffer::Ptr                        m_ibo;
-    std::vector<VkGeometryNV>              m_geometries;
     std::vector<SubMesh>                   m_sub_meshes;
     std::vector<std::shared_ptr<Material>> m_materials;
     uint32_t                               m_id;

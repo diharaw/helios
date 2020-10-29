@@ -4,8 +4,12 @@ namespace lumen
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+static uint32_t g_last_texture_id = 0;
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 Texture::Texture(vk::Image::Ptr image, vk::ImageView::Ptr image_view) :
-    m_image(image), m_image_view(image_view)
+    m_image(image), m_image_view(image_view), m_id(g_last_texture_id++)
 {
 }
 

@@ -691,11 +691,10 @@ public:
     struct Desc
     {
         VkAccelerationStructureCreateInfoNV create_info;
-        std::vector<VkGeometryNV>           geometries;
 
         Desc();
         Desc& set_type(VkAccelerationStructureTypeNV type);
-        Desc& set_geometries(std::vector<VkGeometryNV> geometry_vec);
+        Desc& set_geometries(const std::vector<VkGeometryNV>& geometry_vec);
         Desc& set_instance_count(uint32_t count);
     };
 
@@ -949,12 +948,20 @@ private:
 
 class BatchUploader
 {
+private:
+    struct BLASBuildRequest
+    {
+        AccelerationStructure::Ptr acceleration_structure;
+        VkAccelerationStructureInfoNV info;
+    };
+
 public:
     BatchUploader(Backend::Ptr backend);
     ~BatchUploader();
 
     void upload_buffer_data(Buffer::Ptr buffer, void* data, const size_t& offset, const size_t& size);
     void upload_image_data(Image::Ptr image, void* data, const std::vector<size_t>& mip_level_sizes, VkImageLayout src_layout = VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout dst_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    void build_blas(AccelerationStructure::Ptr acceleration_structure, const VkAccelerationStructureInfoNV& info);
     void submit();
 
 private:
@@ -965,6 +972,7 @@ private:
     CommandBuffer::Ptr             m_cmd;
     std::weak_ptr<Backend>         m_backend;
     std::stack<StagingBuffer::Ptr> m_staging_buffers;
+    std::vector<BLASBuildRequest>  m_blas_build_requests;
 };
 
 namespace utilities

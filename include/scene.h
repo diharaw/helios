@@ -17,6 +17,16 @@ class Mesh;
 class Material;
 class TextureCube;
 
+struct RTGeometryInstance
+{
+    glm::mat3x4 transform;
+    uint32_t    instanceCustomIndex : 24;
+    uint32_t    mask : 8;
+    uint32_t    instanceOffset : 24;
+    uint32_t    flags : 8;
+    uint64_t    accelerationStructureHandle;
+};
+
 enum NodeType
 {
     NODE_MESH,
@@ -33,8 +43,6 @@ struct AccelerationStructureData
 {
     vk::AccelerationStructure::Ptr tlas;
     vk::Buffer::Ptr                instance_buffer_host;
-    vk::Buffer::Ptr                instance_buffer_device;
-    vk::Buffer::Ptr                scratch_buffer;
 };
 
 class Node
@@ -93,6 +101,7 @@ public:
     glm::vec3 up();
     glm::vec3 left();
     glm::vec3 position();
+    glm::mat4 model_matrix();
     void      set_orientation_from_euler_yxz(const glm::vec3& e);
     void      set_orientation_from_euler_xyz(const glm::vec3& e);
     void      set_position(const glm::vec3& position);
@@ -287,6 +296,8 @@ public:
     void      update(RenderState& render_state);
     void      set_root_node(Node::Ptr node);
     Node::Ptr root_node();
+
+    inline AccelerationStructureData& acceleration_structure_data() { return m_tlas; }
 
 private:
     void create_gpu_resources(RenderState& render_state);

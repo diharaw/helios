@@ -4,6 +4,10 @@ namespace lumen
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+static uint32_t g_last_material_id = 0;
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 Material::Ptr Material::create(MaterialType             type,
                                std::shared_ptr<Texture> albedo_texture,
                                std::shared_ptr<Texture> normal_texture,
@@ -42,7 +46,8 @@ Material::Material(MaterialType             type,
     m_emissive_value(emissive_value),
     m_metallic_value(metallic_value),
     m_roughness_value(roughness_value),
-    m_orca(orca)
+    m_orca(orca),
+    m_id(g_last_material_id++)
 {
 }
 

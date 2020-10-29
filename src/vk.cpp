@@ -2406,11 +2406,10 @@ AccelerationStructure::Desc& AccelerationStructure::Desc::set_type(VkAcceleratio
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-AccelerationStructure::Desc& AccelerationStructure::Desc::set_geometries(std::vector<VkGeometryNV> geometry_vec)
+AccelerationStructure::Desc& AccelerationStructure::Desc::set_geometries(const std::vector<VkGeometryNV>& geometry_vec)
 {
     create_info.info.geometryCount = geometry_vec.size();
-    geometries                     = geometry_vec;
-    create_info.info.pGeometries   = geometries.data();
+    create_info.info.pGeometries   = geometry_vec.data();
     return *this;
 }
 
@@ -3113,6 +3112,13 @@ void BatchUploader::upload_image_data(Image::Ptr image, void* data, const std::v
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+void BatchUploader::build_blas(AccelerationStructure::Ptr acceleration_structure, const VkAccelerationStructureInfoNV& info)
+{
+    m_blas_build_requests.push_back({ acceleration_structure, info });
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 Buffer::Ptr BatchUploader::insert_data(void* data, const size_t& size)
 {
     add_staging_buffer(size);
@@ -3130,9 +3136,48 @@ void BatchUploader::submit()
     {
         auto backend = m_backend.lock();
 
+        vk::Buffer::Ptr blas_scratch_buffer;
+
+        if (m_blas_build_requests.size() > 0)
+        {
+            VkMemoryBarrier memory_barrier;
+            memory_barrier.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+            memory_barrier.pNext         = nullptr;
+            memory_barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
+            memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
+
+            VkAccelerationStructureMemoryRequirementsInfoNV memory_requirements_info;
+            memory_requirements_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_NV;
+            memory_requirements_info.pNext = nullptr;
+
+            VkDeviceSize scratch_buffer_size = 0;
+
+            for (int i = 0; i < m_blas_build_requests.size(); i++)
+            {
+                memory_requirements_info.type                  = VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_NV;
+                memory_requirements_info.accelerationStructure = m_blas_build_requests[i].acceleration_structure->handle();
+
+                VkMemoryRequirements2 mem_req_blas;
+                vkGetAccelerationStructureMemoryRequirementsNV(backend->device(), &memory_requirements_info, &mem_req_blas);
+
+                scratch_buffer_size = std::max(scratch_buffer_size, mem_req_blas.memoryRequirements.size);
+            }
+
+            blas_scratch_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, scratch_buffer_size, VMA_MEMORY_USAGE_GPU_ONLY, 0);
+
+            for (int i = 0; i < m_blas_build_requests.size(); i++)
+            {
+                vkCmdBuildAccelerationStructureNV(m_cmd->handle(), &m_blas_build_requests[i].info, VK_NULL_HANDLE, 0, VK_FALSE, m_blas_build_requests[i].acceleration_structure->handle(), VK_NULL_HANDLE, blas_scratch_buffer->handle(), 0);
+
+                vkCmdPipelineBarrier(m_cmd->handle(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, 0, 1, &memory_barrier, 0, 0, 0, 0);
+            }
+        }
+
         vkEndCommandBuffer(m_cmd->handle());
 
         backend->flush_graphics({ m_cmd });
+
+        blas_scratch_buffer.reset();
     }
 }
 

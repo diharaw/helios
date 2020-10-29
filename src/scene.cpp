@@ -176,6 +176,13 @@ glm::vec3 TransformNode::position()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+glm::mat4 TransformNode::model_matrix()
+{
+    return m_model_matrix;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 void TransformNode::set_orientation_from_euler_yxz(const glm::vec3& e)
 {
     glm::quat pitch = glm::quat(glm::vec3(glm::radians(e.x), glm::radians(0.0f), glm::radians(0.0f)));
@@ -438,7 +445,6 @@ Scene::Scene(vk::Backend::Ptr backend, Node::Ptr root) :
     m_backend(backend), m_root(root)
 {
     // Allocate instance buffers
-    m_tlas.instance_buffer_device = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
     m_tlas.instance_buffer_host   = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_CPU_COPY, 0);
 
     // Create top-level acceleration structure
@@ -495,8 +501,6 @@ Scene::~Scene()
     m_descriptor_set_layout.reset();
     m_tlas.tlas.reset();
     m_tlas.instance_buffer_host.reset();
-    m_tlas.instance_buffer_device.reset();
-    m_tlas.scratch_buffer.reset();
     m_light_data_buffer.reset();
     m_material_data_buffer.reset();
     m_root.reset();
@@ -517,8 +521,6 @@ void Scene::create_gpu_resources(RenderState& render_state)
 {
     if (render_state.scene_state != SCENE_STATE_READY)
     {
-        std::vector<GPULight> gpu_lights;
-
         if (render_state.scene_state == SCENE_STATE_HIERARCHY_UPDATED)
         {
             auto backend = m_backend.lock();
@@ -533,11 +535,14 @@ void Scene::create_gpu_resources(RenderState& render_state)
             std::vector<VkDescriptorBufferInfo> ibo_descriptors;
             std::vector<VkDescriptorImageInfo>  image_descriptors;
             std::vector<VkDescriptorBufferInfo> instance_data_descriptors;
-            std::vector<GPUMaterial>            gpu_materials;
+            uint32_t                            gpu_material_counter     = 0;
+            GPUMaterial*                        material_buffer          = (GPUMaterial*)m_material_data_buffer->mapped_ptr();
+            RTGeometryInstance*                 geometry_instance_buffer = (RTGeometryInstance*)m_tlas.instance_buffer_host->mapped_ptr();
 
-            for (auto& mesh_node : render_state.meshes)
+            for (int mesh_node_idx = 0; mesh_node_idx < render_state.meshes.size(); mesh_node_idx++)
             {
-                auto        mesh      = mesh_node->mesh();
+                auto&       mesh_node = render_state.meshes[mesh_node_idx];
+                auto&       mesh      = mesh_node->mesh();
                 const auto& materials = mesh->materials();
                 const auto& submeshes = mesh->sub_meshes();
 
@@ -574,7 +579,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
                         {
                             processed_materials.insert(material->id());
 
-                            GPUMaterial gpu_material;
+                            GPUMaterial& gpu_material = material_buffer[gpu_material_counter++];
 
                             // Fill GPUMaterial
                             if (material->albedo_texture())
@@ -687,9 +692,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                             gpu_material.roughness_metallic_orca.z = material->is_orca();
 
-                            global_material_indices[material->id()] = gpu_materials.size();
-
-                            gpu_materials.push_back(gpu_material);
+                            global_material_indices[material->id()] = gpu_material_counter - 1;
                         }
                     }
                 }
@@ -701,6 +704,16 @@ void Scene::create_gpu_resources(RenderState& render_state)
                 instance_data_info.range  = VK_WHOLE_SIZE;
 
                 instance_data_descriptors.push_back(instance_data_info);
+
+                // Copy geometry instance data
+                RTGeometryInstance& rt_instance = geometry_instance_buffer[mesh_node_idx];
+
+                rt_instance.transform                   = glm::mat3x4(mesh_node->model_matrix());
+                rt_instance.instanceCustomIndex         = mesh_node_idx;
+                rt_instance.mask                        = 0xff;
+                rt_instance.instanceOffset              = 0;
+                rt_instance.flags                       = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV;
+                rt_instance.accelerationStructureHandle = mesh->acceleration_structure()->opaque_handle();
 
                 // Update instance data
                 int32_t* instance_data = (int32_t*)mesh_node->instance_data_buffer()->mapped_ptr();
@@ -719,10 +732,6 @@ void Scene::create_gpu_resources(RenderState& render_state)
                     instance_data[i] = global_material_indices[material->id()];
                 }
             }
-
-            // Copy materials
-            void* material_buffer = m_material_data_buffer->mapped_ptr();
-            memcpy(material_buffer, gpu_materials.data(), sizeof(GPUMaterial) * gpu_materials.size());
 
             VkDescriptorBufferInfo material_buffer_info;
 
@@ -776,48 +785,41 @@ void Scene::create_gpu_resources(RenderState& render_state)
             vkUpdateDescriptorSets(backend->device(), 5, write_data, 0, nullptr);
         }
 
-        // Fill lights
+        // Copy lights
+        uint32_t  gpu_light_counter = 0;
+        GPULight* light_buffer      = (GPULight*)m_light_data_buffer->mapped_ptr();
+
         for (int i = 0; i < render_state.directional_lights.size(); i++)
         {
             auto light = render_state.directional_lights[i];
 
-            GPULight gpu_light;
+            GPULight& gpu_light = light_buffer[gpu_light_counter++];
 
             gpu_light.light_data0 = glm::vec4(0.0f, light->color());
             gpu_light.light_data1 = glm::vec4(light->forward(), light->intensity());
-
-            gpu_lights.push_back(gpu_light);
         }
 
         for (int i = 0; i < render_state.point_lights.size(); i++)
         {
             auto light = render_state.point_lights[i];
 
-            GPULight gpu_light;
+            GPULight& gpu_light = light_buffer[gpu_light_counter++];
 
-            gpu_light.light_data0 = glm::vec4(0.0f, light->color());
-            gpu_light.light_data1 = glm::vec4(0.0f , 0.0f, 0.0f, light->intensity());
+            gpu_light.light_data0 = glm::vec4(1.0f, light->color());
+            gpu_light.light_data1 = glm::vec4(0.0f, 0.0f, 0.0f, light->intensity());
             gpu_light.light_data2 = glm::vec4(light->range(), 0.0f, 0.0f, 0.0f);
-
-            gpu_lights.push_back(gpu_light);
         }
 
         for (int i = 0; i < render_state.spot_lights.size(); i++)
         {
             auto light = render_state.spot_lights[i];
 
-            GPULight gpu_light;
+            GPULight& gpu_light = light_buffer[gpu_light_counter++];
 
-            gpu_light.light_data0 = glm::vec4(0.0f, light->color());
+            gpu_light.light_data0 = glm::vec4(2.0f, light->color());
             gpu_light.light_data1 = glm::vec4(light->forward(), light->intensity());
             gpu_light.light_data2 = glm::vec4(light->range(), light->cone_angle(), 0.0f, 0.0f);
-
-            gpu_lights.push_back(gpu_light);
         }
-
-        // Copy lights
-        void* light_buffer = m_light_data_buffer->mapped_ptr();
-        memcpy(light_buffer, gpu_lights.data(), sizeof(GPULight) * gpu_lights.size());
     }
 }
 
