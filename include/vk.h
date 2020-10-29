@@ -696,6 +696,7 @@ public:
         Desc& set_type(VkAccelerationStructureTypeNV type);
         Desc& set_geometries(const std::vector<VkGeometryNV>& geometry_vec);
         Desc& set_instance_count(uint32_t count);
+        Desc& set_flags(VkBuildAccelerationStructureFlagsNV flags);
     };
 
     static AccelerationStructure::Ptr create(Backend::Ptr backend, Desc desc);
@@ -951,7 +952,7 @@ class BatchUploader
 private:
     struct BLASBuildRequest
     {
-        AccelerationStructure::Ptr acceleration_structure;
+        AccelerationStructure::Ptr    acceleration_structure;
         VkAccelerationStructureInfoNV info;
     };
 

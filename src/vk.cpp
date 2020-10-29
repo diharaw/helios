@@ -2423,6 +2423,14 @@ AccelerationStructure::Desc& AccelerationStructure::Desc::set_instance_count(uin
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+AccelerationStructure::Desc& AccelerationStructure::Desc::set_flags(VkBuildAccelerationStructureFlagsNV flags)
+{
+    create_info.info.flags = flags;
+    return *this;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 AccelerationStructure::Ptr AccelerationStructure::create(Backend::Ptr backend, Desc desc)
 {
     return std::shared_ptr<AccelerationStructure>(new AccelerationStructure(backend, desc));

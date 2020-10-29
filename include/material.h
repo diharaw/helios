@@ -59,7 +59,7 @@ public:
     inline float                    metallic_value() { return m_metallic_value; }
     inline float                    roughness_value() { return m_roughness_value; }
     inline bool                     is_orca() { return m_orca; }
-    inline uint32_t id() { return m_id; }
+    inline uint32_t                 id() { return m_id; }
 
 private:
     Material(MaterialType             type,

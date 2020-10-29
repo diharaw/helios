@@ -445,15 +445,7 @@ Scene::Scene(vk::Backend::Ptr backend, Node::Ptr root) :
     m_backend(backend), m_root(root)
 {
     // Allocate instance buffers
-    m_tlas.instance_buffer_host   = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_CPU_COPY, 0);
-
-    // Create top-level acceleration structure
-    vk::AccelerationStructure::Desc desc;
-
-    desc.set_instance_count(MAX_SCENE_MESH_COUNT);
-    desc.set_type(VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV);
-
-    m_tlas.tlas = vk::AccelerationStructure::create(backend, desc);
+    m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_CPU_COPY, 0);
 
     // Allocate descriptor set
     vk::DescriptorSetLayout::Desc ds_layout_desc;
