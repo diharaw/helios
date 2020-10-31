@@ -48,6 +48,7 @@ public:
                                 bool                     orca            = false);
     ~Material();
 
+    bool                            is_emissive();
     inline MaterialType             type() { return m_type; }
     inline std::shared_ptr<Texture> albedo_texture() { return m_albedo_texture; }
     inline std::shared_ptr<Texture> normal_texture() { return m_normal_texture; }
