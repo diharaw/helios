@@ -105,6 +105,7 @@ public:
     void      set_orientation_from_euler_yxz(const glm::vec3& e);
     void      set_orientation_from_euler_xyz(const glm::vec3& e);
     void      set_position(const glm::vec3& position);
+    void      set_scale(const glm::vec3& scale);
     void      rotate_euler_yxz(const glm::vec3& e);
     void      rotate_euler_xyz(const glm::vec3& e);
 };
@@ -135,7 +136,7 @@ public:
 class DirectionalLightNode : public TransformNode
 {
 public:
-    using Ptr = std::shared_ptr<TransformNode>;
+    using Ptr = std::shared_ptr<DirectionalLightNode>;
 
 private:
     glm::vec3 m_color;
@@ -290,16 +291,19 @@ public:
     friend class ResourceManager;
 
 public:
-    Scene(vk::Backend::Ptr backend, Node::Ptr root = nullptr);
+    static Scene::Ptr create(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root = nullptr);
     ~Scene();
 
     void      update(RenderState& render_state);
     void      set_root_node(Node::Ptr node);
     Node::Ptr root_node();
-
+    
+    inline void                       set_name(const std::string& name) { m_name = name; }
+    inline std::string                name() { return m_name; }
     inline AccelerationStructureData& acceleration_structure_data() { return m_tlas; }
 
 private:
+    Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root = nullptr);
     void create_gpu_resources(RenderState& render_state);
 
 private:
@@ -311,5 +315,6 @@ private:
     vk::Buffer::Ptr              m_material_data_buffer;
     vk::Sampler::Ptr             m_material_sampler;
     std::weak_ptr<vk::Backend>   m_backend;
+    std::string                  m_name;
 };
 } // namespace lumen

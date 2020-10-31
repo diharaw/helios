@@ -195,7 +195,24 @@ Scene::Ptr ResourceManager::load_scene(const std::string& path, bool absolute)
 {
     if (!m_backend.expired())
     {
-        vk::BatchUploader uploader(m_backend.lock());
+        vk::Backend::Ptr  backend = m_backend.lock();
+        vk::BatchUploader uploader(backend);
+
+        ast::Scene ast_scene;
+
+        if (ast::load_scene(absolute ? path : utility::path_for_resource("assets/" + path), ast_scene))
+        {
+            Node::Ptr root_node = create_node(ast_scene.scene_graph, uploader);
+
+            uploader.submit();
+
+            if (root_node)
+                return Scene::create(backend, ast_scene.name, root_node);
+            else
+                return nullptr;
+        }
+        else
+            return nullptr;
     }
     else
         return nullptr;
@@ -395,6 +412,166 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
             return nullptr;
         }
     }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+Node::Ptr ResourceManager::create_node(std::shared_ptr<ast::SceneNode> ast_node, vk::BatchUploader& uploader)
+{
+    if (ast_node->type == ast::SCENE_NODE_MESH)
+        return create_mesh_node(std::dynamic_pointer_cast<ast::MeshNode>(ast_node), uploader);
+    else if (ast_node->type == ast::SCENE_NODE_CAMERA)
+        return create_camera_node(std::dynamic_pointer_cast<ast::CameraNode>(ast_node), uploader);
+    else if (ast_node->type == ast::SCENE_NODE_DIRECTIONAL_LIGHT)
+        return create_directional_light_node(std::dynamic_pointer_cast<ast::DirectionalLightNode>(ast_node), uploader);
+    else if (ast_node->type == ast::SCENE_NODE_SPOT_LIGHT)
+        return create_spot_light_node(std::dynamic_pointer_cast<ast::SpotLightNode>(ast_node), uploader);
+    else if (ast_node->type == ast::SCENE_NODE_POINT_LIGHT)
+        return create_point_light_node(std::dynamic_pointer_cast<ast::PointLightNode>(ast_node), uploader);
+    else if (ast_node->type == ast::SCENE_NODE_IBL)
+        return create_ibl_node(std::dynamic_pointer_cast<ast::IBLNode>(ast_node), uploader);
+    else
+        return nullptr;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+MeshNode::Ptr ResourceManager::create_mesh_node(std::shared_ptr<ast::MeshNode> ast_node, vk::BatchUploader& uploader)
+{
+    MeshNode::Ptr mesh_node = std::shared_ptr<MeshNode>(new MeshNode(ast_node->name));
+
+    Mesh::Ptr mesh = nullptr;
+
+    if (ast_node->mesh != "")
+    {
+        mesh = load_mesh_internal(ast_node->mesh, false, uploader);
+
+        if (mesh)
+            mesh_node->set_mesh(mesh);
+        else
+            LUMEN_LOG_ERROR("Failed to load mesh: " + ast_node->mesh);
+
+        Material::Ptr material_override = nullptr;
+
+        if (ast_node->material_override != "")
+            material_override = load_material_internal(ast_node->material_override, false, uploader);
+        else
+            LUMEN_LOG_ERROR("Failed to load material: " + ast_node->material_override);
+    }
+
+    populate_transform_node(mesh_node, ast_node);
+    populate_scene_node(mesh_node, ast_node, uploader);
+
+    return mesh_node;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+CameraNode::Ptr ResourceManager::create_camera_node(std::shared_ptr<ast::CameraNode> ast_node, vk::BatchUploader& uploader)
+{
+    CameraNode::Ptr camera_node = std::shared_ptr<CameraNode>(new CameraNode(ast_node->name));
+
+    camera_node->set_near_plane(ast_node->near_plane);
+    camera_node->set_far_plane(ast_node->near_plane);
+    camera_node->set_fov(ast_node->fov);
+
+    populate_transform_node(camera_node, ast_node);
+    populate_scene_node(camera_node, ast_node, uploader);
+
+    return camera_node;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+DirectionalLightNode::Ptr ResourceManager::create_directional_light_node(std::shared_ptr<ast::DirectionalLightNode> ast_node, vk::BatchUploader& uploader)
+{
+    DirectionalLightNode::Ptr dir_light_node = std::shared_ptr<DirectionalLightNode>(new DirectionalLightNode(ast_node->name));
+
+    dir_light_node->set_color(ast_node->color);
+    dir_light_node->set_intensity(ast_node->intensity);
+
+    populate_transform_node(dir_light_node, ast_node);
+    populate_scene_node(dir_light_node, ast_node, uploader);
+
+    return dir_light_node;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+SpotLightNode::Ptr ResourceManager::create_spot_light_node(std::shared_ptr<ast::SpotLightNode> ast_node, vk::BatchUploader& uploader)
+{
+    SpotLightNode::Ptr spot_light_node = std::shared_ptr<SpotLightNode>(new SpotLightNode(ast_node->name));
+
+    spot_light_node->set_color(ast_node->color);
+    spot_light_node->set_intensity(ast_node->intensity);
+    spot_light_node->set_range(ast_node->range);
+    spot_light_node->set_cone_angle(ast_node->cone_angle);
+
+    populate_transform_node(spot_light_node, ast_node);
+    populate_scene_node(spot_light_node, ast_node, uploader);
+
+    return spot_light_node;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+PointLightNode::Ptr ResourceManager::create_point_light_node(std::shared_ptr<ast::PointLightNode> ast_node, vk::BatchUploader& uploader)
+{
+    PointLightNode::Ptr point_light_node = std::shared_ptr<PointLightNode>(new PointLightNode(ast_node->name));
+
+    point_light_node->set_color(ast_node->color);
+    point_light_node->set_intensity(ast_node->intensity);
+    point_light_node->set_range(ast_node->range);
+
+    populate_transform_node(point_light_node, ast_node);
+    populate_scene_node(point_light_node, ast_node, uploader);
+
+    return point_light_node;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+IBLNode::Ptr ResourceManager::create_ibl_node(std::shared_ptr<ast::IBLNode> ast_node, vk::BatchUploader& uploader)
+{
+    IBLNode::Ptr ibl_node = std::shared_ptr<IBLNode>(new IBLNode(ast_node->name));
+
+    TextureCube::Ptr texture_cube = nullptr;
+
+    if (ast_node->image != "")
+    {
+        texture_cube = load_texture_cube_internal(ast_node->image, false, false, uploader);
+
+        if (texture_cube)
+            ibl_node->set_image(texture_cube);
+        else
+            LUMEN_LOG_ERROR("Failed to load cubemap: " + ast_node->image);
+    }
+
+    populate_scene_node(ibl_node, ast_node, uploader);
+
+    return ibl_node;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void ResourceManager::populate_scene_node(Node::Ptr node, std::shared_ptr<ast::SceneNode> ast_node, vk::BatchUploader& uploader)
+{
+    for (auto ast_child : ast_node->children)
+    {
+        auto child = create_node(ast_child, uploader);
+
+        if (child)
+            node->add_child(child);
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void ResourceManager::populate_transform_node(TransformNode::Ptr node, std::shared_ptr<ast::TransformNode> ast_node)
+{
+    node->set_position(ast_node->position);
+    node->set_orientation_from_euler_yxz(ast_node->rotation);
+    node->set_scale(ast_node->scale);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

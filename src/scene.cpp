@@ -31,7 +31,8 @@ struct GPULight
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Node::Node(const NodeType& type, const std::string& name)
+Node::Node(const NodeType& type, const std::string& name) :
+    m_type(type), m_name(name)
 {
 }
 
@@ -212,6 +213,15 @@ void TransformNode::set_position(const glm::vec3& position)
     mark_transforms_as_dirty();
 
     m_position = position;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void TransformNode::set_scale(const glm::vec3& scale)
+{
+    mark_transforms_as_dirty();
+
+    m_scale = scale;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -441,8 +451,15 @@ void RenderState::clear()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::Scene(vk::Backend::Ptr backend, Node::Ptr root) :
-    m_backend(backend), m_root(root)
+Scene::Ptr Scene::create(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root)
+{
+    return std::shared_ptr<Scene>(new Scene(backend, name, root));
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) :
+    m_name(name), m_backend(backend), m_root(root)
 {
     // Allocate instance buffers
     m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_CPU_COPY, 0);

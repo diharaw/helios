@@ -6,6 +6,7 @@
 #include <mesh.h>
 #include <scene.h>
 #include <vk.h>
+#include <common/scene.h>
 
 namespace lumen
 {
@@ -33,5 +34,14 @@ private:
     TextureCube::Ptr load_texture_cube_internal(const std::string& path, bool srgb, bool absolute, vk::BatchUploader& uploader);
     Material::Ptr    load_material_internal(const std::string& path, bool absolute, vk::BatchUploader& uploader);
     Mesh::Ptr        load_mesh_internal(const std::string& path, bool absolute, vk::BatchUploader& uploader);
+    Node::Ptr                 create_node(std::shared_ptr<ast::SceneNode> ast_node, vk::BatchUploader& uploader);
+    MeshNode::Ptr             create_mesh_node(std::shared_ptr<ast::MeshNode> ast_node, vk::BatchUploader& uploader);
+    CameraNode::Ptr           create_camera_node(std::shared_ptr<ast::CameraNode> ast_node, vk::BatchUploader& uploader);
+    DirectionalLightNode::Ptr create_directional_light_node(std::shared_ptr<ast::DirectionalLightNode> ast_node, vk::BatchUploader& uploader);
+    SpotLightNode::Ptr        create_spot_light_node(std::shared_ptr<ast::SpotLightNode> ast_node, vk::BatchUploader& uploader);
+    PointLightNode::Ptr       create_point_light_node(std::shared_ptr<ast::PointLightNode> ast_node, vk::BatchUploader& uploader);
+    IBLNode::Ptr              create_ibl_node(std::shared_ptr<ast::IBLNode> ast_node, vk::BatchUploader& uploader);
+    void                      populate_scene_node(Node::Ptr node, std::shared_ptr<ast::SceneNode> ast_node, vk::BatchUploader& uploader);
+    void                      populate_transform_node(TransformNode::Ptr node, std::shared_ptr<ast::TransformNode> ast_node);
 };
 } // namespace lumen
