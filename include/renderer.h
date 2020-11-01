@@ -7,8 +7,8 @@ namespace lumen
 class Renderer
 {
 private:
-    vk::Buffer::Ptr m_tlas_scratch_buffer;
-    vk::Buffer::Ptr m_tlas_instance_buffer_device;
+    vk::Buffer::Ptr            m_tlas_scratch_buffer;
+    vk::Buffer::Ptr            m_tlas_instance_buffer_device;
     std::weak_ptr<vk::Backend> m_backend;
 
 public:

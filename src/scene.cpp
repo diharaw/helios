@@ -14,10 +14,10 @@ namespace lumen
 struct GPUMaterial
 {
     glm::uvec4 texture_indices0 = glm::uvec4(-1); // x: albedo, y: normals, z: roughness, w: metallic
-    glm::uvec4 texture_indices1 = glm::uvec4(-1); // x: emissive
+    glm::uvec4 texture_indices1 = glm::uvec4(-1); // x: emissive, z: roughness_channel, w: metallic_channel
     glm::vec4  albedo;
     glm::vec4  emissive;
-    glm::vec4  roughness_metallic_orca;
+    glm::vec4  roughness_metallic;
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -648,12 +648,13 @@ void Scene::create_gpu_resources(RenderState& render_state)
                                     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
                                     gpu_material.texture_indices0.z = image_descriptors.size();
+                                    gpu_material.texture_indices1.z = material->roughness_texture_info().array_index;
 
                                     image_descriptors.push_back(image_info);
                                 }
                             }
                             else
-                                gpu_material.roughness_metallic_orca.x = material->roughness_value();
+                                gpu_material.roughness_metallic.x = material->roughness_value();
 
                             if (material->metallic_texture())
                             {
@@ -670,12 +671,13 @@ void Scene::create_gpu_resources(RenderState& render_state)
                                     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
                                     gpu_material.texture_indices0.w = image_descriptors.size();
+                                    gpu_material.texture_indices1.w = material->metallic_texture_info().array_index;
 
                                     image_descriptors.push_back(image_info);
                                 }
                             }
                             else
-                                gpu_material.roughness_metallic_orca.y = material->metallic_value();
+                                gpu_material.roughness_metallic.y = material->metallic_value();
 
                             if (material->emissive_texture())
                             {
@@ -698,8 +700,6 @@ void Scene::create_gpu_resources(RenderState& render_state)
                             }
                             else
                                 gpu_material.emissive = material->emissive_value();
-
-                            gpu_material.roughness_metallic_orca.z = material->is_orca();
 
                             global_material_indices[material->id()] = gpu_material_counter - 1;
                         }

@@ -53,31 +53,35 @@ void Renderer::render(vk::CommandBuffer::Ptr cmd_buffer, Scene::Ptr scene, Rende
 
         vkCmdCopyBuffer(cmd_buffer->handle(), tlas_data.instance_buffer_host->handle(), m_tlas_instance_buffer_device->handle(), 1, &copy_region);
 
-        VkMemoryBarrier memory_barrier;
-        memory_barrier.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-        memory_barrier.pNext         = nullptr;
-        memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV;
+        {
+            VkMemoryBarrier memory_barrier;
+            memory_barrier.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+            memory_barrier.pNext         = nullptr;
+            memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV;
 
-        vkCmdPipelineBarrier(cmd_buffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &memory_barrier, 0, nullptr, 0, nullptr);
+            vkCmdPipelineBarrier(cmd_buffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &memory_barrier, 0, nullptr, 0, nullptr);
+        }
 
-        vkCmdBuildAccelerationStructureNV(cmd_buffer->handle(), 
-            &tlas_data.tlas->info(), 
-            m_tlas_instance_buffer_device->handle(), 
-            0, 
-            is_update, 
-            tlas_data.tlas->handle(), 
-            is_update ? tlas_data.tlas->handle() : VK_NULL_HANDLE, 
-            m_tlas_scratch_buffer->handle(), 
-            0);
+        vkCmdBuildAccelerationStructureNV(cmd_buffer->handle(),
+                                          &tlas_data.tlas->info(),
+                                          m_tlas_instance_buffer_device->handle(),
+                                          0,
+                                          is_update,
+                                          tlas_data.tlas->handle(),
+                                          is_update ? tlas_data.tlas->handle() : VK_NULL_HANDLE,
+                                          m_tlas_scratch_buffer->handle(),
+                                          0);
 
-        VkMemoryBarrier memory_barrier;
-        memory_barrier.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-        memory_barrier.pNext         = nullptr;
-        memory_barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
-        memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
+        {
+            VkMemoryBarrier memory_barrier;
+            memory_barrier.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+            memory_barrier.pNext         = nullptr;
+            memory_barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
+            memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
 
-        vkCmdPipelineBarrier(cmd_buffer->handle(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, 0, 1, &memory_barrier, 0, 0, 0, 0);
+            vkCmdPipelineBarrier(cmd_buffer->handle(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, 0, 1, &memory_barrier, 0, 0, 0, 0);
+        }
     }
 }
 

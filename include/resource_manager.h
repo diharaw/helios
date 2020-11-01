@@ -30,10 +30,10 @@ public:
     Scene::Ptr       load_scene(const std::string& path, bool absolute = false);
 
 private:
-    Texture2D::Ptr   load_texture_2d_internal(const std::string& path, bool srgb, bool absolute, vk::BatchUploader& uploader);
-    TextureCube::Ptr load_texture_cube_internal(const std::string& path, bool srgb, bool absolute, vk::BatchUploader& uploader);
-    Material::Ptr    load_material_internal(const std::string& path, bool absolute, vk::BatchUploader& uploader);
-    Mesh::Ptr        load_mesh_internal(const std::string& path, bool absolute, vk::BatchUploader& uploader);
+    Texture2D::Ptr            load_texture_2d_internal(const std::string& path, bool srgb, bool absolute, vk::BatchUploader& uploader);
+    TextureCube::Ptr          load_texture_cube_internal(const std::string& path, bool srgb, bool absolute, vk::BatchUploader& uploader);
+    Material::Ptr             load_material_internal(const std::string& path, bool absolute, vk::BatchUploader& uploader);
+    Mesh::Ptr                 load_mesh_internal(const std::string& path, bool absolute, vk::BatchUploader& uploader);
     Node::Ptr                 create_node(std::shared_ptr<ast::SceneNode> ast_node, vk::BatchUploader& uploader);
     MeshNode::Ptr             create_mesh_node(std::shared_ptr<ast::MeshNode> ast_node, vk::BatchUploader& uploader);
     CameraNode::Ptr           create_camera_node(std::shared_ptr<ast::CameraNode> ast_node, vk::BatchUploader& uploader);

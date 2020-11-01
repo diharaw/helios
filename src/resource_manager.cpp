@@ -297,15 +297,22 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
         vk::Backend::Ptr backend = m_backend.lock();
         ast::Material    ast_material;
 
-        if (ast::load_material(absolute ? path : utility::path_for_resource("assets/" + path), ast_material))
+        std::string path_to_asset = absolute ? path : utility::path_for_resource("assets/" + path);
+
+        if (ast::load_material(path_to_asset, ast_material))
         {
+            std::string path_to_root = utility::path_without_file(path_to_asset);
+
             MaterialType type = ast_material.material_type == ast::MATERIAL_OPAQUE ? MATERIAL_OPAQUE : MATERIAL_TRANSPARENT;
 
-            Texture2D::Ptr albedo_texture    = nullptr;
-            Texture2D::Ptr emissive_texture  = nullptr;
-            Texture2D::Ptr normal_texture    = nullptr;
-            Texture2D::Ptr metallic_texture  = nullptr;
-            Texture2D::Ptr roughness_texture = nullptr;
+            std::vector<Texture2D::Ptr>               textures;
+            std::unordered_map<std::string, uint32_t> texture_index_map;
+
+            TextureInfo albedo_texture_info;
+            TextureInfo emissive_texture_info;
+            TextureInfo normal_texture_info;
+            TextureInfo metallic_texture_info;
+            TextureInfo roughness_texture_info;
 
             glm::vec4 albedo_value    = glm::vec4(0.0f);
             glm::vec4 emissive_value  = glm::vec4(0.0f);
@@ -315,15 +322,75 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
             for (auto ast_texture : ast_material.textures)
             {
                 if (ast_texture.type == ast::TEXTURE_ALBEDO)
-                    albedo_texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, false, uploader);
+                {
+                    if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
+                    {
+                        Texture2D::Ptr texture = load_texture_2d_internal(path_to_root + "/" + ast_texture.path, ast_texture.srgb, false, uploader);
+
+                        texture_index_map[ast_texture.path] = textures.size();
+
+                        textures.push_back(texture);
+                    }
+
+                    albedo_texture_info.array_index   = texture_index_map[ast_texture.path];
+                    albedo_texture_info.channel_index = ast_texture.channel_index;
+                }
                 else if (ast_texture.type == ast::TEXTURE_EMISSIVE)
-                    emissive_texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, false, uploader);
+                {
+                    if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
+                    {
+                        Texture2D::Ptr texture = load_texture_2d_internal(path_to_root + "/" + ast_texture.path, ast_texture.srgb, false, uploader);
+
+                        texture_index_map[ast_texture.path] = textures.size();
+
+                        textures.push_back(texture);
+                    }
+
+                    emissive_texture_info.array_index   = texture_index_map[ast_texture.path];
+                    emissive_texture_info.channel_index = ast_texture.channel_index;
+                }
                 else if (ast_texture.type == ast::TEXTURE_NORMAL)
-                    normal_texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, false, uploader);
-                else if (ast_texture.type == ast::TEXTURE_METALNESS_SPECULAR)
-                    metallic_texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, false, uploader);
-                else if (ast_texture.type == ast::TEXTURE_ROUGHNESS_GLOSSINESS)
-                    roughness_texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, false, uploader);
+                {
+                    if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
+                    {
+                        Texture2D::Ptr texture = load_texture_2d_internal(path_to_root + "/" + ast_texture.path, ast_texture.srgb, false, uploader);
+
+                        texture_index_map[ast_texture.path] = textures.size();
+
+                        textures.push_back(texture);
+                    }
+
+                    normal_texture_info.array_index   = texture_index_map[ast_texture.path];
+                    normal_texture_info.channel_index = ast_texture.channel_index;
+                }
+                else if (ast_texture.type == ast::TEXTURE_METALLIC)
+                {
+                    if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
+                    {
+                        Texture2D::Ptr texture = load_texture_2d_internal(path_to_root + "/" + ast_texture.path, ast_texture.srgb, false, uploader);
+
+                        texture_index_map[ast_texture.path] = textures.size();
+
+                        textures.push_back(texture);
+                    }
+
+                    metallic_texture_info.array_index   = texture_index_map[ast_texture.path];
+                    metallic_texture_info.channel_index = ast_texture.channel_index;
+                }
+                else if (ast_texture.type == ast::TEXTURE_ROUGHNESS)
+                {
+                    if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
+                    {
+                        Texture2D::Ptr texture = load_texture_2d_internal(path_to_root + "/" + ast_texture.path, ast_texture.srgb, false, uploader);
+
+                        texture_index_map[ast_texture.path] = textures.size();
+
+                        textures.push_back(texture);
+                    }
+
+                    roughness_texture_info.array_index   = texture_index_map[ast_texture.path];
+                    roughness_texture_info.channel_index = ast_texture.channel_index;
+                }
             }
 
             for (auto ast_property : ast_material.properties)
@@ -332,13 +399,13 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
                     albedo_value = glm::vec4(ast_property.vec4_value[0], ast_property.vec4_value[1], ast_property.vec4_value[2], ast_property.vec4_value[3]);
                 if (ast_property.type == ast::PROPERTY_EMISSIVE)
                     emissive_value = glm::vec4(ast_property.vec4_value[0], ast_property.vec4_value[1], ast_property.vec4_value[2], ast_property.vec4_value[3]);
-                if (ast_property.type == ast::PROPERTY_METALNESS_SPECULAR)
+                if (ast_property.type == ast::PROPERTY_METALLIC)
                     metallic_value = ast_property.float_value;
-                if (ast_property.type == ast::PROPERTY_ROUGHNESS_GLOSSINESS)
+                if (ast_property.type == ast::PROPERTY_ROUGHNESS)
                     roughness_value = ast_property.float_value;
             }
 
-            Material::Ptr material = Material::create(type, albedo_texture, normal_texture, metallic_texture, roughness_texture, emissive_texture, albedo_value, emissive_value, metallic_value, roughness_value, ast_material.orca);
+            Material::Ptr material = Material::create(type, textures, albedo_texture_info, normal_texture_info, metallic_texture_info, roughness_texture_info, emissive_texture_info, albedo_value, emissive_value, metallic_value, roughness_value);
 
             m_materials[path] = material;
 
@@ -363,8 +430,12 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
         vk::Backend::Ptr backend = m_backend.lock();
         ast::Mesh        ast_mesh;
 
-        if (ast::load_mesh(absolute ? path : utility::path_for_resource("assets/" + path), ast_mesh))
+        std::string path_to_asset = absolute ? path : utility::path_for_resource("assets/" + path);
+
+        if (ast::load_mesh(path_to_asset, ast_mesh))
         {
+            std::string path_to_root = utility::path_without_file(path_to_asset);
+
             std::vector<Vertex>        vertices;
             std::vector<SubMesh>       submeshes;
             std::vector<Material::Ptr> materials;
@@ -398,7 +469,7 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
             }
 
             for (int i = 0; i < ast_mesh.material_paths.size(); i++)
-                materials[i] = load_material_internal(ast_mesh.material_paths[i], false, uploader);
+                materials[i] = load_material_internal(path_to_root + "/" + ast_mesh.material_paths[i], false, uploader);
 
             Mesh::Ptr mesh = Mesh::create(backend, vertices, ast_mesh.indices, submeshes, materials, uploader);
 
@@ -454,7 +525,10 @@ MeshNode::Ptr ResourceManager::create_mesh_node(std::shared_ptr<ast::MeshNode> a
         Material::Ptr material_override = nullptr;
 
         if (ast_node->material_override != "")
+        {
             material_override = load_material_internal(ast_node->material_override, false, uploader);
+            mesh_node->set_material_override(material_override);
+        }
         else
             LUMEN_LOG_ERROR("Failed to load material: " + ast_node->material_override);
     }

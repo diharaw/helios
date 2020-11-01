@@ -17,16 +17,6 @@ class Mesh;
 class Material;
 class TextureCube;
 
-struct RTGeometryInstance
-{
-    glm::mat3x4 transform;
-    uint32_t    instanceCustomIndex : 24;
-    uint32_t    mask : 8;
-    uint32_t    instanceOffset : 24;
-    uint32_t    flags : 8;
-    uint64_t    accelerationStructureHandle;
-};
-
 enum NodeType
 {
     NODE_MESH,
@@ -61,7 +51,7 @@ protected:
 
 public:
     Node(const NodeType& type, const std::string& name);
-    ~Node();
+    virtual ~Node();
 
     virtual void update(RenderState& render_state) = 0;
 
@@ -297,7 +287,7 @@ public:
     void      update(RenderState& render_state);
     void      set_root_node(Node::Ptr node);
     Node::Ptr root_node();
-    
+
     inline void                       set_name(const std::string& name) { m_name = name; }
     inline std::string                name() { return m_name; }
     inline AccelerationStructureData& acceleration_structure_data() { return m_tlas; }
