@@ -9,11 +9,11 @@ class ResourceManager;
 class Renderer
 {
 private:
-    uint32_t                   m_width = 0;
-    uint32_t                   m_height = 0;
-    vk::Buffer::Ptr            m_tlas_scratch_buffer;
-    vk::Buffer::Ptr            m_tlas_instance_buffer_device;
-    std::weak_ptr<vk::Backend> m_backend;
+    uint32_t                       m_width  = 0;
+    uint32_t                       m_height = 0;
+    vk::Buffer::Ptr                m_tlas_scratch_buffer;
+    vk::Buffer::Ptr                m_tlas_instance_buffer_device;
+    std::weak_ptr<vk::Backend>     m_backend;
     std::weak_ptr<ResourceManager> m_resource_manager;
 
     // Path Tracing pass
@@ -39,7 +39,7 @@ public:
     ~Renderer();
 
     void render(vk::CommandBuffer::Ptr cmd_buffer, Scene::Ptr scene, RenderState& render_state);
-    void                                on_window_resize(uint32_t width, uint32_t height);
+    void on_window_resize(uint32_t width, uint32_t height);
 
     inline vk::DescriptorSetLayout::Ptr scene_ds_layout() { return m_scene_ds_layout; }
 

@@ -465,7 +465,6 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
     m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_CPU_COPY, 0);
 
     // Allocate descriptor set
-    
 
     m_descriptor_set = backend->allocate_descriptor_set(m_descriptor_set_layout);
 

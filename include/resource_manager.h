@@ -5,7 +5,6 @@
 #include <material.h>
 #include <mesh.h>
 #include <scene.h>
-#include <shader.h>
 #include <vk.h>
 #include <common/scene.h>
 
@@ -19,7 +18,6 @@ private:
     std::unordered_map<std::string, TextureCube::Ptr> m_textures_cube;
     std::unordered_map<std::string, Material::Ptr>    m_materials;
     std::unordered_map<std::string, Mesh::Ptr>        m_meshes;
-    std::unordered_map<std::string, vk::ShaderModule::Ptr>        m_shader_modules;
 
 public:
     ResourceManager(vk::Backend::Ptr backend);
@@ -30,7 +28,6 @@ public:
     Material::Ptr    load_material(const std::string& path, bool absolute = false);
     Mesh::Ptr        load_mesh(const std::string& path, bool absolute = false);
     Scene::Ptr       load_scene(const std::string& path, bool absolute = false);
-    vk::ShaderModule::Ptr load_shader_module(const std::string& path, bool absolute = false);
 
 private:
     Texture2D::Ptr            load_texture_2d_internal(const std::string& path, bool srgb, bool absolute, vk::BatchUploader& uploader);

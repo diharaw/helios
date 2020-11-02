@@ -220,27 +220,6 @@ Scene::Ptr ResourceManager::load_scene(const std::string& path, bool absolute)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-vk::ShaderModule::Ptr ResourceManager::load_shader_module(const std::string& path, bool absolute)
-{
-    if (!m_backend.expired())
-    {
-        vk::Backend::Ptr backend = m_backend.lock();
-
-        if (m_shader_modules.find(path) != m_shader_modules.end())
-            return m_shader_modules[path];
-        else
-        {
-            auto shader_module             = vk::ShaderModule::create_from_file(backend, path);
-            m_shader_modules[path]         = shader_module;
-            return shader_module;
-        }
-    }
-    else
-        return nullptr;
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
 Texture2D::Ptr ResourceManager::load_texture_2d_internal(const std::string& path, bool srgb, bool absolute, vk::BatchUploader& uploader)
 {
     if (m_textures_2d.find(path) != m_textures_2d.end())
