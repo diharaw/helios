@@ -1,11 +1,11 @@
 #pragma once
 
 #include <unordered_map>
-#include <texture.h>
-#include <material.h>
-#include <mesh.h>
-#include <scene.h>
-#include <vk.h>
+#include <resource/texture.h>
+#include <resource/material.h>
+#include <resource/mesh.h>
+#include <resource/scene.h>
+#include <core/vk.h>
 #include <common/scene.h>
 
 namespace lumen

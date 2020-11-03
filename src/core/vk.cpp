@@ -1,6 +1,6 @@
-#include <vk.h>
-#include <logger.h>
-#include <macros.h>
+#include <core/vk.h>
+#include <utility/logger.h>
+#include <utility/macros.h>
 #include <fstream>
 
 #define VMA_IMPLEMENTATION

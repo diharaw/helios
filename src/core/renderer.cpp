@@ -1,5 +1,5 @@
-#include <renderer.h>
-#include <macros.h>
+#include <core/renderer.h>
+#include <utility/macros.h>
 #include <vk_mem_alloc.h>
 
 namespace lumen
@@ -24,8 +24,8 @@ struct Transforms
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Renderer::Renderer(uint32_t width, uint32_t height, vk::Backend::Ptr backend, std::shared_ptr<ResourceManager> resource_manager) :
-    m_width(width), m_height(height), m_backend(backend), m_resource_manager(resource_manager)
+Renderer::Renderer(uint32_t width, uint32_t height, vk::Backend::Ptr backend) :
+    m_width(width), m_height(height), m_backend(backend)
 {
     create_scene_descriptor_set_layout();
     create_output_images();

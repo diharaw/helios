@@ -1,5 +1,5 @@
-#include <application.h>
-#include <macros.h>
+#include <core/application.h>
+#include <utility/macros.h>
 
 namespace lumen
 {

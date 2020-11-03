@@ -1,4 +1,4 @@
-#include <material.h>
+#include <resource/material.h>
 
 namespace lumen
 {

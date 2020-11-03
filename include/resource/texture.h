@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vk.h>
+#include <core/vk.h>
 #include <memory>
 
 namespace lumen

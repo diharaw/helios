@@ -1,6 +1,6 @@
 #pragma once
 
-#include <scene.h>
+#include <resource/scene.h>
 
 namespace lumen
 {
@@ -14,7 +14,6 @@ private:
     vk::Buffer::Ptr                m_tlas_scratch_buffer;
     vk::Buffer::Ptr                m_tlas_instance_buffer_device;
     std::weak_ptr<vk::Backend>     m_backend;
-    std::weak_ptr<ResourceManager> m_resource_manager;
 
     // Path Tracing pass
     vk::DescriptorSetLayout::Ptr m_scene_ds_layout;
@@ -35,7 +34,7 @@ private:
     vk::DescriptorSetLayout::Ptr m_tone_map_layout;
 
 public:
-    Renderer(uint32_t width, uint32_t height, vk::Backend::Ptr backend, std::shared_ptr<ResourceManager> resource_manager);
+    Renderer(uint32_t width, uint32_t height, vk::Backend::Ptr backend);
     ~Renderer();
 
     void render(vk::CommandBuffer::Ptr cmd_buffer, Scene::Ptr scene, RenderState& render_state);

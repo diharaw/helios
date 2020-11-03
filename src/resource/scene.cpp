@@ -1,9 +1,9 @@
-#include <scene.h>
-#include <macros.h>
+#include <resource/scene.h>
+#include <resource/mesh.h>
+#include <resource/material.h>
+#include <resource/texture.h>
+#include <utility/macros.h>
 #include <vk_mem_alloc.h>
-#include <mesh.h>
-#include <material.h>
-#include <texture.h>
 #include <unordered_map>
 #include <unordered_set>
 

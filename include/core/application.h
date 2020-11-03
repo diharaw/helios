@@ -6,7 +6,7 @@
 #include <vector>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
-#include <vk.h>
+#include <core/vk.h>
 
 // Main method macro. Use this at the bottom of any cpp file.
 #define LUMEN_DECLARE_MAIN(class_name)     \

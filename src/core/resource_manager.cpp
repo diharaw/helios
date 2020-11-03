@@ -1,7 +1,7 @@
-#include <resource_manager.h>
+#include <core/resource_manager.h>
+#include <utility/logger.h>
+#include <utility/utility.h>
 #include <loader/loader.h>
-#include <logger.h>
-#include <utility.h>
 #include <vk_mem_alloc.h>
 
 namespace lumen

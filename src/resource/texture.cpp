@@ -1,4 +1,4 @@
-#include <texture.h>
+#include <resource/texture.h>
 
 namespace lumen
 {

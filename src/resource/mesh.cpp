@@ -1,5 +1,5 @@
-#include <mesh.h>
-#include <material.h>
+#include <resource/mesh.h>
+#include <resource/material.h>
 #include <vk_mem_alloc.h>
 
 namespace lumen

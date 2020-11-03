@@ -1,6 +1,6 @@
-#include <application.h>
-#include <logger.h>
-#include <macros.h>
+#include <core/application.h>
+#include <utility/logger.h>
+#include <utility/macros.h>
 #include <examples/imgui_impl_glfw.h>
 #include <examples/imgui_impl_vulkan.h>
 #include <iostream>
