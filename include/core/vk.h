@@ -115,6 +115,7 @@ public:
     inline VkPhysicalDeviceRayTracingPropertiesNV ray_tracing_properties() { return m_ray_tracing_properties; }
     inline VkFormat                               swap_chain_image_format() { return m_swap_chain_image_format; }
     inline VkFormat                               swap_chain_depth_format() { return m_swap_chain_depth_format; }
+    inline VkExtent2D                             swap_chain_extents() { return m_swap_chain_extent; }
     inline uint32_t                               current_frame_idx() { return m_current_frame; }
     inline const QueueInfos&                      queue_infos() { return m_selected_queues; }
 

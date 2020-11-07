@@ -24,10 +24,12 @@ struct Transforms
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Renderer::Renderer(uint32_t width, uint32_t height, vk::Backend::Ptr backend) :
-    m_width(width), m_height(height), m_backend(backend)
+Renderer::Renderer(vk::Backend::Ptr backend) :
+    m_backend(backend)
 {
-    create_scene_descriptor_set_layout();
+    create_output_images();
+    create_tone_map_pipeline();
+    create_descriptor_set_layouts();
     create_buffers();
 }
 
@@ -105,37 +107,62 @@ void Renderer::render(std::shared_ptr<Integrator> integrator, vk::CommandBuffer:
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Renderer::create_scene_descriptor_set_layout()
+void Renderer::on_window_resize()
+{
+    create_output_images();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_descriptor_set_layouts()
 {
     auto backend = m_backend.lock();
 
-    vk::DescriptorSetLayout::Desc ds_layout_desc;
+    {
+        vk::DescriptorSetLayout::Desc ds_layout_desc;
 
-    // VBOs
-    ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
-    // IBOs
-    ds_layout_desc.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
-    // Material Data
-    ds_layout_desc.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
-    // Material Indices
-    ds_layout_desc.add_binding(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
-    // Material Textures
-    ds_layout_desc.add_binding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SCENE_MATERIAL_TEXTURE_COUNT, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
+        // VBOs
+        ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+        // IBOs
+        ds_layout_desc.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+        // Material Data
+        ds_layout_desc.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+        // Material Indices
+        ds_layout_desc.add_binding(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+        // Material Textures
+        ds_layout_desc.add_binding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SCENE_MATERIAL_TEXTURE_COUNT, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
 
-    std::vector<VkDescriptorBindingFlagsEXT> descriptor_binding_flags = {
-        VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT
-    };
+        std::vector<VkDescriptorBindingFlagsEXT> descriptor_binding_flags = {
+            VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT
+        };
 
-    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT set_layout_binding_flags;
-    LUMEN_ZERO_MEMORY(set_layout_binding_flags);
+        VkDescriptorSetLayoutBindingFlagsCreateInfoEXT set_layout_binding_flags;
+        LUMEN_ZERO_MEMORY(set_layout_binding_flags);
 
-    set_layout_binding_flags.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
-    set_layout_binding_flags.bindingCount  = 1;
-    set_layout_binding_flags.pBindingFlags = descriptor_binding_flags.data();
+        set_layout_binding_flags.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
+        set_layout_binding_flags.bindingCount  = 1;
+        set_layout_binding_flags.pBindingFlags = descriptor_binding_flags.data();
 
-    ds_layout_desc.set_next_ptr(&set_layout_binding_flags);
+        ds_layout_desc.set_next_ptr(&set_layout_binding_flags);
 
-    m_scene_ds_layout = vk::DescriptorSetLayout::create(backend, ds_layout_desc);
+        m_per_scene_ds_layout = vk::DescriptorSetLayout::create(backend, ds_layout_desc);
+    }
+
+    {
+        vk::DescriptorSetLayout::Desc ds_layout_desc;
+
+        ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_NV | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+
+        m_per_frame_ds_layout = vk::DescriptorSetLayout::create(backend, ds_layout_desc);
+    }
+
+    {
+        vk::DescriptorSetLayout::Desc ds_layout_desc;
+
+        ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_RAYGEN_BIT_NV);
+
+        m_ouput_image_ds_layout = vk::DescriptorSetLayout::create(backend, ds_layout_desc);
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -152,14 +179,32 @@ void Renderer::create_buffers()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Renderer::on_window_resize(uint32_t width, uint32_t height)
+void Renderer::create_tone_map_pipeline()
 {
     auto backend = m_backend.lock();
 
-    backend->wait_idle();
+    vk::PipelineLayout::Desc ds_desc;
 
-    m_width  = width;
-    m_height = height;
+    ds_desc.add_descriptor_set_layout(m_ouput_image_ds_layout);
+
+    m_tone_map_pipeline_layout = vk::PipelineLayout::create(backend, ds_desc);
+    m_tone_map_pipeline        = vk::GraphicsPipeline::create_for_post_process(backend, "shaders/triangle.vert.spv", "shaders/tone_map.frag.spv", m_tone_map_pipeline_layout, backend->swapchain_render_pass());
+}
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_output_images()
+{
+    auto backend = m_backend.lock();
+    auto extents = backend->swap_chain_extents();
+
+    for (int i = 0; i < 2; i++)
+    {
+        m_output_image_views[i].reset();
+        m_output_images[i].reset();
+
+        m_output_images[i]      = vk::Image::create(backend, VK_IMAGE_TYPE_2D, extents.width, extents.height, 1, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_SAMPLE_COUNT_1_BIT);
+        m_output_image_views[i] = vk::ImageView::create(backend, m_output_images[i], VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
