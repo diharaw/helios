@@ -14,7 +14,7 @@ public:
 
 protected:
     void execute(vk::DescriptorSet::Ptr read_image, vk::DescriptorSet::Ptr write_image, vk::DescriptorSet::Ptr per_scene_ds, vk::DescriptorSet::Ptr per_frame_ds) override;
-    void create_path_trace_ray_tracing_pipeline(vk::DescriptorSetLayout::Ptr per_scene_ds_layout, vk::DescriptorSetLayout::Ptr per_frame_ds_layout);
+    void create_pipeline(vk::DescriptorSetLayout::Ptr per_scene_ds_layout, vk::DescriptorSetLayout::Ptr per_frame_ds_layout);
 
 private:
     vk::DescriptorSet::Ptr      m_path_trace_ds[2];

@@ -9,7 +9,7 @@ namespace lumen
 PathIntegrator::PathIntegrator(vk::Backend::Ptr backend, vk::DescriptorSetLayout::Ptr per_scene_ds_layout, vk::DescriptorSetLayout::Ptr per_frame_ds_layout) :
     Integrator(backend)
 {
-    create_path_trace_ray_tracing_pipeline(per_scene_ds_layout, per_frame_ds_layout);
+    create_pipeline(per_scene_ds_layout, per_frame_ds_layout);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -26,7 +26,7 @@ void PathIntegrator::execute(vk::DescriptorSet::Ptr read_image, vk::DescriptorSe
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void PathIntegrator::create_path_trace_ray_tracing_pipeline(vk::DescriptorSetLayout::Ptr per_scene_ds_layout, vk::DescriptorSetLayout::Ptr per_frame_ds_layout)
+void PathIntegrator::create_pipeline(vk::DescriptorSetLayout::Ptr per_scene_ds_layout, vk::DescriptorSetLayout::Ptr per_frame_ds_layout)
 {
     auto backend = m_backend.lock();
 
