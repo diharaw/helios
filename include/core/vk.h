@@ -24,6 +24,7 @@ class PipelineLayout;
 class CommandPool;
 class Fence;
 class Semaphore;
+class Sampler;
 class DescriptorSet;
 class DescriptorSetLayout;
 class DescriptorPool;
@@ -118,6 +119,10 @@ public:
     inline VkExtent2D                             swap_chain_extents() { return m_swap_chain_extent; }
     inline uint32_t                               current_frame_idx() { return m_current_frame; }
     inline const QueueInfos&                      queue_infos() { return m_selected_queues; }
+    inline std::shared_ptr<DescriptorSetLayout>   scene_descriptor_set_layout() { return m_scene_descriptor_set_layout; }
+    inline std::shared_ptr<Sampler>               bilinear_sampler() { return m_bilinear_sampler; }
+    inline std::shared_ptr<Sampler>               trilinear_sampler() { return m_trilinear_sampler; }
+    inline std::shared_ptr<Sampler>               nearest_sampler() { return m_nearest_sampler; }
 
 private:
     Backend(GLFWwindow* window, bool enable_validation_layers, bool require_ray_tracing, std::vector<const char*> additional_device_extensions, void* pnext);
@@ -172,6 +177,10 @@ private:
     std::vector<std::shared_ptr<Image>>           m_swap_chain_images;
     std::vector<std::shared_ptr<ImageView>>       m_swap_chain_image_views;
     std::vector<std::shared_ptr<Framebuffer>>     m_swap_chain_framebuffers;
+    std::shared_ptr<DescriptorSetLayout>          m_scene_descriptor_set_layout;
+    std::shared_ptr<Sampler>                      m_bilinear_sampler;
+    std::shared_ptr<Sampler>                      m_trilinear_sampler;
+    std::shared_ptr<Sampler>                      m_nearest_sampler;
     uint32_t                                      m_image_index   = 0;
     uint32_t                                      m_current_frame = 0;
     std::vector<std::shared_ptr<Fence>>           m_in_flight_fences;

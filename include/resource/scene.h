@@ -13,6 +13,7 @@ namespace lumen
 #define MAX_SCENE_MATERIAL_COUNT 4096
 #define MAX_SCENE_MATERIAL_TEXTURE_COUNT (MAX_SCENE_MATERIAL_COUNT * 4)
 
+class Scene;
 class Mesh;
 class Material;
 class TextureCube;
@@ -256,6 +257,11 @@ struct RenderState
     CameraNode*                        camera;
     IBLNode*                           ibl_environment_map;
     SceneState                         scene_state = SCENE_STATE_READY;
+    Scene*                             scene;
+    vk::DescriptorSet::Ptr             read_image_ds;
+    vk::DescriptorSet::Ptr             write_image_ds;
+    vk::DescriptorSet::Ptr             scene_ds;
+    vk::CommandBuffer::Ptr             cmd_buffer;
 
     RenderState();
     ~RenderState();
@@ -297,14 +303,15 @@ private:
     void create_gpu_resources(RenderState& render_state);
 
 private:
-    AccelerationStructureData    m_tlas;
-    Node::Ptr                    m_root;
-    vk::DescriptorSetLayout::Ptr m_descriptor_set_layout;
-    vk::DescriptorSet::Ptr       m_descriptor_set;
-    vk::Buffer::Ptr              m_light_data_buffer;
-    vk::Buffer::Ptr              m_material_data_buffer;
-    vk::Sampler::Ptr             m_material_sampler;
-    std::weak_ptr<vk::Backend>   m_backend;
-    std::string                  m_name;
+    AccelerationStructureData  m_tlas;
+    Node::Ptr                  m_root;
+    vk::DescriptorSet::Ptr     m_descriptor_set;
+    vk::Buffer::Ptr            m_camera_buffer;
+    vk::Buffer::Ptr            m_light_data_buffer;
+    vk::Buffer::Ptr            m_material_data_buffer;
+    vk::Sampler::Ptr           m_material_sampler;
+    size_t                     m_camera_buffer_aligned_size;
+    std::weak_ptr<vk::Backend> m_backend;
+    std::string                m_name;
 };
 } // namespace lumen

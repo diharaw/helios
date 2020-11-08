@@ -11,6 +11,21 @@ namespace lumen
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+struct CameraData
+{
+    LUMEN_ALIGNED(16)
+    glm::mat4 view_inverse;
+    LUMEN_ALIGNED(16)
+    glm::mat4 proj_inverse;
+    LUMEN_ALIGNED(16)
+    glm::mat4 view;
+    LUMEN_ALIGNED(16)
+    glm::mat4 proj;
+    LUMEN_ALIGNED(16)
+    glm::vec4 cam_pos;
+};
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 struct GPUMaterial
 {
     glm::uvec4 texture_indices0 = glm::uvec4(-1); // x: albedo, y: normals, z: roughness, w: metallic
@@ -446,6 +461,11 @@ void RenderState::clear()
 
     camera              = nullptr;
     ibl_environment_map = nullptr;
+    read_image_ds       = nullptr;
+    write_image_ds      = nullptr;
+    scene_ds            = nullptr;
+    cmd_buffer          = nullptr;
+    scene               = nullptr;
     scene_state         = SCENE_STATE_READY;
 }
 
@@ -465,8 +485,11 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
     m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_CPU_COPY, 0);
 
     // Allocate descriptor set
+    m_descriptor_set = backend->allocate_descriptor_set(backend->scene_descriptor_set_layout());
 
-    m_descriptor_set = backend->allocate_descriptor_set(m_descriptor_set_layout);
+    // Create camera buffer
+    m_camera_buffer_aligned_size = backend->aligned_dynamic_ubo_size(sizeof(CameraData));
+    m_camera_buffer              = vk::Buffer::create(backend, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, m_camera_buffer_aligned_size * vk::Backend::kMaxFramesInFlight, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
     // Create light data buffer
     m_light_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(GPULight) * MAX_SCENE_LIGHT_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, 0);
@@ -480,7 +503,6 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
 Scene::~Scene()
 {
     m_descriptor_set.reset();
-    m_descriptor_set_layout.reset();
     m_tlas.tlas.reset();
     m_tlas.instance_buffer_host.reset();
     m_light_data_buffer.reset();
@@ -493,6 +515,27 @@ Scene::~Scene()
 void Scene::update(RenderState& render_state)
 {
     m_root->update(render_state);
+
+    // Copy camera data
+    if (render_state.camera)
+    {
+        auto backend = m_backend.lock();
+
+        CameraData camera_data;
+
+        camera_data.view         = render_state.camera->view_matrix();
+        camera_data.view_inverse = glm::inverse(render_state.camera->view_matrix());
+        camera_data.proj         = render_state.camera->projection_matrix();
+        camera_data.view_inverse = glm::inverse(render_state.camera->view_matrix());
+        camera_data.proj_inverse = glm::inverse(render_state.camera->projection_matrix());
+        camera_data.cam_pos      = glm::vec4(render_state.camera->position(), 0.0f);
+
+        uint8_t* ptr = (uint8_t*)m_camera_buffer->mapped_ptr();
+        memcpy(ptr + m_camera_buffer_aligned_size * backend->current_frame_idx(), &camera_data, sizeof(CameraData));
+    }
+
+    render_state.scene_ds = m_descriptor_set;
+    render_state.scene    = this;
 
     create_gpu_resources(render_state);
 }
@@ -715,56 +758,70 @@ void Scene::create_gpu_resources(RenderState& render_state)
                 }
             }
 
+            VkDescriptorBufferInfo camera_buffer_info;
+
+            camera_buffer_info.buffer = m_camera_buffer->handle();
+            camera_buffer_info.offset = 0;
+            camera_buffer_info.range  = VK_WHOLE_SIZE;
+
             VkDescriptorBufferInfo material_buffer_info;
 
             material_buffer_info.buffer = m_material_data_buffer->handle();
             material_buffer_info.offset = 0;
             material_buffer_info.range  = VK_WHOLE_SIZE;
 
-            VkWriteDescriptorSet write_data[5];
+            VkWriteDescriptorSet write_data[6];
 
             LUMEN_ZERO_MEMORY(write_data[0]);
             LUMEN_ZERO_MEMORY(write_data[1]);
             LUMEN_ZERO_MEMORY(write_data[2]);
             LUMEN_ZERO_MEMORY(write_data[3]);
             LUMEN_ZERO_MEMORY(write_data[4]);
+            LUMEN_ZERO_MEMORY(write_data[5]);
 
             write_data[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[0].descriptorCount = vbo_descriptors.size();
-            write_data[0].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[0].pBufferInfo     = vbo_descriptors.data();
+            write_data[0].descriptorCount = 1;
+            write_data[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+            write_data[0].pBufferInfo     = &camera_buffer_info;
             write_data[0].dstBinding      = 0;
             write_data[0].dstSet          = m_descriptor_set->handle();
 
             write_data[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[1].descriptorCount = ibo_descriptors.size();
+            write_data[1].descriptorCount = vbo_descriptors.size();
             write_data[1].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[1].pBufferInfo     = ibo_descriptors.data();
+            write_data[1].pBufferInfo     = vbo_descriptors.data();
             write_data[1].dstBinding      = 1;
             write_data[1].dstSet          = m_descriptor_set->handle();
 
             write_data[2].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[2].descriptorCount = instance_data_descriptors.size();
+            write_data[2].descriptorCount = ibo_descriptors.size();
             write_data[2].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[2].pBufferInfo     = instance_data_descriptors.data();
+            write_data[2].pBufferInfo     = ibo_descriptors.data();
             write_data[2].dstBinding      = 2;
             write_data[2].dstSet          = m_descriptor_set->handle();
 
             write_data[3].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[3].descriptorCount = 1;
+            write_data[3].descriptorCount = instance_data_descriptors.size();
             write_data[3].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[3].pBufferInfo     = &material_buffer_info;
+            write_data[3].pBufferInfo     = instance_data_descriptors.data();
             write_data[3].dstBinding      = 3;
             write_data[3].dstSet          = m_descriptor_set->handle();
 
             write_data[4].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[4].descriptorCount = image_descriptors.size();
-            write_data[4].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            write_data[4].pImageInfo      = image_descriptors.data();
+            write_data[4].descriptorCount = 1;
+            write_data[4].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            write_data[4].pBufferInfo     = &material_buffer_info;
             write_data[4].dstBinding      = 4;
             write_data[4].dstSet          = m_descriptor_set->handle();
 
-            vkUpdateDescriptorSets(backend->device(), 5, write_data, 0, nullptr);
+            write_data[5].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_data[5].descriptorCount = image_descriptors.size();
+            write_data[5].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write_data[5].pImageInfo      = image_descriptors.data();
+            write_data[5].dstBinding      = 5;
+            write_data[5].dstSet          = m_descriptor_set->handle();
+
+            vkUpdateDescriptorSets(backend->device(), 6, write_data, 0, nullptr);
         }
 
         // Copy lights

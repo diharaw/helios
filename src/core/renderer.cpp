@@ -6,24 +6,6 @@ namespace lumen
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-struct Transforms
-{
-    LUMEN_ALIGNED(16)
-    glm::mat4 view_inverse;
-    LUMEN_ALIGNED(16)
-    glm::mat4 proj_inverse;
-    LUMEN_ALIGNED(16)
-    glm::mat4 model;
-    LUMEN_ALIGNED(16)
-    glm::mat4 view;
-    LUMEN_ALIGNED(16)
-    glm::mat4 proj;
-    LUMEN_ALIGNED(16)
-    glm::vec4 cam_pos;
-};
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
 Renderer::Renderer(vk::Backend::Ptr backend) :
     m_backend(backend)
 {
@@ -43,13 +25,13 @@ Renderer::~Renderer()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Renderer::render(std::shared_ptr<Integrator> integrator, vk::CommandBuffer::Ptr cmd_buffer, Scene::Ptr scene, RenderState& render_state)
+void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> integrator)
 {
     auto backend = m_backend.lock();
 
     if (render_state.scene_state == SCENE_STATE_HIERARCHY_UPDATED)
     {
-        auto& tlas_data = scene->acceleration_structure_data();
+        auto& tlas_data = render_state.scene->acceleration_structure_data();
 
         bool is_update = tlas_data.tlas ? true : false;
 
@@ -71,7 +53,7 @@ void Renderer::render(std::shared_ptr<Integrator> integrator, vk::CommandBuffer:
         copy_region.dstOffset = 0;
         copy_region.size      = sizeof(RTGeometryInstance) * render_state.meshes.size();
 
-        vkCmdCopyBuffer(cmd_buffer->handle(), tlas_data.instance_buffer_host->handle(), m_tlas_instance_buffer_device->handle(), 1, &copy_region);
+        vkCmdCopyBuffer(render_state.cmd_buffer->handle(), tlas_data.instance_buffer_host->handle(), m_tlas_instance_buffer_device->handle(), 1, &copy_region);
 
         {
             VkMemoryBarrier memory_barrier;
@@ -80,10 +62,10 @@ void Renderer::render(std::shared_ptr<Integrator> integrator, vk::CommandBuffer:
             memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV;
 
-            vkCmdPipelineBarrier(cmd_buffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &memory_barrier, 0, nullptr, 0, nullptr);
+            vkCmdPipelineBarrier(render_state.cmd_buffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &memory_barrier, 0, nullptr, 0, nullptr);
         }
 
-        vkCmdBuildAccelerationStructureNV(cmd_buffer->handle(),
+        vkCmdBuildAccelerationStructureNV(render_state.cmd_buffer->handle(),
                                           &tlas_data.tlas->info(),
                                           m_tlas_instance_buffer_device->handle(),
                                           0,
@@ -100,7 +82,7 @@ void Renderer::render(std::shared_ptr<Integrator> integrator, vk::CommandBuffer:
             memory_barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
             memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
 
-            vkCmdPipelineBarrier(cmd_buffer->handle(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, 0, 1, &memory_barrier, 0, 0, 0, 0);
+            vkCmdPipelineBarrier(render_state.cmd_buffer->handle(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, 0, 1, &memory_barrier, 0, 0, 0, 0);
         }
     }
 }
@@ -121,44 +103,6 @@ void Renderer::create_descriptor_set_layouts()
     {
         vk::DescriptorSetLayout::Desc ds_layout_desc;
 
-        // VBOs
-        ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
-        // IBOs
-        ds_layout_desc.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
-        // Material Data
-        ds_layout_desc.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
-        // Material Indices
-        ds_layout_desc.add_binding(3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_SCENE_MESH_COUNT, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
-        // Material Textures
-        ds_layout_desc.add_binding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SCENE_MATERIAL_TEXTURE_COUNT, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
-
-        std::vector<VkDescriptorBindingFlagsEXT> descriptor_binding_flags = {
-            VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT
-        };
-
-        VkDescriptorSetLayoutBindingFlagsCreateInfoEXT set_layout_binding_flags;
-        LUMEN_ZERO_MEMORY(set_layout_binding_flags);
-
-        set_layout_binding_flags.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
-        set_layout_binding_flags.bindingCount  = 1;
-        set_layout_binding_flags.pBindingFlags = descriptor_binding_flags.data();
-
-        ds_layout_desc.set_next_ptr(&set_layout_binding_flags);
-
-        m_per_scene_ds_layout = vk::DescriptorSetLayout::create(backend, ds_layout_desc);
-    }
-
-    {
-        vk::DescriptorSetLayout::Desc ds_layout_desc;
-
-        ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_NV | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
-
-        m_per_frame_ds_layout = vk::DescriptorSetLayout::create(backend, ds_layout_desc);
-    }
-
-    {
-        vk::DescriptorSetLayout::Desc ds_layout_desc;
-
         ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_RAYGEN_BIT_NV);
 
         m_ouput_image_ds_layout = vk::DescriptorSetLayout::create(backend, ds_layout_desc);
@@ -171,8 +115,6 @@ void Renderer::create_buffers()
 {
     auto backend = m_backend.lock();
 
-    m_per_frame_ubo_size          = backend->aligned_dynamic_ubo_size(sizeof(Transforms));
-    m_per_frame_ubo               = vk::Buffer::create(backend, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, m_per_frame_ubo_size * vk::Backend::kMaxFramesInFlight, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
     m_tlas_scratch_buffer         = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, 1024 * 1024 * 32, VMA_MEMORY_USAGE_GPU_ONLY, 0);
     m_tlas_instance_buffer_device = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
 }

@@ -6,10 +6,10 @@ namespace lumen
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-PathIntegrator::PathIntegrator(vk::Backend::Ptr backend, vk::DescriptorSetLayout::Ptr per_scene_ds_layout, vk::DescriptorSetLayout::Ptr per_frame_ds_layout) :
+PathIntegrator::PathIntegrator(vk::Backend::Ptr backend) :
     Integrator(backend)
 {
-    create_pipeline(per_scene_ds_layout, per_frame_ds_layout);
+    create_pipeline(backend->scene_descriptor_set_layout());
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -20,13 +20,13 @@ PathIntegrator::~PathIntegrator()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void PathIntegrator::execute(vk::DescriptorSet::Ptr read_image, vk::DescriptorSet::Ptr write_image, vk::DescriptorSet::Ptr per_scene_ds, vk::DescriptorSet::Ptr per_frame_ds)
+void PathIntegrator::execute(RenderState& render_state)
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void PathIntegrator::create_pipeline(vk::DescriptorSetLayout::Ptr per_scene_ds_layout, vk::DescriptorSetLayout::Ptr per_frame_ds_layout)
+void PathIntegrator::create_pipeline(vk::DescriptorSetLayout::Ptr scene_ds_layout)
 {
     auto backend = m_backend.lock();
 
@@ -59,8 +59,7 @@ void PathIntegrator::create_pipeline(vk::DescriptorSetLayout::Ptr per_scene_ds_l
 
     pl_desc.add_push_constant_range(VK_SHADER_STAGE_RAYGEN_BIT_NV, 0, sizeof(float) * 2);
 
-    pl_desc.add_descriptor_set_layout(per_frame_ds_layout);
-    pl_desc.add_descriptor_set_layout(per_scene_ds_layout);
+    pl_desc.add_descriptor_set_layout(scene_ds_layout);
 
     m_path_trace_pipeline_layout = vk::PipelineLayout::create(backend, pl_desc);
 

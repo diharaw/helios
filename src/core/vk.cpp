@@ -3327,6 +3327,11 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
 
 Backend::~Backend()
 {
+    m_bilinear_sampler.reset();
+    m_trilinear_sampler.reset();
+    m_nearest_sampler.reset();
+    m_scene_descriptor_set_layout.reset();
+
     for (int i = 0; i < MAX_COMMAND_THREADS; i++)
     {
         g_graphics_command_buffers[i].reset();
@@ -3414,6 +3419,70 @@ void Backend::initialize()
         g_compute_command_buffers[i]  = std::make_shared<ThreadLocalCommandBuffers>(shared_from_this(), m_selected_queues.compute_queue_index);
         g_transfer_command_buffers[i] = std::make_shared<ThreadLocalCommandBuffers>(shared_from_this(), m_selected_queues.transfer_queue_index);
     }
+
+    DescriptorSetLayout::Desc ds_layout_desc;
+
+    // Camera Data
+    ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    // VBOs
+    ds_layout_desc.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10000, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    // IBOs
+    ds_layout_desc.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10000, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    // Material Data
+    ds_layout_desc.add_binding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    // Material Indices
+    ds_layout_desc.add_binding(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10000, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    // Material Textures
+    ds_layout_desc.add_binding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8096, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
+
+    std::vector<VkDescriptorBindingFlagsEXT> descriptor_binding_flags = {
+        0,
+        0,
+        0,
+        0,
+        0,
+        VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT
+    };
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT set_layout_binding_flags;
+    LUMEN_ZERO_MEMORY(set_layout_binding_flags);
+
+    set_layout_binding_flags.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
+    set_layout_binding_flags.bindingCount  = 6;
+    set_layout_binding_flags.pBindingFlags = descriptor_binding_flags.data();
+
+    ds_layout_desc.set_next_ptr(&set_layout_binding_flags);
+
+    m_scene_descriptor_set_layout = DescriptorSetLayout::create(shared_from_this(), ds_layout_desc);
+
+    Sampler::Desc sampler_desc;
+
+    sampler_desc.mag_filter        = VK_FILTER_LINEAR;
+    sampler_desc.min_filter        = VK_FILTER_LINEAR;
+    sampler_desc.mipmap_mode       = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    sampler_desc.address_mode_u    = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_desc.address_mode_v    = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_desc.address_mode_w    = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_desc.mip_lod_bias      = 0.0f;
+    sampler_desc.anisotropy_enable = VK_FALSE;
+    sampler_desc.max_anisotropy    = 1.0f;
+    sampler_desc.compare_enable    = false;
+    sampler_desc.compare_op        = VK_COMPARE_OP_NEVER;
+    sampler_desc.min_lod           = 0.0f;
+    sampler_desc.max_lod           = 12.0f;
+    sampler_desc.border_color      = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    sampler_desc.unnormalized_coordinates;
+
+    m_bilinear_sampler = vk::Sampler::create(shared_from_this(), sampler_desc);
+
+    sampler_desc.mipmap_mode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+
+    m_trilinear_sampler = vk::Sampler::create(shared_from_this(), sampler_desc);
+
+    sampler_desc.mag_filter = VK_FILTER_NEAREST;
+    sampler_desc.min_filter = VK_FILTER_NEAREST;
+
+    m_nearest_sampler = vk::Sampler::create(shared_from_this(), sampler_desc);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
