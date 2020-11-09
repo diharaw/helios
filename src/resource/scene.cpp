@@ -105,8 +105,8 @@ void Node::update_children(RenderState& render_state)
 {
     if (m_is_heirarchy_dirty)
     {
-        render_state.scene_state = SCENE_STATE_HIERARCHY_UPDATED;
-        m_is_heirarchy_dirty     = false;
+        render_state.m_scene_state = SCENE_STATE_HIERARCHY_UPDATED;
+        m_is_heirarchy_dirty       = false;
     }
 
     for (auto& child : m_children)
@@ -155,8 +155,8 @@ void TransformNode::update(RenderState& render_state)
         if (parent_transform)
             m_model_matrix = m_model_matrix * parent_transform->m_model_matrix;
 
-        if (render_state.scene_state != SCENE_STATE_HIERARCHY_UPDATED)
-            render_state.scene_state = SCENE_STATE_TRANSFORMS_UPDATED;
+        if (render_state.m_scene_state != SCENE_STATE_HIERARCHY_UPDATED)
+            render_state.m_scene_state = SCENE_STATE_TRANSFORMS_UPDATED;
 
         m_is_transform_dirty = false;
     }
@@ -288,7 +288,7 @@ void MeshNode::update(RenderState& render_state)
     {
         TransformNode::update(render_state);
 
-        render_state.meshes.push_back(this);
+        render_state.m_meshes.push_back(this);
 
         update_children(render_state);
     }
@@ -315,7 +315,7 @@ void DirectionalLightNode::update(RenderState& render_state)
     {
         TransformNode::update(render_state);
 
-        render_state.directional_lights.push_back(this);
+        render_state.m_directional_lights.push_back(this);
 
         update_children(render_state);
     }
@@ -342,7 +342,7 @@ void SpotLightNode::update(RenderState& render_state)
     {
         TransformNode::update(render_state);
 
-        render_state.spot_lights.push_back(this);
+        render_state.m_spot_lights.push_back(this);
 
         update_children(render_state);
     }
@@ -369,7 +369,7 @@ void PointLightNode::update(RenderState& render_state)
     {
         TransformNode::update(render_state);
 
-        render_state.point_lights.push_back(this);
+        render_state.m_point_lights.push_back(this);
 
         update_children(render_state);
     }
@@ -399,8 +399,8 @@ void CameraNode::update(RenderState& render_state)
         m_projection_matrix = glm::perspective(glm::radians(m_fov), 1.0f, m_near_plane, m_far_plane);
         m_view_matrix       = glm::inverse(m_model_matrix_without_scale);
 
-        if (!render_state.camera)
-            render_state.camera = this;
+        if (!render_state.m_camera)
+            render_state.m_camera = this;
 
         update_children(render_state);
     }
@@ -425,8 +425,8 @@ void IBLNode::update(RenderState& render_state)
 {
     if (m_is_enabled)
     {
-        if (!render_state.ibl_environment_map)
-            render_state.ibl_environment_map = this;
+        if (!render_state.m_ibl_environment_map)
+            render_state.m_ibl_environment_map = this;
 
         update_children(render_state);
     }
@@ -436,12 +436,10 @@ void IBLNode::update(RenderState& render_state)
 
 RenderState::RenderState()
 {
-    meshes.reserve(100000);
-    directional_lights.reserve(100000);
-    spot_lights.reserve(100000);
-    point_lights.reserve(100000);
-
-    clear();
+    m_meshes.reserve(100000);
+    m_directional_lights.reserve(100000);
+    m_spot_lights.reserve(100000);
+    m_point_lights.reserve(100000);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -452,21 +450,20 @@ RenderState::~RenderState()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void RenderState::clear()
+void RenderState::setup(vk::CommandBuffer::Ptr cmd_buffer)
 {
-    meshes.clear();
-    directional_lights.clear();
-    spot_lights.clear();
-    point_lights.clear();
-
-    camera              = nullptr;
-    ibl_environment_map = nullptr;
-    read_image_ds       = nullptr;
-    write_image_ds      = nullptr;
-    scene_ds            = nullptr;
-    cmd_buffer          = nullptr;
-    scene               = nullptr;
-    scene_state         = SCENE_STATE_READY;
+    m_meshes.clear();
+    m_directional_lights.clear();
+    m_spot_lights.clear();
+    m_point_lights.clear();
+    m_camera              = nullptr;
+    m_ibl_environment_map = nullptr;
+    m_read_image_ds       = nullptr;
+    m_write_image_ds      = nullptr;
+    m_scene_ds            = nullptr;
+    m_cmd_buffer          = cmd_buffer;
+    m_scene               = nullptr;
+    m_scene_state         = SCENE_STATE_READY;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -517,25 +514,25 @@ void Scene::update(RenderState& render_state)
     m_root->update(render_state);
 
     // Copy camera data
-    if (render_state.camera)
+    if (render_state.m_camera)
     {
         auto backend = m_backend.lock();
 
         CameraData camera_data;
 
-        camera_data.view         = render_state.camera->view_matrix();
-        camera_data.view_inverse = glm::inverse(render_state.camera->view_matrix());
-        camera_data.proj         = render_state.camera->projection_matrix();
-        camera_data.view_inverse = glm::inverse(render_state.camera->view_matrix());
-        camera_data.proj_inverse = glm::inverse(render_state.camera->projection_matrix());
-        camera_data.cam_pos      = glm::vec4(render_state.camera->position(), 0.0f);
+        camera_data.view         = render_state.m_camera->view_matrix();
+        camera_data.view_inverse = glm::inverse(render_state.m_camera->view_matrix());
+        camera_data.proj         = render_state.m_camera->projection_matrix();
+        camera_data.view_inverse = glm::inverse(render_state.m_camera->view_matrix());
+        camera_data.proj_inverse = glm::inverse(render_state.m_camera->projection_matrix());
+        camera_data.cam_pos      = glm::vec4(render_state.m_camera->position(), 0.0f);
 
         uint8_t* ptr = (uint8_t*)m_camera_buffer->mapped_ptr();
         memcpy(ptr + m_camera_buffer_aligned_size * backend->current_frame_idx(), &camera_data, sizeof(CameraData));
     }
 
-    render_state.scene_ds = m_descriptor_set;
-    render_state.scene    = this;
+    render_state.m_scene_ds = m_descriptor_set;
+    render_state.m_scene    = this;
 
     create_gpu_resources(render_state);
 }
@@ -544,9 +541,9 @@ void Scene::update(RenderState& render_state)
 
 void Scene::create_gpu_resources(RenderState& render_state)
 {
-    if (render_state.scene_state != SCENE_STATE_READY)
+    if (render_state.m_scene_state != SCENE_STATE_READY)
     {
-        if (render_state.scene_state == SCENE_STATE_HIERARCHY_UPDATED)
+        if (render_state.m_scene_state == SCENE_STATE_HIERARCHY_UPDATED)
         {
             auto backend = m_backend.lock();
 
@@ -564,9 +561,9 @@ void Scene::create_gpu_resources(RenderState& render_state)
             GPUMaterial*                        material_buffer          = (GPUMaterial*)m_material_data_buffer->mapped_ptr();
             RTGeometryInstance*                 geometry_instance_buffer = (RTGeometryInstance*)m_tlas.instance_buffer_host->mapped_ptr();
 
-            for (int mesh_node_idx = 0; mesh_node_idx < render_state.meshes.size(); mesh_node_idx++)
+            for (int mesh_node_idx = 0; mesh_node_idx < render_state.m_meshes.size(); mesh_node_idx++)
             {
-                auto&       mesh_node = render_state.meshes[mesh_node_idx];
+                auto&       mesh_node = render_state.m_meshes[mesh_node_idx];
                 auto&       mesh      = mesh_node->mesh();
                 const auto& materials = mesh->materials();
                 const auto& submeshes = mesh->sub_meshes();
@@ -828,9 +825,9 @@ void Scene::create_gpu_resources(RenderState& render_state)
         uint32_t  gpu_light_counter = 0;
         GPULight* light_buffer      = (GPULight*)m_light_data_buffer->mapped_ptr();
 
-        for (int i = 0; i < render_state.directional_lights.size(); i++)
+        for (int i = 0; i < render_state.m_directional_lights.size(); i++)
         {
-            auto light = render_state.directional_lights[i];
+            auto light = render_state.m_directional_lights[i];
 
             GPULight& gpu_light = light_buffer[gpu_light_counter++];
 
@@ -838,9 +835,9 @@ void Scene::create_gpu_resources(RenderState& render_state)
             gpu_light.light_data1 = glm::vec4(light->forward(), light->intensity());
         }
 
-        for (int i = 0; i < render_state.point_lights.size(); i++)
+        for (int i = 0; i < render_state.m_point_lights.size(); i++)
         {
-            auto light = render_state.point_lights[i];
+            auto light = render_state.m_point_lights[i];
 
             GPULight& gpu_light = light_buffer[gpu_light_counter++];
 
@@ -849,9 +846,9 @@ void Scene::create_gpu_resources(RenderState& render_state)
             gpu_light.light_data2 = glm::vec4(light->range(), 0.0f, 0.0f, 0.0f);
         }
 
-        for (int i = 0; i < render_state.spot_lights.size(); i++)
+        for (int i = 0; i < render_state.m_spot_lights.size(); i++)
         {
-            auto light = render_state.spot_lights[i];
+            auto light = render_state.m_spot_lights[i];
 
             GPULight& gpu_light = light_buffer[gpu_light_counter++];
 

@@ -223,7 +223,7 @@ public:
     inline glm::mat4 projection_matrix() { return m_projection_matrix; }
 };
 
-struct IBLNode : public Node
+class IBLNode : public Node
 {
 public:
     using Ptr = std::shared_ptr<IBLNode>;
@@ -248,25 +248,52 @@ enum SceneState
     SCENE_STATE_TRANSFORMS_UPDATED
 };
 
-struct RenderState
+class RenderState
 {
-    std::vector<MeshNode*>             meshes;
-    std::vector<DirectionalLightNode*> directional_lights;
-    std::vector<SpotLightNode*>        spot_lights;
-    std::vector<PointLightNode*>       point_lights;
-    CameraNode*                        camera;
-    IBLNode*                           ibl_environment_map;
-    SceneState                         scene_state = SCENE_STATE_READY;
-    Scene*                             scene;
-    vk::DescriptorSet::Ptr             read_image_ds;
-    vk::DescriptorSet::Ptr             write_image_ds;
-    vk::DescriptorSet::Ptr             scene_ds;
-    vk::CommandBuffer::Ptr             cmd_buffer;
+public:
+    friend class Node;
+    friend class TransformNode;
+    friend class MeshNode;
+    friend class DirectionalLightNode;
+    friend class SpotLightNode;
+    friend class PointLightNode;
+    friend class CameraNode;
+    friend class IBLNode;
+    friend class Scene;
+    friend class Renderer;
 
+private:
+    std::vector<MeshNode*>             m_meshes;
+    std::vector<DirectionalLightNode*> m_directional_lights;
+    std::vector<SpotLightNode*>        m_spot_lights;
+    std::vector<PointLightNode*>       m_point_lights;
+    CameraNode*                        m_camera;
+    IBLNode*                           m_ibl_environment_map;
+    SceneState                         m_scene_state = SCENE_STATE_READY;
+    Scene*                             m_scene;
+    vk::DescriptorSet::Ptr             m_read_image_ds;
+    vk::DescriptorSet::Ptr             m_write_image_ds;
+    vk::DescriptorSet::Ptr             m_scene_ds;
+    vk::CommandBuffer::Ptr             m_cmd_buffer;
+
+public:
     RenderState();
     ~RenderState();
 
-    void clear();
+    void setup(vk::CommandBuffer::Ptr cmd_buffer);
+
+    inline const std::vector<MeshNode*>&             meshes() { return m_meshes; }
+    inline const std::vector<DirectionalLightNode*>& directional_lights() { return m_directional_lights; }
+    inline const std::vector<SpotLightNode*>&        spot_lights() { return m_spot_lights; }
+    inline const std::vector<PointLightNode*>&       point_lights() { return m_point_lights; }
+    inline CameraNode*                               camera() { return m_camera; }
+    inline IBLNode*                                  ibl_environment_map() { return m_ibl_environment_map; }
+    inline SceneState                                scene_state() { return m_scene_state; }
+    inline Scene*                                    scene() { return m_scene; }
+    inline vk::DescriptorSet::Ptr                    read_image_descriptor_set() { return m_read_image_ds; }
+    inline vk::DescriptorSet::Ptr                    write_image_descriptor_set() { return m_write_image_ds; }
+    inline vk::DescriptorSet::Ptr                    scene_ds() { return m_scene_ds; }
+    inline vk::CommandBuffer::Ptr                    cmd_buffer() { return m_cmd_buffer; }
 };
 
 struct RTGeometryInstance

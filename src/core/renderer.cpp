@@ -29,9 +29,9 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
 {
     auto backend = m_backend.lock();
 
-    if (render_state.scene_state == SCENE_STATE_HIERARCHY_UPDATED)
+    if (render_state.m_scene_state == SCENE_STATE_HIERARCHY_UPDATED)
     {
-        auto& tlas_data = render_state.scene->acceleration_structure_data();
+        auto& tlas_data = render_state.m_scene->acceleration_structure_data();
 
         bool is_update = tlas_data.tlas ? true : false;
 
@@ -51,9 +51,9 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
         LUMEN_ZERO_MEMORY(copy_region);
 
         copy_region.dstOffset = 0;
-        copy_region.size      = sizeof(RTGeometryInstance) * render_state.meshes.size();
+        copy_region.size      = sizeof(RTGeometryInstance) * render_state.m_meshes.size();
 
-        vkCmdCopyBuffer(render_state.cmd_buffer->handle(), tlas_data.instance_buffer_host->handle(), m_tlas_instance_buffer_device->handle(), 1, &copy_region);
+        vkCmdCopyBuffer(render_state.m_cmd_buffer->handle(), tlas_data.instance_buffer_host->handle(), m_tlas_instance_buffer_device->handle(), 1, &copy_region);
 
         {
             VkMemoryBarrier memory_barrier;
@@ -62,10 +62,10 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
             memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV;
 
-            vkCmdPipelineBarrier(render_state.cmd_buffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &memory_barrier, 0, nullptr, 0, nullptr);
+            vkCmdPipelineBarrier(render_state.m_cmd_buffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &memory_barrier, 0, nullptr, 0, nullptr);
         }
 
-        vkCmdBuildAccelerationStructureNV(render_state.cmd_buffer->handle(),
+        vkCmdBuildAccelerationStructureNV(render_state.m_cmd_buffer->handle(),
                                           &tlas_data.tlas->info(),
                                           m_tlas_instance_buffer_device->handle(),
                                           0,
@@ -82,7 +82,7 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
             memory_barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
             memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
 
-            vkCmdPipelineBarrier(render_state.cmd_buffer->handle(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, 0, 1, &memory_barrier, 0, 0, 0, 0);
+            vkCmdPipelineBarrier(render_state.m_cmd_buffer->handle(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, 0, 1, &memory_barrier, 0, 0, 0, 0);
         }
     }
 }
