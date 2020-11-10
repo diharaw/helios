@@ -1,6 +1,7 @@
 #include <core/renderer.h>
 #include <utility/macros.h>
 #include <vk_mem_alloc.h>
+#include <core/integrator.h>
 
 namespace lumen
 {
@@ -11,7 +12,6 @@ Renderer::Renderer(vk::Backend::Ptr backend) :
 {
     create_output_images();
     create_tone_map_pipeline();
-    create_descriptor_set_layouts();
     create_buffers();
 }
 
@@ -27,6 +27,9 @@ Renderer::~Renderer()
 
 void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> integrator)
 {
+    if (render_state.scene_state() != SCENE_STATE_READY)
+        render_state.m_num_accumulated_frames = 0;
+
     auto backend = m_backend.lock();
 
     if (render_state.m_scene_state == SCENE_STATE_HIERARCHY_UPDATED)
@@ -85,6 +88,15 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
             vkCmdPipelineBarrier(render_state.m_cmd_buffer->handle(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, 0, 1, &memory_barrier, 0, 0, 0, 0);
         }
     }
+
+    render_state.m_read_image_ds = m_output_storage_image_ds[m_output_ping_pong];
+    render_state.m_write_image_ds = m_output_storage_image_ds[!m_output_ping_pong];
+
+    if (integrator)
+        integrator->execute(render_state);
+
+    render_state.m_num_accumulated_frames++;
+    m_output_ping_pong = !m_output_ping_pong;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -92,21 +104,6 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
 void Renderer::on_window_resize()
 {
     create_output_images();
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-void Renderer::create_descriptor_set_layouts()
-{
-    auto backend = m_backend.lock();
-
-    {
-        vk::DescriptorSetLayout::Desc ds_layout_desc;
-
-        ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_RAYGEN_BIT_NV);
-
-        m_ouput_image_ds_layout = vk::DescriptorSetLayout::create(backend, ds_layout_desc);
-    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -127,7 +124,7 @@ void Renderer::create_tone_map_pipeline()
 
     vk::PipelineLayout::Desc ds_desc;
 
-    ds_desc.add_descriptor_set_layout(m_ouput_image_ds_layout);
+    ds_desc.add_descriptor_set_layout(backend->image_descriptor_set_layout());
 
     m_tone_map_pipeline_layout = vk::PipelineLayout::create(backend, ds_desc);
     m_tone_map_pipeline        = vk::GraphicsPipeline::create_for_post_process(backend, "shaders/triangle.vert.spv", "shaders/tone_map.frag.spv", m_tone_map_pipeline_layout, backend->swapchain_render_pass());

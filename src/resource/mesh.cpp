@@ -59,6 +59,11 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
 
         VkGeometryNV geometry = {};
 
+        VkGeometryFlagsNV geometry_flags = 0;
+
+        if (material->type() == MATERIAL_OPAQUE || material->is_alpha_tested())
+            geometry_flags = VK_GEOMETRY_OPAQUE_BIT_NV;
+
         geometry.sType                              = VK_STRUCTURE_TYPE_GEOMETRY_NV;
         geometry.pNext                              = nullptr;
         geometry.geometryType                       = VK_GEOMETRY_TYPE_TRIANGLES_NV;
@@ -77,7 +82,7 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
         geometry.geometry.triangles.transformOffset = 0;
         geometry.geometry.aabbs                     = {};
         geometry.geometry.aabbs.sType               = VK_STRUCTURE_TYPE_GEOMETRY_AABB_NV;
-        geometry.flags                              = material->type() == MATERIAL_OPAQUE ? VK_GEOMETRY_OPAQUE_BIT_NV : 0;
+        geometry.flags                              = geometry_flags;
 
         m_geometries.push_back(geometry);
     }

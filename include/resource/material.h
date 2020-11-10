@@ -39,6 +39,7 @@ private:
     glm::vec4                               m_emissive_value  = glm::vec4(0.0f);
     float                                   m_metallic_value  = 0.0f;
     float                                   m_roughness_value = 0.0f;
+    bool                                    m_alpha_test      = false;
     uint32_t                                m_id;
 
 public:
@@ -52,10 +53,12 @@ public:
                                 glm::vec4                               albedo_value    = glm::vec4(0.0f),
                                 glm::vec4                               emissive_value  = glm::vec4(0.0f),
                                 float                                   metallic_value  = 0.0f,
-                                float                                   roughness_value = 0.0f);
+                                float                                   roughness_value = 0.0f,
+                                bool alpha_test = false);
     ~Material();
 
     bool                              is_emissive();
+    inline bool                       is_alpha_tested() { return m_alpha_test; }
     inline MaterialType               type() { return m_type; }
     inline std::shared_ptr<Texture2D> albedo_texture() { return m_albedo_texture_info.array_index == -1 ? nullptr : m_textures[m_albedo_texture_info.array_index]; }
     inline std::shared_ptr<Texture2D> normal_texture() { return m_normal_texture_info.array_index == -1 ? nullptr : m_textures[m_normal_texture_info.array_index]; }
@@ -84,6 +87,7 @@ private:
              glm::vec4                               albedo_value    = glm::vec4(0.0f),
              glm::vec4                               emissive_value  = glm::vec4(0.0f),
              float                                   metallic_value  = 0.0f,
-             float                                   roughness_value = 0.0f);
+             float                                   roughness_value = 0.0f,
+             bool                                    alpha_test      = false);
 };
 } // namespace lumen

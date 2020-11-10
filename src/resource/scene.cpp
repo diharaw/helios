@@ -464,6 +464,8 @@ void RenderState::setup(vk::CommandBuffer::Ptr cmd_buffer)
     m_cmd_buffer          = cmd_buffer;
     m_scene               = nullptr;
     m_scene_state         = SCENE_STATE_READY;
+    m_camera_buffer_offset = 0;
+    m_num_accumulated_frames = 0;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -527,13 +529,17 @@ void Scene::update(RenderState& render_state)
         camera_data.proj_inverse = glm::inverse(render_state.m_camera->projection_matrix());
         camera_data.cam_pos      = glm::vec4(render_state.m_camera->position(), 0.0f);
 
+        uint32_t camera_buffer_offset = m_camera_buffer_aligned_size * backend->current_frame_idx();
+
         uint8_t* ptr = (uint8_t*)m_camera_buffer->mapped_ptr();
-        memcpy(ptr + m_camera_buffer_aligned_size * backend->current_frame_idx(), &camera_data, sizeof(CameraData));
+        memcpy(ptr + camera_buffer_offset, &camera_data, sizeof(CameraData));
+   
+        render_state.m_camera_buffer_offset = camera_buffer_offset;
     }
 
     render_state.m_scene_ds = m_descriptor_set;
     render_state.m_scene    = this;
-
+    
     create_gpu_resources(render_state);
 }
 

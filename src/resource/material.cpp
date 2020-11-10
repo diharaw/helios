@@ -18,9 +18,10 @@ Material::Ptr Material::create(MaterialType                            type,
                                glm::vec4                               albedo_value,
                                glm::vec4                               emissive_value,
                                float                                   metallic_value,
-                               float                                   roughness_value)
+                               float                                   roughness_value,
+                               bool                                    alpha_test)
 {
-    return std::shared_ptr<Material>(new Material(type, textures, albedo_texture_info, normal_texture_info, metallic_texture_info, roughness_texture_info, emissive_texture_info, albedo_value, emissive_value, metallic_value, roughness_value));
+    return std::shared_ptr<Material>(new Material(type, textures, albedo_texture_info, normal_texture_info, metallic_texture_info, roughness_texture_info, emissive_texture_info, albedo_value, emissive_value, metallic_value, roughness_value, alpha_test));
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -35,7 +36,8 @@ Material::Material(MaterialType                            type,
                    glm::vec4                               albedo_value,
                    glm::vec4                               emissive_value,
                    float                                   metallic_value,
-                   float                                   roughness_value) :
+                   float                                   roughness_value,
+                   bool                                    alpha_test) :
     m_type(type),
     m_albedo_texture_info(albedo_texture_info),
     m_normal_texture_info(normal_texture_info),
@@ -46,6 +48,7 @@ Material::Material(MaterialType                            type,
     m_emissive_value(emissive_value),
     m_metallic_value(metallic_value),
     m_roughness_value(roughness_value),
+    m_alpha_test(alpha_test),
     m_id(g_last_material_id++)
 {
 }

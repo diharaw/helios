@@ -3330,6 +3330,7 @@ Backend::~Backend()
     m_bilinear_sampler.reset();
     m_trilinear_sampler.reset();
     m_nearest_sampler.reset();
+    m_image_descriptor_set_layout.reset();
     m_scene_descriptor_set_layout.reset();
 
     for (int i = 0; i < MAX_COMMAND_THREADS; i++)
@@ -3420,20 +3421,20 @@ void Backend::initialize()
         g_transfer_command_buffers[i] = std::make_shared<ThreadLocalCommandBuffers>(shared_from_this(), m_selected_queues.transfer_queue_index);
     }
 
-    DescriptorSetLayout::Desc ds_layout_desc;
+    DescriptorSetLayout::Desc scene_ds_layout_desc;
 
     // Camera Data
-    ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    scene_ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
     // VBOs
-    ds_layout_desc.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10000, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    scene_ds_layout_desc.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10000, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
     // IBOs
-    ds_layout_desc.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10000, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    scene_ds_layout_desc.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10000, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
     // Material Data
-    ds_layout_desc.add_binding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    scene_ds_layout_desc.add_binding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
     // Material Indices
-    ds_layout_desc.add_binding(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10000, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
+    scene_ds_layout_desc.add_binding(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10000, VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV);
     // Material Textures
-    ds_layout_desc.add_binding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8096, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
+    scene_ds_layout_desc.add_binding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8096, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV);
 
     std::vector<VkDescriptorBindingFlagsEXT> descriptor_binding_flags = {
         0,
@@ -3451,9 +3452,15 @@ void Backend::initialize()
     set_layout_binding_flags.bindingCount  = 6;
     set_layout_binding_flags.pBindingFlags = descriptor_binding_flags.data();
 
-    ds_layout_desc.set_next_ptr(&set_layout_binding_flags);
+    scene_ds_layout_desc.set_next_ptr(&set_layout_binding_flags);
 
-    m_scene_descriptor_set_layout = DescriptorSetLayout::create(shared_from_this(), ds_layout_desc);
+    m_scene_descriptor_set_layout = DescriptorSetLayout::create(shared_from_this(), scene_ds_layout_desc);
+
+    DescriptorSetLayout::Desc image_ds_layout_desc;
+
+    image_ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_RAYGEN_BIT_NV);
+
+    m_image_descriptor_set_layout = DescriptorSetLayout::create(shared_from_this(), image_ds_layout_desc);
 
     Sampler::Desc sampler_desc;
 

@@ -120,6 +120,7 @@ public:
     inline uint32_t                               current_frame_idx() { return m_current_frame; }
     inline const QueueInfos&                      queue_infos() { return m_selected_queues; }
     inline std::shared_ptr<DescriptorSetLayout>   scene_descriptor_set_layout() { return m_scene_descriptor_set_layout; }
+    inline std::shared_ptr<DescriptorSetLayout>   image_descriptor_set_layout() { return m_image_descriptor_set_layout; }
     inline std::shared_ptr<Sampler>               bilinear_sampler() { return m_bilinear_sampler; }
     inline std::shared_ptr<Sampler>               trilinear_sampler() { return m_trilinear_sampler; }
     inline std::shared_ptr<Sampler>               nearest_sampler() { return m_nearest_sampler; }
@@ -178,6 +179,7 @@ private:
     std::vector<std::shared_ptr<ImageView>>       m_swap_chain_image_views;
     std::vector<std::shared_ptr<Framebuffer>>     m_swap_chain_framebuffers;
     std::shared_ptr<DescriptorSetLayout>          m_scene_descriptor_set_layout;
+    std::shared_ptr<DescriptorSetLayout>          m_image_descriptor_set_layout;
     std::shared_ptr<Sampler>                      m_bilinear_sampler;
     std::shared_ptr<Sampler>                      m_trilinear_sampler;
     std::shared_ptr<Sampler>                      m_nearest_sampler;

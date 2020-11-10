@@ -22,6 +22,40 @@ PathIntegrator::~PathIntegrator()
 
 void PathIntegrator::execute(RenderState& render_state)
 {
+    auto backend = m_backend.lock();
+
+    auto extents = backend->swap_chain_extents();
+    auto& rt_props = backend->ray_tracing_properties();
+
+    vkCmdBindPipeline(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_path_trace_pipeline->handle());
+
+    float num_accumulated_frames = render_state.num_accumulated_frames();
+    float accumulation           = num_accumulated_frames / (num_accumulated_frames + 1);
+
+    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_path_trace_pipeline_layout->handle(), VK_SHADER_STAGE_RAYGEN_BIT_NV, 0, sizeof(float), &accumulation);
+    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_path_trace_pipeline_layout->handle(), VK_SHADER_STAGE_RAYGEN_BIT_NV, sizeof(float), sizeof(uint32_t), &num_accumulated_frames);
+
+    const uint32_t dynamic_offset = render_state.camera_buffer_offset();
+
+    vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_path_trace_pipeline_layout->handle(), 0, 1, &render_state.scene_descriptor_set()->handle(), 1, &dynamic_offset);
+    vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_path_trace_pipeline_layout->handle(), 1, 1, &render_state.read_image_descriptor_set()->handle(), 0, VK_NULL_HANDLE);
+    vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_path_trace_pipeline_layout->handle(), 2, 1, &render_state.write_image_descriptor_set()->handle(), 0, VK_NULL_HANDLE);
+
+    vkCmdTraceRaysNV(render_state.cmd_buffer()->handle(),
+                     m_path_trace_pipeline->shader_binding_table_buffer()->handle(),
+                     0,
+                     m_path_trace_pipeline->shader_binding_table_buffer()->handle(),
+                     m_path_trace_sbt->miss_group_offset(),
+                     rt_props.shaderGroupBaseAlignment,
+                     m_path_trace_pipeline->shader_binding_table_buffer()->handle(),
+                     m_path_trace_sbt->hit_group_offset(),
+                     rt_props.shaderGroupBaseAlignment,
+                     VK_NULL_HANDLE,
+                     0,
+                     0,
+                     extents.width,
+                     extents.height,
+                     1);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -60,6 +94,8 @@ void PathIntegrator::create_pipeline(vk::DescriptorSetLayout::Ptr scene_ds_layou
     pl_desc.add_push_constant_range(VK_SHADER_STAGE_RAYGEN_BIT_NV, 0, sizeof(float) * 2);
 
     pl_desc.add_descriptor_set_layout(scene_ds_layout);
+    pl_desc.add_descriptor_set_layout(backend->image_descriptor_set_layout());
+    pl_desc.add_descriptor_set_layout(backend->image_descriptor_set_layout());
 
     m_path_trace_pipeline_layout = vk::PipelineLayout::create(backend, pl_desc);
 

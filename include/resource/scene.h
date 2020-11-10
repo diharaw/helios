@@ -271,6 +271,8 @@ private:
     IBLNode*                           m_ibl_environment_map;
     SceneState                         m_scene_state = SCENE_STATE_READY;
     Scene*                             m_scene;
+    uint32_t                           m_camera_buffer_offset;
+    uint32_t                           m_num_accumulated_frames = 0;
     vk::DescriptorSet::Ptr             m_read_image_ds;
     vk::DescriptorSet::Ptr             m_write_image_ds;
     vk::DescriptorSet::Ptr             m_scene_ds;
@@ -290,9 +292,11 @@ public:
     inline IBLNode*                                  ibl_environment_map() { return m_ibl_environment_map; }
     inline SceneState                                scene_state() { return m_scene_state; }
     inline Scene*                                    scene() { return m_scene; }
+    inline uint32_t                                  camera_buffer_offset() { return m_camera_buffer_offset; }
+    inline uint32_t                                  num_accumulated_frames() { return m_num_accumulated_frames; }
     inline vk::DescriptorSet::Ptr                    read_image_descriptor_set() { return m_read_image_ds; }
     inline vk::DescriptorSet::Ptr                    write_image_descriptor_set() { return m_write_image_ds; }
-    inline vk::DescriptorSet::Ptr                    scene_ds() { return m_scene_ds; }
+    inline vk::DescriptorSet::Ptr                    scene_descriptor_set() { return m_scene_ds; }
     inline vk::CommandBuffer::Ptr                    cmd_buffer() { return m_cmd_buffer; }
 };
 
