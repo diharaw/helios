@@ -456,15 +456,15 @@ void RenderState::setup(vk::CommandBuffer::Ptr cmd_buffer)
     m_directional_lights.clear();
     m_spot_lights.clear();
     m_point_lights.clear();
-    m_camera              = nullptr;
-    m_ibl_environment_map = nullptr;
-    m_read_image_ds       = nullptr;
-    m_write_image_ds      = nullptr;
-    m_scene_ds            = nullptr;
-    m_cmd_buffer          = cmd_buffer;
-    m_scene               = nullptr;
-    m_scene_state         = SCENE_STATE_READY;
-    m_camera_buffer_offset = 0;
+    m_camera                 = nullptr;
+    m_ibl_environment_map    = nullptr;
+    m_read_image_ds          = nullptr;
+    m_write_image_ds         = nullptr;
+    m_scene_ds               = nullptr;
+    m_cmd_buffer             = cmd_buffer;
+    m_scene                  = nullptr;
+    m_scene_state            = SCENE_STATE_READY;
+    m_camera_buffer_offset   = 0;
     m_num_accumulated_frames = 0;
 }
 
@@ -533,13 +533,13 @@ void Scene::update(RenderState& render_state)
 
         uint8_t* ptr = (uint8_t*)m_camera_buffer->mapped_ptr();
         memcpy(ptr + camera_buffer_offset, &camera_data, sizeof(CameraData));
-   
+
         render_state.m_camera_buffer_offset = camera_buffer_offset;
     }
 
     render_state.m_scene_ds = m_descriptor_set;
     render_state.m_scene    = this;
-    
+
     create_gpu_resources(render_state);
 }
 

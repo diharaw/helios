@@ -24,7 +24,7 @@ void PathIntegrator::execute(RenderState& render_state)
 {
     auto backend = m_backend.lock();
 
-    auto extents = backend->swap_chain_extents();
+    auto  extents  = backend->swap_chain_extents();
     auto& rt_props = backend->ray_tracing_properties();
 
     vkCmdBindPipeline(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_path_trace_pipeline->handle());

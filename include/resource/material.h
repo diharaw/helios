@@ -54,7 +54,7 @@ public:
                                 glm::vec4                               emissive_value  = glm::vec4(0.0f),
                                 float                                   metallic_value  = 0.0f,
                                 float                                   roughness_value = 0.0f,
-                                bool alpha_test = false);
+                                bool                                    alpha_test      = false);
     ~Material();
 
     bool                              is_emissive();

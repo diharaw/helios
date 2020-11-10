@@ -229,14 +229,6 @@ void Application::shutdown_base()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Application::render_gui(vk::CommandBuffer::Ptr cmd_buf)
-{
-    ImGui::Render();
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd_buf->handle());
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
 void Application::submit_and_present(const std::vector<vk::CommandBuffer::Ptr>& cmd_bufs)
 {
     m_vk_backend->submit_graphics(cmd_bufs,

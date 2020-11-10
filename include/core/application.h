@@ -79,7 +79,6 @@ protected:
     virtual void update(double delta);
     virtual void shutdown();
 
-    void render_gui(vk::CommandBuffer::Ptr cmd_buf);
     void submit_and_present(const std::vector<vk::CommandBuffer::Ptr>& cmd_bufs);
 
 private:

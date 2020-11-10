@@ -2,6 +2,8 @@
 #include <utility/macros.h>
 #include <vk_mem_alloc.h>
 #include <core/integrator.h>
+#include <imgui.h>
+#include <examples/imgui_impl_vulkan.h>
 
 namespace lumen
 {
@@ -89,14 +91,108 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
         }
     }
 
-    render_state.m_read_image_ds = m_output_storage_image_ds[m_output_ping_pong];
-    render_state.m_write_image_ds = m_output_storage_image_ds[!m_output_ping_pong];
+    const uint32_t write_index = (uint32_t)m_output_ping_pong;
+    const uint32_t read_index  = (uint32_t)!m_output_ping_pong;
 
+    render_state.m_write_image_ds = m_output_storage_image_ds[write_index];
+    render_state.m_read_image_ds  = m_output_storage_image_ds[read_index];
+
+    // Transition output image to general layout during the first frame
+    if (backend->current_frame_idx() == 0)
+    {
+        VkImageSubresourceRange subresource_range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+        vk::utilities::set_image_layout(
+            render_state.m_cmd_buffer->handle(),
+            m_output_images[write_index]->handle(),
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_GENERAL,
+            subresource_range);
+
+        vk::utilities::set_image_layout(
+            render_state.m_cmd_buffer->handle(),
+            m_output_images[read_index]->handle(),
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_GENERAL,
+            subresource_range);
+    }
+
+    // Execute integrator
     if (integrator)
         integrator->execute(render_state);
 
+    // Render final onscreen passes
+    auto extents = backend->swap_chain_extents();
+
+    VkClearValue clear_values[2];
+
+    clear_values[0].color.float32[0] = 0.0f;
+    clear_values[0].color.float32[1] = 0.0f;
+    clear_values[0].color.float32[2] = 0.0f;
+    clear_values[0].color.float32[3] = 1.0f;
+
+    clear_values[1].color.float32[0] = 1.0f;
+    clear_values[1].color.float32[1] = 1.0f;
+    clear_values[1].color.float32[2] = 1.0f;
+    clear_values[1].color.float32[3] = 1.0f;
+
+    VkRenderPassBeginInfo info    = {};
+    info.sType                    = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    info.renderPass               = backend->swapchain_render_pass()->handle();
+    info.framebuffer              = backend->swapchain_framebuffer()->handle();
+    info.renderArea.extent.width  = extents.width;
+    info.renderArea.extent.height = extents.height;
+    info.clearValueCount          = 2;
+    info.pClearValues             = &clear_values[0];
+
+    vkCmdBeginRenderPass(render_state.m_cmd_buffer->handle(), &info, VK_SUBPASS_CONTENTS_INLINE);
+
+    VkViewport vp;
+
+    vp.x        = 0.0f;
+    vp.y        = (float)extents.height;
+    vp.width    = (float)extents.width;
+    vp.height   = -(float)extents.height;
+    vp.minDepth = 0.0f;
+    vp.maxDepth = 1.0f;
+
+    vkCmdSetViewport(render_state.m_cmd_buffer->handle(), 0, 1, &vp);
+
+    VkRect2D scissor_rect;
+
+    scissor_rect.extent.width  = extents.width;
+    scissor_rect.extent.height = extents.height;
+    scissor_rect.offset.x      = 0;
+    scissor_rect.offset.y      = 0;
+
+    vkCmdSetScissor(render_state.m_cmd_buffer->handle(), 0, 1, &scissor_rect);
+
+    // Perform tone mapping and render ImGui
+    tone_map(render_state.m_cmd_buffer, m_output_storage_image_ds[write_index]);
+
+    // Render ImGui
+    ImGui::Render();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), render_state.m_cmd_buffer->handle());
+
+    vkCmdEndRenderPass(render_state.m_cmd_buffer->handle());
+
     render_state.m_num_accumulated_frames++;
     m_output_ping_pong = !m_output_ping_pong;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr read_image)
+{
+    auto backend = m_backend.lock();
+    auto extents = backend->swap_chain_extents();
+
+    vkCmdBindPipeline(cmd_buf->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_tone_map_pipeline->handle());
+
+    vkCmdBindDescriptorSets(cmd_buf->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_tone_map_pipeline_layout->handle(), 0, 1, &read_image->handle(), 0, nullptr);
+
+    // Apply tonemapping
+    vkCmdDraw(cmd_buf->handle(), 3, 1, 0, 0);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
