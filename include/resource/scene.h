@@ -63,6 +63,7 @@ public:
     inline bool is_transform_dirty() { return m_is_transform_dirty; }
     inline void enable() { m_is_enabled = true; }
     inline void disable() { m_is_enabled = false; }
+    inline std::string name() { return m_name; }
 
 protected:
     void update_children(RenderState& render_state);
@@ -93,10 +94,12 @@ public:
     glm::vec3 left();
     glm::vec3 position();
     glm::mat4 model_matrix();
+    void      set_orientation(const glm::quat& q);
     void      set_orientation_from_euler_yxz(const glm::vec3& e);
     void      set_orientation_from_euler_xyz(const glm::vec3& e);
     void      set_position(const glm::vec3& position);
     void      set_scale(const glm::vec3& scale);
+    void      move(const glm::vec3& displacement);
     void      rotate_euler_yxz(const glm::vec3& e);
     void      rotate_euler_xyz(const glm::vec3& e);
 };
@@ -324,6 +327,7 @@ public:
     void      update(RenderState& render_state);
     void      set_root_node(Node::Ptr node);
     Node::Ptr root_node();
+    Node::Ptr find_node(const std::string& name);
 
     inline void                       set_name(const std::string& name) { m_name = name; }
     inline std::string                name() { return m_name; }

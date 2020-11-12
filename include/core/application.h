@@ -7,6 +7,8 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <core/vk.h>
+#include <core/renderer.h>
+#include <core/resource_manager.h>
 
 // Main method macro. Use this at the bottom of any cpp file.
 #define LUMEN_DECLARE_MAIN(class_name)     \
@@ -108,6 +110,8 @@ protected:
     GLFWwindow*                         m_window;
     bool                                m_should_recreate_swap_chain = false;
     vk::Backend::Ptr                    m_vk_backend;
+    std::unique_ptr<Renderer>           m_renderer;
+    std::unique_ptr<ResourceManager>    m_resource_manager;
     std::vector<vk::Semaphore::Ptr>     m_image_available_semaphores;
     std::vector<vk::Semaphore::Ptr>     m_render_finished_semaphores;
 };

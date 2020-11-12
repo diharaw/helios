@@ -199,8 +199,19 @@ glm::mat4 TransformNode::model_matrix()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+void TransformNode::set_orientation(const glm::quat& q)
+{
+    mark_transforms_as_dirty();
+
+    m_orientation = q;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 void TransformNode::set_orientation_from_euler_yxz(const glm::vec3& e)
 {
+    mark_transforms_as_dirty();
+
     glm::quat pitch = glm::quat(glm::vec3(glm::radians(e.x), glm::radians(0.0f), glm::radians(0.0f)));
     glm::quat yaw   = glm::quat(glm::vec3(glm::radians(0.0f), glm::radians(e.y), glm::radians(0.0f)));
     glm::quat roll  = glm::quat(glm::vec3(glm::radians(0.0f), glm::radians(0.0f), glm::radians(e.z)));
@@ -237,6 +248,15 @@ void TransformNode::set_scale(const glm::vec3& scale)
     mark_transforms_as_dirty();
 
     m_scale = scale;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void TransformNode::move(const glm::vec3& displacement)
+{
+    mark_transforms_as_dirty();
+
+    m_position += displacement;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -877,6 +897,16 @@ void Scene::set_root_node(Node::Ptr node)
 Node::Ptr Scene::root_node()
 {
     return m_root;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+Node::Ptr Scene::find_node(const std::string& name)
+{
+    if (m_root->name() == name)
+        return m_root;
+    else
+        return m_root->find_child(name);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

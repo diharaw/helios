@@ -7,6 +7,9 @@ namespace lumen
 class PathIntegrator : public Integrator
 {
 public:
+    using Ptr = std::shared_ptr<PathIntegrator>;
+
+public:
     PathIntegrator(vk::Backend::Ptr backend);
     ~PathIntegrator();
 
