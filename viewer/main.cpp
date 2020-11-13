@@ -11,6 +11,9 @@ protected:
 
     bool init(int argc, const char* argv[]) override
     {
+        m_path_integrator = std::shared_ptr<PathIntegrator>(new PathIntegrator(m_vk_backend));
+        m_scene = m_resource_manager->load_scene("scene/pica_pica.json");
+
         return true;
     }
 
@@ -116,7 +119,7 @@ private:
     {
         if (m_scene)
         {
-            CameraNode::Ptr camera = std::dynamic_pointer_cast<CameraNode>(m_scene->find_node("EDITOR_Camera"));
+            CameraNode::Ptr camera = std::dynamic_pointer_cast<CameraNode>(m_scene->find_node("main_camera"));
 
             if (camera)
             {
