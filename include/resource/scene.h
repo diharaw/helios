@@ -56,13 +56,13 @@ public:
 
     virtual void update(RenderState& render_state) = 0;
 
-    void        add_child(Node::Ptr child);
-    Node::Ptr   find_child(const std::string& name);
-    void        remove_child(const std::string& name);
-    inline bool is_enabled() { return m_is_enabled; }
-    inline bool is_transform_dirty() { return m_is_transform_dirty; }
-    inline void enable() { m_is_enabled = true; }
-    inline void disable() { m_is_enabled = false; }
+    void               add_child(Node::Ptr child);
+    Node::Ptr          find_child(const std::string& name);
+    void               remove_child(const std::string& name);
+    inline bool        is_enabled() { return m_is_enabled; }
+    inline bool        is_transform_dirty() { return m_is_transform_dirty; }
+    inline void        enable() { m_is_enabled = true; }
+    inline void        disable() { m_is_enabled = false; }
     inline std::string name() { return m_name; }
 
 protected:
@@ -120,11 +120,14 @@ public:
 
     void update(RenderState& render_state) override;
 
-    inline void                      set_mesh(std::shared_ptr<Mesh> mesh) { m_mesh = mesh; }
+    void                             set_mesh(std::shared_ptr<Mesh> mesh);
     inline void                      set_material_override(std::shared_ptr<Material> material_override) { m_material_override = material_override; }
     inline std::shared_ptr<Mesh>     mesh() { return m_mesh; }
     inline std::shared_ptr<Material> material_override() { return m_material_override; }
     inline vk::Buffer::Ptr           instance_data_buffer() { return m_instance_data_buffer; }
+
+private:
+    void create_instance_data_buffer();
 };
 
 class DirectionalLightNode : public TransformNode

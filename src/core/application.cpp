@@ -182,10 +182,10 @@ bool Application::init_base(int argc, const char* argv[])
     m_width  = display_w;
     m_height = display_h;
 
-    m_renderer = std::unique_ptr<Renderer>(new Renderer(m_vk_backend));
+    m_renderer         = std::unique_ptr<Renderer>(new Renderer(m_vk_backend));
     m_resource_manager = std::unique_ptr<ResourceManager>(new ResourceManager(m_vk_backend));
 
-    ImVec4*     colors = style->Colors;
+    ImVec4* colors = style->Colors;
 
     colors[ImGuiCol_Text]                  = ImVec4(1.000f, 1.000f, 1.000f, 1.000f);
     colors[ImGuiCol_TextDisabled]          = ImVec4(0.500f, 0.500f, 0.500f, 1.000f);

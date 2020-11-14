@@ -3,56 +3,79 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : require
 
-#include "brdf.glsl"
+#include "common.glsl"
 
-layout(location = 0) rayPayloadInNV PathTracePayload ray_payload;
+// ------------------------------------------------------------------------
+// Set 0 ------------------------------------------------------------------
+// ------------------------------------------------------------------------
 
-hitAttributeNV vec3 hit_attribs;
-
-layout(set = 0, binding = 0) uniform accelerationStructureNV u_TopLevelAS;
-
-layout(set = 1, binding = 0) uniform PerFrameUBO
+layout(set = 0, binding = 0) uniform PerFrameUBO
 {
     mat4 view_inverse;
     mat4 proj_inverse;
-    mat4 model;
     mat4 view;
     mat4 projection;
     vec4 cam_pos;
-    vec4 light_dir;
 } u_PerFrameUBO;
 
-layout (set = 2, binding = 0) readonly buffer MaterialBuffer 
-{
-    uint id[];
-} Material[];
-
-layout (set = 2, binding = 1, std430) readonly buffer VertexBuffer 
+layout (set = 0, binding = 1, std430) readonly buffer VertexBuffer 
 {
     Vertex vertices[];
 } VertexArray[];
 
-layout (set = 2, binding = 2) readonly buffer IndexBuffer 
+layout (set = 0, binding = 2) readonly buffer IndexBuffer 
 {
     uint indices[];
 } IndexArray[];
 
-layout(set = 3, binding = 0) uniform sampler2D s_Albedo[];
+layout (set = 0, binding = 3) readonly buffer InstanceBuffer 
+{
+    mat4 model;
+    uint indices[];
+} InstanceArray[];
 
-layout(set = 4, binding = 0) uniform sampler2D s_Normal[];
+layout (set = 0, binding = 4, std430) readonly buffer MaterialBuffer 
+{
+    Material data[];
+} Materials;
 
-layout(set = 5, binding = 0) uniform sampler2D s_Roughness[];
+layout (set = 0, binding = 5, std430) readonly buffer LightBuffer 
+{
+    Light data[];
+} Lights;
 
-layout(set = 6, binding = 0) uniform sampler2D s_Metallic[];
+layout (set = 0, binding = 6) uniform sampler2D s_Textures[];
+
+layout (set = 0, binding = 7) uniform accelerationStructureNV u_TopLevelAS;
+
+// ------------------------------------------------------------------------
+// Payload ----------------------------------------------------------------
+// ------------------------------------------------------------------------
+
+layout(location = 0) rayPayloadInNV PathTracePayload ray_payload;
+
+// ------------------------------------------------------------------------
+// Hit Attributes ---------------------------------------------------------
+// ------------------------------------------------------------------------
+
+hitAttributeNV vec3 hit_attribs;
+
+// ------------------------------------------------------------------------
+// Functions --------------------------------------------------------------
+// ------------------------------------------------------------------------
 
 Vertex get_vertex(uint mesh_idx, uint vertex_idx)
 {
     return VertexArray[nonuniformEXT(mesh_idx)].vertices[vertex_idx];
 }
 
-Triangle fetch_triangle(uint mesh_idx)
+// ------------------------------------------------------------------------
+
+Triangle fetch_triangle(uint instance_idx)
 {
     Triangle tri;
+
+    uint mesh_idx = InstanceArray[nonuniformEXT(instance_idx)].indices[0];
 
     uvec3 idx = uvec3(IndexArray[nonuniformEXT(mesh_idx)].indices[3 * gl_PrimitiveID], 
                       IndexArray[nonuniformEXT(mesh_idx)].indices[3 * gl_PrimitiveID + 1],
@@ -62,33 +85,40 @@ Triangle fetch_triangle(uint mesh_idx)
     tri.v1 = get_vertex(mesh_idx, idx.y);
     tri.v2 = get_vertex(mesh_idx, idx.z);
 
-    tri.mat_idx = Material[nonuniformEXT(mesh_idx)].id[uint(tri.v0.position.w)];
+    tri.mat_idx = InstanceArray[nonuniformEXT(mesh_idx)].indices[uint(tri.v0.position.w) + 1];
 
     return tri;
 }
 
+// ------------------------------------------------------------------------
+
 Vertex interpolated_vertex(in Triangle tri)
 {
+    mat4 model_mat = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexNV)].model;
+    mat3 normal_mat = mat3(model_mat);
+
     const vec3 barycentrics = vec3(1.0 - hit_attribs.x - hit_attribs.y, hit_attribs.x, hit_attribs.y);
 
     Vertex o;
 
-    o.position.xyz = tri.v0.position.xyz * barycentrics.x + tri.v1.position.xyz * barycentrics.y + tri.v2.position.xyz * barycentrics.z;
+    o.position = model_mat * vec4(tri.v0.position.xyz * barycentrics.x + tri.v1.position.xyz * barycentrics.y + tri.v2.position.xyz * barycentrics.z, 1.0);
     o.tex_coord.xy = tri.v0.tex_coord.xy * barycentrics.x + tri.v1.tex_coord.xy * barycentrics.y + tri.v2.tex_coord.xy * barycentrics.z;
-    o.normal.xyz = normalize(tri.v0.normal.xyz * barycentrics.x + tri.v1.normal.xyz * barycentrics.y + tri.v2.normal.xyz * barycentrics.z);
-    o.tangent.xyz = normalize(tri.v0.tangent.xyz * barycentrics.x + tri.v1.tangent.xyz * barycentrics.y + tri.v2.tangent.xyz * barycentrics.z);
-    o.bitangent.xyz = normalize(tri.v0.bitangent.xyz * barycentrics.x + tri.v1.bitangent.xyz * barycentrics.y + tri.v2.bitangent.xyz * barycentrics.z);
+    o.normal.xyz = normal_mat * normalize(tri.v0.normal.xyz * barycentrics.x + tri.v1.normal.xyz * barycentrics.y + tri.v2.normal.xyz * barycentrics.z);
+    o.tangent.xyz = normal_mat * normalize(tri.v0.tangent.xyz * barycentrics.x + tri.v1.tangent.xyz * barycentrics.y + tri.v2.tangent.xyz * barycentrics.z);
+    o.bitangent.xyz = normal_mat * normalize(tri.v0.bitangent.xyz * barycentrics.x + tri.v1.bitangent.xyz * barycentrics.y + tri.v2.bitangent.xyz * barycentrics.z);
 
     return o;
 }
 
-vec3 get_normal_from_map(vec3 tangent, vec3 bitangent, vec3 normal, vec2 tex_coord, uint mat_idx)
+// ------------------------------------------------------------------------
+
+vec3 get_normal_from_map(vec3 tangent, vec3 bitangent, vec3 normal, vec2 tex_coord, uint normal_map_idx)
 {
     // Create TBN matrix.
     mat3 TBN = mat3(normalize(tangent), normalize(bitangent), normalize(normal));
 
     // Sample tangent space normal vector from normal map and remap it from [0, 1] to [-1, 1] range.
-    vec3 n = normalize(textureLod(s_Normal[nonuniformEXT(mat_idx)], tex_coord, 0.0).rgb * 2.0 - 1.0);
+    vec3 n = normalize(textureLod(s_Textures[nonuniformEXT(normal_map_idx)], tex_coord, 0.0).rgb * 2.0 - 1.0);
 
     // Multiple vector by the TBN matrix to transform the normal from tangent space to world space.
     n = normalize(TBN * n);
@@ -96,34 +126,79 @@ vec3 get_normal_from_map(vec3 tangent, vec3 bitangent, vec3 normal, vec2 tex_coo
     return n;
 }
 
+// ------------------------------------------------------------------------
+
+void fetch_albedo(in Material material, inout SurfaceProperties p)
+{
+    if (material.texture_indices0.x == -1)
+        p.albedo = material.albedo;
+    else
+        p.albedo = textureLod(s_Textures[nonuniformEXT(material.texture_indices0.x)], p.vertex.tex_coord.xy, 0.0);
+}
+
+// ------------------------------------------------------------------------
+
+void fetch_normal(in Material material, inout SurfaceProperties p)
+{
+    if (material.texture_indices0.y == -1)
+        p.normal = p.vertex.normal.xyz;
+    else
+        p.normal = get_normal_from_map(p.vertex.tangent.xyz, p.vertex.bitangent.xyz, p.vertex.normal.xyz, p.vertex.tex_coord.xy, material.texture_indices0.y);
+}
+
+// ------------------------------------------------------------------------
+
+void fetch_roughness(in Material material, inout SurfaceProperties p)
+{
+    if (material.texture_indices0.x == -1)
+        p.roughness = material.roughness_metallic.r;
+    else
+        p.roughness = textureLod(s_Textures[nonuniformEXT(material.texture_indices0.z)], p.vertex.tex_coord.xy, 0.0)[material.texture_indices1.z];
+}
+
+// ------------------------------------------------------------------------
+
+void fetch_metallic(in Material material, inout SurfaceProperties p)
+{
+    if (material.texture_indices0.w == -1)
+        p.metallic = material.roughness_metallic.g;
+    else
+        p.metallic = textureLod(s_Textures[nonuniformEXT(material.texture_indices0.w)], p.vertex.tex_coord.xy, 0.0)[material.texture_indices1.w];
+}
+
+// ------------------------------------------------------------------------
+
+void fetch_emissive(in Material material, inout SurfaceProperties p)
+{
+    if (material.texture_indices1.x == -1)
+        p.emissive = material.emissive.rgb;
+    else
+        p.emissive = textureLod(s_Textures[nonuniformEXT(material.texture_indices1.x)], p.vertex.tex_coord.xy, 0.0).rgb;
+}
+
+// ------------------------------------------------------------------------
+
 void populate_surface_properties(out SurfaceProperties p)
 {
     const Triangle tri = fetch_triangle(gl_InstanceCustomIndexNV);
+    const Material material = Materials.data[tri.mat_idx];
 
     p.vertex = interpolated_vertex(tri);
 
-    p.albedo = textureLod(s_Albedo[nonuniformEXT(tri.mat_idx)], p.vertex.tex_coord.xy, 0.0);
-    p.metallic = textureLod(s_Metallic[nonuniformEXT(tri.mat_idx)], p.vertex.tex_coord.xy, 0.0).x;
-    p.roughness = textureLod(s_Roughness[nonuniformEXT(tri.mat_idx)], p.vertex.tex_coord.xy, 0.0).x;
-    p.emissive = vec3(0.0);
+    fetch_albedo(material, p);
+    fetch_normal(material, p);
+    fetch_roughness(material, p);
+    fetch_metallic(material, p);
+    fetch_emissive(material, p);
+
     p.F0 = mix(vec3(0.03), p.albedo.xyz, p.metallic);
     p.alpha = p.roughness * p.roughness;
     p.alpha2 = p.alpha * p.alpha;
-
-    // Increase roughness per bounce
-    // float old_roughness = ray_payload.roughness;
-    // p.roughness = min(1.0, p.roughness + ray_payload.roughness_bias);
-    // ray_payload.roughness = p.roughness;
-    // ray_payload.roughness_bias += old_roughness * 0.75f;
-
-    mat3 normal_mat = mat3(u_PerFrameUBO.model);
-
-    vec3 N = normal_mat * p.vertex.normal.xyz;
-    vec3 T = normal_mat * p.vertex.tangent.xyz;
-    vec3 B = normal_mat * p.vertex.bitangent.xyz;
-
-    p.normal = get_normal_from_map(T, B, N, p.vertex.tex_coord.xy, tri.mat_idx);
 }
+
+// ------------------------------------------------------------------------
+// Main -------------------------------------------------------------------
+// ------------------------------------------------------------------------
 
 void main()
 {
@@ -131,36 +206,7 @@ void main()
 
     populate_surface_properties(p);
 
-    vec3 Wo = -gl_WorldRayDirectionNV;
-    vec3 Wi;
-    float pdf;
-
-    vec3 brdf = sample_uber(p, Wo, ray_payload.rng, Wi, pdf);
-
-    float cos_theta = clamp(dot(p.normal, Wo), 0.0, 1.0);
-
-    ray_payload.attenuation *= (brdf * cos_theta) / pdf;
-
-    if (ray_payload.depth < MAX_RAY_BOUNCES)
-    {
-        ray_payload.depth += 1;
-
-        uint  ray_flags = gl_RayFlagsOpaqueNV;
-        uint  cull_mask = 0xff;
-        float tmin      = 0.0001;
-        float tmax      = 10000.0;
-
-        // Trace Ray
-        traceNV(u_TopLevelAS, 
-                ray_flags, 
-                cull_mask, 
-                PATH_TRACE_RAY_GEN_SHADER_IDX, 
-                PATH_TRACE_CLOSEST_HIT_SHADER_IDX, 
-                PATH_TRACE_MISS_SHADER_IDX, 
-                p.vertex.position.xyz, 
-                tmin, 
-                Wi, 
-                tmax, 
-                0);
-    }
+    ray_payload.color = p.albedo.rgb;
 }
+
+// ------------------------------------------------------------------------

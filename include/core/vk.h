@@ -197,6 +197,8 @@ class Object
 public:
     Object(Backend::Ptr backend, VkDevice device = nullptr);
 
+    inline std::weak_ptr<Backend> backend() { return m_vk_backend; }
+
 protected:
     std::weak_ptr<Backend> m_vk_backend;
 };

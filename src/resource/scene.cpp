@@ -28,8 +28,8 @@ struct CameraData
 
 struct GPUMaterial
 {
-    glm::uvec4 texture_indices0 = glm::uvec4(-1); // x: albedo, y: normals, z: roughness, w: metallic
-    glm::uvec4 texture_indices1 = glm::uvec4(-1); // x: emissive, z: roughness_channel, w: metallic_channel
+    glm::ivec4 texture_indices0 = glm::ivec4(-1); // x: albedo, y: normals, z: roughness, w: metallic
+    glm::ivec4 texture_indices1 = glm::ivec4(-1); // x: emissive, z: roughness_channel, w: metallic_channel
     glm::vec4  albedo;
     glm::vec4  emissive;
     glm::vec4  roughness_metallic;
@@ -311,6 +311,28 @@ void MeshNode::update(RenderState& render_state)
         render_state.m_meshes.push_back(this);
 
         update_children(render_state);
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void MeshNode::set_mesh(std::shared_ptr<Mesh> mesh) 
+{ 
+    m_mesh = mesh; 
+
+    create_instance_data_buffer();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void MeshNode::create_instance_data_buffer()
+{
+    if (m_mesh)
+    {
+        auto backend = m_mesh->vertex_buffer()->backend().lock();
+
+        if (backend)
+            m_instance_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(glm::mat4) + sizeof(uint32_t) * (m_mesh->sub_meshes().size() + 1), VMA_MEMORY_USAGE_GPU_ONLY, 0);
     }
 }
 
@@ -764,10 +786,15 @@ void Scene::create_gpu_resources(RenderState& render_state)
                 rt_instance.accelerationStructureHandle = mesh->acceleration_structure()->opaque_handle();
 
                 // Update instance data
-                int32_t* instance_data = (int32_t*)mesh_node->instance_data_buffer()->mapped_ptr();
+                uint8_t* base_instance_data_ptr = (uint8_t*)mesh_node->instance_data_buffer()->mapped_ptr();
+                glm::mat4* instance_transform   = (glm::mat4*)base_instance_data_ptr;
+
+                instance_transform[0] = mesh_node->model_matrix();
+
+                uint32_t* instance_indices = (uint32_t*)(base_instance_data_ptr + sizeof(glm::mat4));
 
                 // Set mesh data index
-                instance_data[0] = global_mesh_indices[mesh->id()];
+                instance_indices[0] = global_mesh_indices[mesh->id()];
 
                 // Set submesh materials
                 for (uint32_t i = 1; i <= submeshes.size(); i++)
@@ -777,7 +804,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
                     if (mesh_node->material_override())
                         material = mesh_node->material_override();
 
-                    instance_data[i] = global_material_indices[material->id()];
+                    instance_indices[i] = global_material_indices[material->id()];
                 }
             }
 
@@ -793,7 +820,13 @@ void Scene::create_gpu_resources(RenderState& render_state)
             material_buffer_info.offset = 0;
             material_buffer_info.range  = VK_WHOLE_SIZE;
 
-            VkWriteDescriptorSet write_data[6];
+            VkDescriptorBufferInfo light_buffer_info;
+
+            light_buffer_info.buffer = m_light_data_buffer->handle();
+            light_buffer_info.offset = 0;
+            light_buffer_info.range  = VK_WHOLE_SIZE;
+
+            VkWriteDescriptorSet write_data[8];
 
             LUMEN_ZERO_MEMORY(write_data[0]);
             LUMEN_ZERO_MEMORY(write_data[1]);
@@ -801,6 +834,8 @@ void Scene::create_gpu_resources(RenderState& render_state)
             LUMEN_ZERO_MEMORY(write_data[3]);
             LUMEN_ZERO_MEMORY(write_data[4]);
             LUMEN_ZERO_MEMORY(write_data[5]);
+            LUMEN_ZERO_MEMORY(write_data[6]);
+            LUMEN_ZERO_MEMORY(write_data[7]);
 
             write_data[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[0].descriptorCount = 1;
@@ -838,13 +873,34 @@ void Scene::create_gpu_resources(RenderState& render_state)
             write_data[4].dstSet          = m_descriptor_set->handle();
 
             write_data[5].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[5].descriptorCount = image_descriptors.size();
-            write_data[5].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            write_data[5].pImageInfo      = image_descriptors.data();
+            write_data[5].descriptorCount = 1;
+            write_data[5].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            write_data[5].pBufferInfo     = &light_buffer_info;
             write_data[5].dstBinding      = 5;
             write_data[5].dstSet          = m_descriptor_set->handle();
 
-            vkUpdateDescriptorSets(backend->device(), 6, write_data, 0, nullptr);
+            write_data[6].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_data[6].descriptorCount = image_descriptors.size();
+            write_data[6].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write_data[6].pImageInfo      = image_descriptors.data();
+            write_data[6].dstBinding      = 6;
+            write_data[6].dstSet          = m_descriptor_set->handle();
+
+            VkWriteDescriptorSetAccelerationStructureNV descriptor_as;
+
+            descriptor_as.sType                      = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_NV;
+            descriptor_as.pNext                      = nullptr;
+            descriptor_as.accelerationStructureCount = 1;
+            descriptor_as.pAccelerationStructures    = &m_tlas.tlas->handle();
+
+            write_data[7].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_data[7].pNext           = &descriptor_as;
+            write_data[7].descriptorCount = 1;
+            write_data[7].descriptorType  = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
+            write_data[7].dstBinding      = 7;
+            write_data[7].dstSet          = m_descriptor_set->handle();
+
+            vkUpdateDescriptorSets(backend->device(), 8, write_data, 0, nullptr);
         }
 
         // Copy lights
