@@ -53,6 +53,11 @@ layout (set = 0, binding = 7) uniform accelerationStructureNV u_TopLevelAS;
 // ------------------------------------------------------------------------
 
 layout(set = 1, binding = 0, rgba32f) readonly uniform image2D i_PreviousColor;
+
+// ------------------------------------------------------------------------
+// Set 2 ------------------------------------------------------------------
+// ------------------------------------------------------------------------
+
 layout(set = 2, binding = 0, rgba32f) writeonly uniform image2D i_CurrentColor;
 
 // ------------------------------------------------------------------------
@@ -61,6 +66,7 @@ layout(set = 2, binding = 0, rgba32f) writeonly uniform image2D i_CurrentColor;
 
 layout(push_constant) uniform PathTraceConsts
 {
+    uvec4 num_lights; // x: directional lights, y: point lights, z: spot lights, w: area lights  
     float accumulation;
     uint num_frames;
 } u_PathTraceConsts;

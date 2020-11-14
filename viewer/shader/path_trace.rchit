@@ -49,6 +49,17 @@ layout (set = 0, binding = 6) uniform sampler2D s_Textures[];
 layout (set = 0, binding = 7) uniform accelerationStructureNV u_TopLevelAS;
 
 // ------------------------------------------------------------------------
+// Push Constants ---------------------------------------------------------
+// ------------------------------------------------------------------------
+
+layout(push_constant) uniform PathTraceConsts
+{
+    uvec4 num_lights; // x: directional lights, y: point lights, z: spot lights, w: area lights  
+    float accumulation;
+    uint num_frames;
+} u_PathTraceConsts;
+
+// ------------------------------------------------------------------------
 // Payload ----------------------------------------------------------------
 // ------------------------------------------------------------------------
 
@@ -71,11 +82,11 @@ Vertex get_vertex(uint mesh_idx, uint vertex_idx)
 
 // ------------------------------------------------------------------------
 
-Triangle fetch_triangle(uint instance_idx)
+Triangle fetch_triangle()
 {
     Triangle tri;
 
-    uint mesh_idx = InstanceArray[nonuniformEXT(instance_idx)].indices[0];
+    uint mesh_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexNV)].indices[0];
 
     uvec3 idx = uvec3(IndexArray[nonuniformEXT(mesh_idx)].indices[3 * gl_PrimitiveID], 
                       IndexArray[nonuniformEXT(mesh_idx)].indices[3 * gl_PrimitiveID + 1],
@@ -180,7 +191,7 @@ void fetch_emissive(in Material material, inout SurfaceProperties p)
 
 void populate_surface_properties(out SurfaceProperties p)
 {
-    const Triangle tri = fetch_triangle(gl_InstanceCustomIndexNV);
+    const Triangle tri = fetch_triangle();
     const Material material = Materials.data[tri.mat_idx];
 
     p.vertex = interpolated_vertex(tri);
