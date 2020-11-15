@@ -318,7 +318,7 @@ bool QueueInfos::transfer()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Object::Object(Backend::Ptr backend, VkDevice device) :
+Object::Object(Backend::Ptr backend) :
     m_vk_backend(backend)
 {
 }
@@ -3327,6 +3327,13 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
 
 Backend::~Backend()
 {
+    while (!m_deletion_queue.empty())
+    {
+        auto front = m_deletion_queue.front();
+        wait_for_frame(front.second);
+        m_deletion_queue.pop_front();
+    }
+
     m_bilinear_sampler.reset();
     m_trilinear_sampler.reset();
     m_nearest_sampler.reset();
@@ -3773,6 +3780,24 @@ void Backend::present(const std::vector<std::shared_ptr<Semaphore>>& semaphores)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+bool Backend::is_frame_done(uint32_t idx)
+{
+    if (idx < kMaxFramesInFlight)
+        return vkGetFenceStatus(m_vk_device, m_in_flight_fences[idx]->handle()) == VK_SUCCESS;
+    else
+        return false;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Backend::wait_for_frame(uint32_t idx)
+{
+    if (idx < kMaxFramesInFlight)
+        vkWaitForFences(m_vk_device, 1, &m_in_flight_fences[idx]->handle(), VK_TRUE, 100000000000);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 Image::Ptr Backend::swapchain_image()
 {
     return m_swap_chain_images[m_current_frame];
@@ -3902,6 +3927,28 @@ VkFormat Backend::find_supported_format(const std::vector<VkFormat>& candidates,
     }
 
     throw std::runtime_error("Failed to find supported format!");
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Backend::process_deletion_queue()
+{
+    while (!m_deletion_queue.empty())
+    {
+        auto front = m_deletion_queue.front();
+
+        if (is_frame_done(front.second))
+            m_deletion_queue.pop_front();
+        else
+            return;
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Backend::queue_object_deletion(std::shared_ptr<Object> object)
+{
+    m_deletion_queue.push_back({ object, m_current_frame });
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

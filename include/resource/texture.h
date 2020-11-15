@@ -5,7 +5,7 @@
 
 namespace lumen
 {
-class Texture
+class Texture : public vk::Object
 {
 public:
     using Ptr = std::shared_ptr<Texture>;
@@ -18,7 +18,7 @@ protected:
     uint32_t           m_id;
 
 public:
-    Texture(vk::Image::Ptr image, vk::ImageView::Ptr image_view);
+    Texture(vk::Backend::Ptr backend, vk::Image::Ptr image, vk::ImageView::Ptr image_view);
     virtual ~Texture();
 
     inline vk::Image::Ptr     image() { return m_image; }
@@ -34,11 +34,11 @@ public:
     friend class ResourceManager;
 
 public:
-    static Texture2D::Ptr create(vk::Image::Ptr image, vk::ImageView::Ptr image_view);
+    static Texture2D::Ptr create(vk::Backend::Ptr backend, vk::Image::Ptr image, vk::ImageView::Ptr image_view);
     ~Texture2D();
 
 private:
-    Texture2D(vk::Image::Ptr image, vk::ImageView::Ptr image_view);
+    Texture2D(vk::Backend::Ptr backend, vk::Image::Ptr image, vk::ImageView::Ptr image_view);
 };
 
 class TextureCube : public Texture
@@ -49,10 +49,10 @@ public:
     friend class ResourceManager;
 
 public:
-    static TextureCube::Ptr create(vk::Image::Ptr image, vk::ImageView::Ptr image_view);
+    static TextureCube::Ptr create(vk::Backend::Ptr backend, vk::Image::Ptr image, vk::ImageView::Ptr image_view);
     ~TextureCube();
 
 private:
-    TextureCube(vk::Image::Ptr image, vk::ImageView::Ptr image_view);
+    TextureCube(vk::Backend::Ptr backend, vk::Image::Ptr image, vk::ImageView::Ptr image_view);
 };
 } // namespace lumen

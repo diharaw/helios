@@ -3,6 +3,7 @@
 #include <glm.hpp>
 #include <memory>
 #include <vector>
+#include <core/vk.h>
 
 namespace lumen
 {
@@ -20,7 +21,7 @@ struct TextureInfo
     int32_t channel_index = -1;
 };
 
-class Material
+class Material : public vk::Object
 {
 public:
     using Ptr = std::shared_ptr<Material>;
@@ -43,7 +44,8 @@ private:
     uint32_t                                m_id;
 
 public:
-    static Material::Ptr create(MaterialType                            type,
+    static Material::Ptr create(vk::Backend::Ptr backend,
+                                MaterialType                            type,
                                 std::vector<std::shared_ptr<Texture2D>> textures,
                                 TextureInfo                             albedo_texture_info,
                                 TextureInfo                             normal_texture_info,
@@ -77,7 +79,8 @@ public:
     inline uint32_t                   id() { return m_id; }
 
 private:
-    Material(MaterialType                            type,
+    Material(vk::Backend::Ptr                        backend,
+             MaterialType                            type,
              std::vector<std::shared_ptr<Texture2D>> textures,
              TextureInfo                             albedo_texture_info,
              TextureInfo                             normal_texture_info,

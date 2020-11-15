@@ -316,11 +316,32 @@ void MeshNode::update(RenderState& render_state)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void MeshNode::set_mesh(std::shared_ptr<Mesh> mesh) 
-{ 
-    m_mesh = mesh; 
+void MeshNode::set_mesh(std::shared_ptr<Mesh> mesh)
+{
+    if (m_mesh)
+    {
+        auto backend = m_mesh->backend().lock();
+
+        if (backend)
+            backend->queue_object_deletion(m_mesh);
+    }
+
+    m_mesh = mesh;
 
     create_instance_data_buffer();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void MeshNode::set_material_override(std::shared_ptr<Material> material_override)
+{
+    if (m_material_override)
+    {
+        auto backend = m_material_override->backend().lock();
+        backend->queue_object_deletion(m_material_override);
+    }
+
+    m_material_override = material_override;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -329,10 +350,13 @@ void MeshNode::create_instance_data_buffer()
 {
     if (m_mesh)
     {
-        auto backend = m_mesh->vertex_buffer()->backend().lock();
+        auto backend = m_mesh->backend().lock();
 
         if (backend)
+        {
+            backend->queue_object_deletion(m_instance_data_buffer);
             m_instance_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(glm::mat4) + sizeof(uint32_t) * (m_mesh->sub_meshes().size() + 1), VMA_MEMORY_USAGE_GPU_ONLY, 0);
+        }
     }
 }
 
@@ -472,6 +496,21 @@ void IBLNode::update(RenderState& render_state)
 
         update_children(render_state);
     }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void IBLNode::set_image(std::shared_ptr<TextureCube> image)
+{
+    if (m_image)
+    {
+        auto backend = m_image->backend().lock();
+
+        if (backend)
+            backend->queue_object_deletion(m_image);
+    }
+
+    m_image = image;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -786,8 +825,8 @@ void Scene::create_gpu_resources(RenderState& render_state)
                 rt_instance.accelerationStructureHandle = mesh->acceleration_structure()->opaque_handle();
 
                 // Update instance data
-                uint8_t* base_instance_data_ptr = (uint8_t*)mesh_node->instance_data_buffer()->mapped_ptr();
-                glm::mat4* instance_transform   = (glm::mat4*)base_instance_data_ptr;
+                uint8_t*   base_instance_data_ptr = (uint8_t*)mesh_node->instance_data_buffer()->mapped_ptr();
+                glm::mat4* instance_transform     = (glm::mat4*)base_instance_data_ptr;
 
                 instance_transform[0] = mesh_node->model_matrix();
 

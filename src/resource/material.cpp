@@ -8,7 +8,8 @@ static uint32_t g_last_material_id = 0;
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Material::Ptr Material::create(MaterialType                            type,
+Material::Ptr Material::create(vk::Backend::Ptr backend,
+                               MaterialType                            type,
                                std::vector<std::shared_ptr<Texture2D>> textures,
                                TextureInfo                             albedo_texture_info,
                                TextureInfo                             normal_texture_info,
@@ -21,12 +22,13 @@ Material::Ptr Material::create(MaterialType                            type,
                                float                                   roughness_value,
                                bool                                    alpha_test)
 {
-    return std::shared_ptr<Material>(new Material(type, textures, albedo_texture_info, normal_texture_info, metallic_texture_info, roughness_texture_info, emissive_texture_info, albedo_value, emissive_value, metallic_value, roughness_value, alpha_test));
+    return std::shared_ptr<Material>(new Material(backend, type, textures, albedo_texture_info, normal_texture_info, metallic_texture_info, roughness_texture_info, emissive_texture_info, albedo_value, emissive_value, metallic_value, roughness_value, alpha_test));
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Material::Material(MaterialType                            type,
+Material::Material(vk::Backend::Ptr                        backend,
+                   MaterialType                            type,
                    std::vector<std::shared_ptr<Texture2D>> textures,
                    TextureInfo                             albedo_texture_info,
                    TextureInfo                             normal_texture_info,
@@ -38,6 +40,7 @@ Material::Material(MaterialType                            type,
                    float                                   metallic_value,
                    float                                   roughness_value,
                    bool                                    alpha_test) :
+    vk::Object(backend),
     m_type(type),
     m_albedo_texture_info(albedo_texture_info),
     m_normal_texture_info(normal_texture_info),

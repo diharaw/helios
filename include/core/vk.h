@@ -5,6 +5,7 @@
 #include <string>
 #include <memory>
 #include <stack>
+#include <deque>
 
 struct GLFWwindow;
 struct VmaAllocator_T;
@@ -15,6 +16,7 @@ namespace lumen
 {
 namespace vk
 {
+class Object;
 class Image;
 class ImageView;
 class Framebuffer;
@@ -94,6 +96,8 @@ public:
     void                            flush_transfer(const std::vector<std::shared_ptr<CommandBuffer>>& cmd_bufs);
     void                            acquire_next_swap_chain_image(const std::shared_ptr<Semaphore>& semaphore);
     void                            present(const std::vector<std::shared_ptr<Semaphore>>& semaphores);
+    bool                            is_frame_done(uint32_t idx);
+    void                            wait_for_frame(uint32_t idx);
     std::shared_ptr<Image>          swapchain_image();
     std::shared_ptr<ImageView>      swapchain_image_view();
     std::shared_ptr<Framebuffer>    swapchain_framebuffer();
@@ -112,6 +116,8 @@ public:
     size_t           min_dynamic_ubo_alignment();
     size_t           aligned_dynamic_ubo_size(size_t size);
     VkFormat         find_supported_format(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+    void             process_deletion_queue();
+    void             queue_object_deletion(std::shared_ptr<Object> object);
 
     inline VkPhysicalDeviceRayTracingPropertiesNV ray_tracing_properties() { return m_ray_tracing_properties; }
     inline VkFormat                               swap_chain_image_format() { return m_swap_chain_image_format; }
@@ -190,12 +196,13 @@ private:
     std::shared_ptr<ImageView>                    m_swap_chain_depth_view = nullptr;
     VkPhysicalDeviceProperties                    m_device_properties;
     bool                                          m_ray_tracing_enabled = false;
+    std::deque<std::pair<std::shared_ptr<Object>, uint32_t>> m_deletion_queue;
 };
 
 class Object
 {
 public:
-    Object(Backend::Ptr backend, VkDevice device = nullptr);
+    Object(Backend::Ptr backend);
 
     inline std::weak_ptr<Backend> backend() { return m_vk_backend; }
 

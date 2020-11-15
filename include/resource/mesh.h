@@ -29,7 +29,7 @@ struct SubMesh
 
 class Material;
 
-class Mesh
+class Mesh : public vk::Object
 {
 public:
     using Ptr = std::shared_ptr<Mesh>;

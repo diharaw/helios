@@ -96,9 +96,9 @@ Texture::Ptr create_image(const ast::Image& image, bool srgb, VkImageViewType im
         uploader.upload_image_data(vk_image, image_data.data(), mip_level_sizes);
 
         if (image_view_type == VK_IMAGE_VIEW_TYPE_2D)
-            return Texture2D::create(vk_image, vk_image_view);
+            return Texture2D::create(backend, vk_image, vk_image_view);
         else if (image_view_type == VK_IMAGE_VIEW_TYPE_CUBE)
-            return TextureCube::create(vk_image, vk_image_view);
+            return TextureCube::create(backend, vk_image, vk_image_view);
     }
 
     return nullptr;
@@ -405,7 +405,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
                     roughness_value = ast_property.float_value;
             }
 
-            Material::Ptr material = Material::create(type, textures, albedo_texture_info, normal_texture_info, metallic_texture_info, roughness_texture_info, emissive_texture_info, albedo_value, emissive_value, metallic_value, roughness_value);
+            Material::Ptr material = Material::create(backend, type, textures, albedo_texture_info, normal_texture_info, metallic_texture_info, roughness_texture_info, emissive_texture_info, albedo_value, emissive_value, metallic_value, roughness_value);
 
             m_materials[path] = material;
 

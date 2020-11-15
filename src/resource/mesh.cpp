@@ -46,6 +46,7 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
            std::vector<SubMesh>                   submeshes,
            std::vector<std::shared_ptr<Material>> materials,
            vk::BatchUploader&                     uploader) :
+    vk::Object(backend),
     m_vbo(vbo),
     m_ibo(ibo),
     m_sub_meshes(submeshes),

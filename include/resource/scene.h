@@ -121,7 +121,7 @@ public:
     void update(RenderState& render_state) override;
 
     void                             set_mesh(std::shared_ptr<Mesh> mesh);
-    inline void                      set_material_override(std::shared_ptr<Material> material_override) { m_material_override = material_override; }
+    void                             set_material_override(std::shared_ptr<Material> material_override);
     inline std::shared_ptr<Mesh>     mesh() { return m_mesh; }
     inline std::shared_ptr<Material> material_override() { return m_material_override; }
     inline vk::Buffer::Ptr           instance_data_buffer() { return m_instance_data_buffer; }
@@ -243,7 +243,7 @@ public:
 
     void update(RenderState& render_state) override;
 
-    inline void                         set_image(std::shared_ptr<TextureCube> image) { m_image = image; }
+    void                                set_image(std::shared_ptr<TextureCube> image);
     inline std::shared_ptr<TextureCube> image() { return m_image; }
 };
 
