@@ -44,7 +44,7 @@ private:
     uint32_t                                m_id;
 
 public:
-    static Material::Ptr create(vk::Backend::Ptr backend,
+    static Material::Ptr create(vk::Backend::Ptr                        backend,
                                 MaterialType                            type,
                                 std::vector<std::shared_ptr<Texture2D>> textures,
                                 TextureInfo                             albedo_texture_info,

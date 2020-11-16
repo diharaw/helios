@@ -8,7 +8,7 @@ static uint32_t g_last_material_id = 0;
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Material::Ptr Material::create(vk::Backend::Ptr backend,
+Material::Ptr Material::create(vk::Backend::Ptr                        backend,
                                MaterialType                            type,
                                std::vector<std::shared_ptr<Texture2D>> textures,
                                TextureInfo                             albedo_texture_info,

@@ -9,7 +9,7 @@ static uint32_t g_last_texture_id = 0;
 // -----------------------------------------------------------------------------------------------------------------------------------
 
 Texture::Texture(vk::Backend::Ptr backend, vk::Image::Ptr image, vk::ImageView::Ptr image_view) :
-   vk::Object(backend), m_image(image), m_image_view(image_view), m_id(g_last_texture_id++)
+    vk::Object(backend), m_image(image), m_image_view(image_view), m_id(g_last_texture_id++)
 {
 }
 

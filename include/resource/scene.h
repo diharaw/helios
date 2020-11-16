@@ -39,9 +39,9 @@ struct AccelerationStructureData
 class Node
 {
 public:
-    friend class Scene;
-
     using Ptr = std::shared_ptr<Node>;
+
+    friend class Scene;
 
 protected:
     NodeType                           m_type;
@@ -69,8 +69,8 @@ public:
 
 protected:
     virtual void mid_frame_cleanup();
-    void update_children(RenderState& render_state);
-    void mark_transforms_as_dirty();
+    void         update_children(RenderState& render_state);
+    void         mark_transforms_as_dirty();
 };
 
 class TransformNode : public Node
