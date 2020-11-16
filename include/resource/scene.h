@@ -39,6 +39,8 @@ struct AccelerationStructureData
 class Node
 {
 public:
+    friend class Scene;
+
     using Ptr = std::shared_ptr<Node>;
 
 protected:
@@ -66,6 +68,7 @@ public:
     inline std::string name() { return m_name; }
 
 protected:
+    virtual void mid_frame_cleanup();
     void update_children(RenderState& render_state);
     void mark_transforms_as_dirty();
 };
@@ -128,6 +131,10 @@ public:
 
 private:
     void create_instance_data_buffer();
+    void mid_frame_material_cleanup();
+
+protected:
+    void mid_frame_cleanup() override;
 };
 
 class DirectionalLightNode : public TransformNode
@@ -245,6 +252,9 @@ public:
 
     void                                set_image(std::shared_ptr<TextureCube> image);
     inline std::shared_ptr<TextureCube> image() { return m_image; }
+
+protected:
+    void mid_frame_cleanup() override;
 };
 
 enum SceneState

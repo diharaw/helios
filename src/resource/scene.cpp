@@ -59,6 +59,12 @@ Node::~Node()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+void Node::mid_frame_cleanup()
+{
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 void Node::add_child(Node::Ptr child)
 {
     m_is_heirarchy_dirty = true;
@@ -96,7 +102,10 @@ void Node::remove_child(const std::string& name)
     }
 
     if (child_to_remove != -1)
+    {
+        m_children[child_to_remove]->mid_frame_cleanup();
         m_children.erase(m_children.begin() + child_to_remove);
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -316,7 +325,7 @@ void MeshNode::update(RenderState& render_state)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void MeshNode::set_mesh(std::shared_ptr<Mesh> mesh)
+void MeshNode::mid_frame_cleanup()
 {
     if (m_mesh)
     {
@@ -325,6 +334,26 @@ void MeshNode::set_mesh(std::shared_ptr<Mesh> mesh)
         if (backend)
             backend->queue_object_deletion(m_mesh);
     }
+
+    mid_frame_material_cleanup();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void MeshNode::mid_frame_material_cleanup()
+{
+    if (m_material_override)
+    {
+        auto backend = m_material_override->backend().lock();
+        backend->queue_object_deletion(m_material_override);
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void MeshNode::set_mesh(std::shared_ptr<Mesh> mesh)
+{
+    mid_frame_cleanup();
 
     m_mesh = mesh;
 
@@ -335,11 +364,7 @@ void MeshNode::set_mesh(std::shared_ptr<Mesh> mesh)
 
 void MeshNode::set_material_override(std::shared_ptr<Material> material_override)
 {
-    if (m_material_override)
-    {
-        auto backend = m_material_override->backend().lock();
-        backend->queue_object_deletion(m_material_override);
-    }
+    mid_frame_material_cleanup();
 
     m_material_override = material_override;
 }
@@ -502,6 +527,15 @@ void IBLNode::update(RenderState& render_state)
 
 void IBLNode::set_image(std::shared_ptr<TextureCube> image)
 {
+    mid_frame_cleanup();
+
+    m_image = image;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void IBLNode::mid_frame_cleanup()
+{
     if (m_image)
     {
         auto backend = m_image->backend().lock();
@@ -509,8 +543,6 @@ void IBLNode::set_image(std::shared_ptr<TextureCube> image)
         if (backend)
             backend->queue_object_deletion(m_image);
     }
-
-    m_image = image;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -984,6 +1016,9 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
 void Scene::set_root_node(Node::Ptr node)
 {
+    if (m_root)
+        m_root->mid_frame_cleanup();
+
     m_root = node;
 }
 
