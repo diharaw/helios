@@ -68,9 +68,9 @@ void PathIntegrator::create_pipeline(vk::DescriptorSetLayout::Ptr scene_ds_layou
     // Create shader modules
     // ---------------------------------------------------------------------------
 
-    vk::ShaderModule::Ptr rgen  = vk::ShaderModule::create_from_file(backend, "shaders/path_trace.rgen.spv");
-    vk::ShaderModule::Ptr rchit = vk::ShaderModule::create_from_file(backend, "shaders/path_trace.rchit.spv");
-    vk::ShaderModule::Ptr rmiss = vk::ShaderModule::create_from_file(backend, "shaders/path_trace.rmiss.spv");
+    vk::ShaderModule::Ptr rgen  = vk::ShaderModule::create_from_file(backend, "shader/path_trace.rgen.spv");
+    vk::ShaderModule::Ptr rchit = vk::ShaderModule::create_from_file(backend, "shader/path_trace.rchit.spv");
+    vk::ShaderModule::Ptr rmiss = vk::ShaderModule::create_from_file(backend, "shader/path_trace.rmiss.spv");
 
     vk::ShaderBindingTable::Desc sbt_desc;
 

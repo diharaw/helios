@@ -223,7 +223,7 @@ void Renderer::create_tone_map_pipeline()
     ds_desc.add_descriptor_set_layout(backend->image_descriptor_set_layout());
 
     m_tone_map_pipeline_layout = vk::PipelineLayout::create(backend, ds_desc);
-    m_tone_map_pipeline        = vk::GraphicsPipeline::create_for_post_process(backend, "shaders/triangle.vert.spv", "shaders/tone_map.frag.spv", m_tone_map_pipeline_layout, backend->swapchain_render_pass());
+    m_tone_map_pipeline        = vk::GraphicsPipeline::create_for_post_process(backend, "shader/triangle.vert.spv", "shader/tone_map.frag.spv", m_tone_map_pipeline_layout, backend->swapchain_render_pass());
 }
 // -----------------------------------------------------------------------------------------------------------------------------------
 

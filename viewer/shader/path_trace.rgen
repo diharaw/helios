@@ -18,35 +18,35 @@ layout(set = 0, binding = 0) uniform PerFrameUBO
     vec4 cam_pos;
 } u_PerFrameUBO;
 
-layout (set = 0, binding = 1, std430) readonly buffer VertexBuffer 
+layout (set = 0, binding = 1, std430) readonly buffer MaterialBuffer 
+{
+    Material data[];
+} Materials;
+
+layout (set = 0, binding = 2, std430) readonly buffer LightBuffer 
+{
+    Light data[];
+} Lights;
+
+layout (set = 0, binding = 3) uniform accelerationStructureNV u_TopLevelAS;
+
+layout (set = 0, binding = 4, std430) readonly buffer VertexBuffer 
 {
     Vertex vertices[];
 } VertexArray[];
 
-layout (set = 0, binding = 2) readonly buffer IndexBuffer 
+layout (set = 0, binding = 5) readonly buffer IndexBuffer 
 {
     uint indices[];
 } IndexArray[];
 
-layout (set = 0, binding = 3) readonly buffer InstanceBuffer 
+layout (set = 0, binding = 6) readonly buffer InstanceBuffer 
 {
     mat4 model;
     uint indices[];
 } InstanceArray[];
 
-layout (set = 0, binding = 4, std430) readonly buffer MaterialBuffer 
-{
-    Material data[];
-} Materials;
-
-layout (set = 0, binding = 5, std430) readonly buffer LightBuffer 
-{
-    Light data[];
-} Lights;
-
-layout (set = 0, binding = 6) uniform sampler2D s_Textures[];
-
-layout (set = 0, binding = 7) uniform accelerationStructureNV u_TopLevelAS;
+layout (set = 0, binding = 7) uniform sampler2D s_Textures[];
 
 // ------------------------------------------------------------------------
 // Set 1 ------------------------------------------------------------------

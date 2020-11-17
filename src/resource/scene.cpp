@@ -916,46 +916,18 @@ void Scene::create_gpu_resources(RenderState& render_state)
             write_data[0].dstSet          = m_descriptor_set->handle();
 
             write_data[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[1].descriptorCount = vbo_descriptors.size();
+            write_data[1].descriptorCount = 1;
             write_data[1].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[1].pBufferInfo     = vbo_descriptors.data();
+            write_data[1].pBufferInfo     = &material_buffer_info;
             write_data[1].dstBinding      = 1;
             write_data[1].dstSet          = m_descriptor_set->handle();
 
             write_data[2].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[2].descriptorCount = ibo_descriptors.size();
+            write_data[2].descriptorCount = 1;
             write_data[2].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[2].pBufferInfo     = ibo_descriptors.data();
+            write_data[2].pBufferInfo     = &light_buffer_info;
             write_data[2].dstBinding      = 2;
             write_data[2].dstSet          = m_descriptor_set->handle();
-
-            write_data[3].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[3].descriptorCount = instance_data_descriptors.size();
-            write_data[3].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[3].pBufferInfo     = instance_data_descriptors.data();
-            write_data[3].dstBinding      = 3;
-            write_data[3].dstSet          = m_descriptor_set->handle();
-
-            write_data[4].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[4].descriptorCount = 1;
-            write_data[4].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[4].pBufferInfo     = &material_buffer_info;
-            write_data[4].dstBinding      = 4;
-            write_data[4].dstSet          = m_descriptor_set->handle();
-
-            write_data[5].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[5].descriptorCount = 1;
-            write_data[5].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[5].pBufferInfo     = &light_buffer_info;
-            write_data[5].dstBinding      = 5;
-            write_data[5].dstSet          = m_descriptor_set->handle();
-
-            write_data[6].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[6].descriptorCount = image_descriptors.size();
-            write_data[6].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            write_data[6].pImageInfo      = image_descriptors.data();
-            write_data[6].dstBinding      = 6;
-            write_data[6].dstSet          = m_descriptor_set->handle();
 
             VkWriteDescriptorSetAccelerationStructureNV descriptor_as;
 
@@ -964,10 +936,38 @@ void Scene::create_gpu_resources(RenderState& render_state)
             descriptor_as.accelerationStructureCount = 1;
             descriptor_as.pAccelerationStructures    = &m_tlas.tlas->handle();
 
+            write_data[3].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_data[3].pNext           = &descriptor_as;
+            write_data[3].descriptorCount = 1;
+            write_data[3].descriptorType  = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
+            write_data[3].dstBinding      = 3;
+            write_data[3].dstSet          = m_descriptor_set->handle();
+
+            write_data[4].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_data[4].descriptorCount = vbo_descriptors.size();
+            write_data[4].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            write_data[4].pBufferInfo     = vbo_descriptors.data();
+            write_data[4].dstBinding      = 4;
+            write_data[4].dstSet          = m_descriptor_set->handle();
+
+            write_data[5].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_data[5].descriptorCount = ibo_descriptors.size();
+            write_data[5].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            write_data[5].pBufferInfo     = ibo_descriptors.data();
+            write_data[5].dstBinding      = 5;
+            write_data[5].dstSet          = m_descriptor_set->handle();
+
+            write_data[6].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_data[6].descriptorCount = instance_data_descriptors.size();
+            write_data[6].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            write_data[6].pBufferInfo     = instance_data_descriptors.data();
+            write_data[6].dstBinding      = 6;
+            write_data[6].dstSet          = m_descriptor_set->handle();
+
             write_data[7].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[7].pNext           = &descriptor_as;
-            write_data[7].descriptorCount = 1;
-            write_data[7].descriptorType  = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
+            write_data[7].descriptorCount = image_descriptors.size();
+            write_data[7].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write_data[7].pImageInfo      = image_descriptors.data();
             write_data[7].dstBinding      = 7;
             write_data[7].dstSet          = m_descriptor_set->handle();
 
