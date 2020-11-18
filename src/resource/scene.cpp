@@ -380,7 +380,7 @@ void MeshNode::create_instance_data_buffer()
         if (backend)
         {
             backend->queue_object_deletion(m_instance_data_buffer);
-            m_instance_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(glm::mat4) + sizeof(uint32_t) * (m_mesh->sub_meshes().size() + 1), VMA_MEMORY_USAGE_GPU_ONLY, 0);
+            m_instance_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(glm::mat4) + sizeof(uint32_t) * (m_mesh->sub_meshes().size() + 1), VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
         }
     }
 }
@@ -594,7 +594,7 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
     m_name(name), m_backend(backend), m_root(root)
 {
     // Allocate instance buffers
-    m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_CPU_COPY, 0);
+    m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_CPU_ONLY, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
     // Allocate descriptor set
     m_descriptor_set = backend->allocate_descriptor_set(backend->scene_descriptor_set_layout());
@@ -604,10 +604,10 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
     m_camera_buffer              = vk::Buffer::create(backend, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, m_camera_buffer_aligned_size * vk::Backend::kMaxFramesInFlight, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
     // Create light data buffer
-    m_light_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(GPULight) * MAX_SCENE_LIGHT_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, 0);
+    m_light_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(GPULight) * MAX_SCENE_LIGHT_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
     // Create material data buffer
-    m_material_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(GPUMaterial) * MAX_SCENE_MATERIAL_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, 0);
+    m_material_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(GPUMaterial) * MAX_SCENE_MATERIAL_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -733,7 +733,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                                     VkDescriptorImageInfo image_info;
 
-                                    image_info.sampler     = m_material_sampler->handle();
+                                    image_info.sampler     = backend->trilinear_sampler()->handle();
                                     image_info.imageView   = texture->image_view()->handle();
                                     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -755,7 +755,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                                     VkDescriptorImageInfo image_info;
 
-                                    image_info.sampler     = m_material_sampler->handle();
+                                    image_info.sampler     = backend->trilinear_sampler()->handle();
                                     image_info.imageView   = texture->image_view()->handle();
                                     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -775,7 +775,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                                     VkDescriptorImageInfo image_info;
 
-                                    image_info.sampler     = m_material_sampler->handle();
+                                    image_info.sampler     = backend->trilinear_sampler()->handle();
                                     image_info.imageView   = texture->image_view()->handle();
                                     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -798,7 +798,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                                     VkDescriptorImageInfo image_info;
 
-                                    image_info.sampler     = m_material_sampler->handle();
+                                    image_info.sampler     = backend->trilinear_sampler()->handle();
                                     image_info.imageView   = texture->image_view()->handle();
                                     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -821,7 +821,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                                     VkDescriptorImageInfo image_info;
 
-                                    image_info.sampler     = m_material_sampler->handle();
+                                    image_info.sampler     = backend->trilinear_sampler()->handle();
                                     image_info.imageView   = texture->image_view()->handle();
                                     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -868,14 +868,14 @@ void Scene::create_gpu_resources(RenderState& render_state)
                 instance_indices[0] = global_mesh_indices[mesh->id()];
 
                 // Set submesh materials
-                for (uint32_t i = 1; i <= submeshes.size(); i++)
+                for (uint32_t i = 0; i < submeshes.size(); i++)
                 {
                     auto material = materials[submeshes[i].mat_idx];
 
                     if (mesh_node->material_override())
                         material = mesh_node->material_override();
 
-                    instance_indices[i] = global_material_indices[material->id()];
+                    instance_indices[i + 1] = global_material_indices[material->id()];
                 }
             }
 

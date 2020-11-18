@@ -51,55 +51,52 @@ Texture::Ptr create_image(const ast::Image& image, bool srgb, VkImageViewType im
     else if (image.type == ast::PIXEL_TYPE_FLOAT32)
         type = 2;
 
-    if (image.compression == ast::COMPRESSION_NONE)
+    VkFormat format = VK_FORMAT_UNDEFINED;
+
+    if (image.compression == ast::CompressionType::COMPRESSION_NONE)
     {
-        VkFormat format = VK_FORMAT_UNDEFINED;
-
-        if (image.compression == ast::CompressionType::COMPRESSION_NONE)
-        {
-            if (srgb)
-                format = kSRGBFormats[type][image.components - 1];
-            else
-                format = kNonSRGBFormats[type][image.components - 1];
-        }
+        if (srgb)
+            format = kSRGBFormats[type][image.components - 1];
         else
-            format = kCompressedFormats[image.compression][srgb];
-
-        vk::Image::Ptr     vk_image      = vk::Image::create(backend, VK_IMAGE_TYPE_2D, image.data[0][0].width, image.data[0][0].height, 1, image.mip_slices, image.array_slices, format, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_SAMPLED_BIT, VK_SAMPLE_COUNT_1_BIT);
-        vk::ImageView::Ptr vk_image_view = vk::ImageView::create(backend, vk_image, image_view_type, VK_IMAGE_ASPECT_COLOR_BIT, 0, image.mip_slices, 0, image.array_slices);
-
-        size_t              total_size = 0;
-        std::vector<size_t> mip_level_sizes;
-
-        for (int32_t i = 0; i < image.array_slices; i++)
-        {
-            for (int32_t j = 0; j < image.mip_slices; j++)
-            {
-                total_size += image.data[i][j].size;
-                mip_level_sizes.push_back(image.data[i][j].size);
-            }
-        }
-
-        std::vector<uint8_t> image_data(total_size);
-
-        size_t offset = 0;
-
-        for (int32_t i = 0; i < image.array_slices; i++)
-        {
-            for (int32_t j = 0; j < image.mip_slices; j++)
-            {
-                memcpy(image_data.data() + offset, image.data[i][j].data, image.data[i][j].size);
-                offset += image.data[i][j].size;
-            }
-        }
-
-        uploader.upload_image_data(vk_image, image_data.data(), mip_level_sizes);
-
-        if (image_view_type == VK_IMAGE_VIEW_TYPE_2D)
-            return Texture2D::create(backend, vk_image, vk_image_view);
-        else if (image_view_type == VK_IMAGE_VIEW_TYPE_CUBE)
-            return TextureCube::create(backend, vk_image, vk_image_view);
+            format = kNonSRGBFormats[type][image.components - 1];
     }
+    else
+        format = kCompressedFormats[image.compression][srgb];
+
+    vk::Image::Ptr     vk_image      = vk::Image::create(backend, VK_IMAGE_TYPE_2D, image.data[0][0].width, image.data[0][0].height, 1, image.mip_slices, image.array_slices, format, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_SAMPLE_COUNT_1_BIT);
+    vk::ImageView::Ptr vk_image_view = vk::ImageView::create(backend, vk_image, image_view_type, VK_IMAGE_ASPECT_COLOR_BIT, 0, image.mip_slices, 0, image.array_slices);
+
+    size_t              total_size = 0;
+    std::vector<size_t> mip_level_sizes;
+
+    for (int32_t i = 0; i < image.array_slices; i++)
+    {
+        for (int32_t j = 0; j < image.mip_slices; j++)
+        {
+            total_size += image.data[i][j].size;
+            mip_level_sizes.push_back(image.data[i][j].size);
+        }
+    }
+
+    std::vector<uint8_t> image_data(total_size);
+
+    size_t offset = 0;
+
+    for (int32_t i = 0; i < image.array_slices; i++)
+    {
+        for (int32_t j = 0; j < image.mip_slices; j++)
+        {
+            memcpy(image_data.data() + offset, image.data[i][j].data, image.data[i][j].size);
+            offset += image.data[i][j].size;
+        }
+    }
+
+    uploader.upload_image_data(vk_image, image_data.data(), mip_level_sizes);
+
+    if (image_view_type == VK_IMAGE_VIEW_TYPE_2D)
+        return Texture2D::create(backend, vk_image, vk_image_view);
+    else if (image_view_type == VK_IMAGE_VIEW_TYPE_CUBE)
+        return TextureCube::create(backend, vk_image, vk_image_view);
 
     return nullptr;
 }
