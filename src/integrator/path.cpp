@@ -29,11 +29,15 @@ void PathIntegrator::execute(RenderState& render_state)
 
     vkCmdBindPipeline(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_path_trace_pipeline->handle());
 
-    float num_accumulated_frames = render_state.num_accumulated_frames();
-    float accumulation           = num_accumulated_frames / (num_accumulated_frames + 1);
+    int32_t push_constant_stages = VK_SHADER_STAGE_RAYGEN_BIT_NV | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV | VK_SHADER_STAGE_MISS_BIT_NV;
 
-    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_path_trace_pipeline_layout->handle(), VK_SHADER_STAGE_RAYGEN_BIT_NV, 0, sizeof(float), &accumulation);
-    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_path_trace_pipeline_layout->handle(), VK_SHADER_STAGE_RAYGEN_BIT_NV, sizeof(float), sizeof(uint32_t), &num_accumulated_frames);
+    glm::uvec4 num_lights             = glm::uvec4(render_state.directional_lights().size(), render_state.point_lights().size(), render_state.spot_lights().size(), 0);
+    float      num_accumulated_frames = render_state.num_accumulated_frames();
+    float      accumulation           = num_accumulated_frames / (num_accumulated_frames + 1);
+
+    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_path_trace_pipeline_layout->handle(), VK_SHADER_STAGE_RAYGEN_BIT_NV, 0, sizeof(glm::uvec4), &num_lights);
+    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_path_trace_pipeline_layout->handle(), VK_SHADER_STAGE_RAYGEN_BIT_NV, sizeof(glm::uvec4), sizeof(float), &accumulation);
+    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_path_trace_pipeline_layout->handle(), VK_SHADER_STAGE_RAYGEN_BIT_NV, sizeof(glm::uvec4) + sizeof(float), sizeof(uint32_t), &num_accumulated_frames);
 
     const uint32_t dynamic_offset = render_state.camera_buffer_offset();
 
@@ -91,7 +95,7 @@ void PathIntegrator::create_pipeline(vk::DescriptorSetLayout::Ptr scene_ds_layou
 
     vk::PipelineLayout::Desc pl_desc;
 
-    pl_desc.add_push_constant_range(VK_SHADER_STAGE_RAYGEN_BIT_NV, 0, sizeof(float) * 2);
+    pl_desc.add_push_constant_range(VK_SHADER_STAGE_RAYGEN_BIT_NV | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV | VK_SHADER_STAGE_MISS_BIT_NV, 0, sizeof(glm::uvec4) + sizeof(float) * 2);
 
     pl_desc.add_descriptor_set_layout(scene_ds_layout);
     pl_desc.add_descriptor_set_layout(backend->image_descriptor_set_layout());

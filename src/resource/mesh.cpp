@@ -76,7 +76,7 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
         geometry.geometry.triangles.vertexStride    = sizeof(Vertex);
         geometry.geometry.triangles.vertexFormat    = VK_FORMAT_R32G32B32_SFLOAT;
         geometry.geometry.triangles.indexData       = m_ibo->handle();
-        geometry.geometry.triangles.indexOffset     = submeshes[i].base_index;
+        geometry.geometry.triangles.indexOffset     = submeshes[i].base_index * sizeof(uint32_t);
         geometry.geometry.triangles.indexCount      = submeshes[i].index_count;
         geometry.geometry.triangles.indexType       = VK_INDEX_TYPE_UINT32;
         geometry.geometry.triangles.transformData   = VK_NULL_HANDLE;

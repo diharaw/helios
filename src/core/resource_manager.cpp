@@ -325,7 +325,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
                 {
                     if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
                     {
-                        Texture2D::Ptr texture = load_texture_2d_internal(path_to_root + "/" + ast_texture.path, ast_texture.srgb, false, uploader);
+                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, true, uploader);
 
                         texture_index_map[ast_texture.path] = textures.size();
 
@@ -339,7 +339,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
                 {
                     if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
                     {
-                        Texture2D::Ptr texture = load_texture_2d_internal(path_to_root + "/" + ast_texture.path, ast_texture.srgb, false, uploader);
+                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, true, uploader);
 
                         texture_index_map[ast_texture.path] = textures.size();
 
@@ -353,7 +353,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
                 {
                     if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
                     {
-                        Texture2D::Ptr texture = load_texture_2d_internal(path_to_root + "/" + ast_texture.path, ast_texture.srgb, false, uploader);
+                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, true, uploader);
 
                         texture_index_map[ast_texture.path] = textures.size();
 
@@ -367,7 +367,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
                 {
                     if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
                     {
-                        Texture2D::Ptr texture = load_texture_2d_internal(path_to_root + "/" + ast_texture.path, ast_texture.srgb, false, uploader);
+                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, true, uploader);
 
                         texture_index_map[ast_texture.path] = textures.size();
 
@@ -381,7 +381,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
                 {
                     if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
                     {
-                        Texture2D::Ptr texture = load_texture_2d_internal(path_to_root + "/" + ast_texture.path, ast_texture.srgb, false, uploader);
+                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, true, uploader);
 
                         texture_index_map[ast_texture.path] = textures.size();
 
@@ -436,9 +436,9 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
         {
             std::string path_to_root = utility::path_without_file(path_to_asset);
 
-            std::vector<Vertex>        vertices;
-            std::vector<SubMesh>       submeshes;
-            std::vector<Material::Ptr> materials;
+            std::vector<Vertex>        vertices(ast_mesh.vertices.size());
+            std::vector<SubMesh>       submeshes(ast_mesh.submeshes.size());
+            std::vector<Material::Ptr> materials(ast_mesh.materials.size());
 
             for (int i = 0; i < ast_mesh.vertices.size(); i++)
             {
@@ -469,7 +469,7 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
             }
 
             for (int i = 0; i < ast_mesh.material_paths.size(); i++)
-                materials[i] = load_material_internal(path_to_root + "/" + ast_mesh.material_paths[i], false, uploader);
+                materials[i] = load_material_internal(ast_mesh.material_paths[i], true, uploader);
 
             Mesh::Ptr mesh = Mesh::create(backend, vertices, ast_mesh.indices, submeshes, materials, uploader);
 
@@ -527,10 +527,12 @@ MeshNode::Ptr ResourceManager::create_mesh_node(std::shared_ptr<ast::MeshNode> a
         if (ast_node->material_override != "")
         {
             material_override = load_material_internal(ast_node->material_override, false, uploader);
+            
+            if (!material_override)
+                LUMEN_LOG_ERROR("Failed to load material override: " + ast_node->material_override);
+            
             mesh_node->set_material_override(material_override);
         }
-        else
-            LUMEN_LOG_ERROR("Failed to load material: " + ast_node->material_override);
     }
 
     populate_transform_node(mesh_node, ast_node);

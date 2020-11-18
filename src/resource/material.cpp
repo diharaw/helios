@@ -42,6 +42,7 @@ Material::Material(vk::Backend::Ptr                        backend,
                    bool                                    alpha_test) :
     vk::Object(backend),
     m_type(type),
+    m_textures(textures),
     m_albedo_texture_info(albedo_texture_info),
     m_normal_texture_info(normal_texture_info),
     m_metallic_texture_info(metallic_texture_info),

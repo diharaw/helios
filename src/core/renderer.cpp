@@ -264,6 +264,9 @@ void Renderer::create_descriptor_sets()
     std::vector<VkWriteDescriptorSet>  write_datas;
     std::vector<VkDescriptorImageInfo> image_descriptors;
 
+    write_datas.reserve(4);
+    image_descriptors.reserve(4);
+
     for (int i = 0; i < 2; i++)
     {
         m_output_storage_image_ds[i]   = backend->allocate_descriptor_set(backend->image_descriptor_set_layout());
@@ -274,9 +277,9 @@ void Renderer::create_descriptor_sets()
 
             LUMEN_ZERO_MEMORY(image_info);
 
-            image_info.sampler       = nullptr;
-            image_info.imageView     = m_output_image_views[i]->handle();
-            image_info.imageLayout   = VK_IMAGE_LAYOUT_GENERAL;
+            image_info.sampler     = nullptr;
+            image_info.imageView   = m_output_image_views[i]->handle();
+            image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
             image_descriptors.push_back(image_info);
 
@@ -287,7 +290,7 @@ void Renderer::create_descriptor_sets()
             write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data.descriptorCount = 1;
             write_data.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-            write_data.pImageInfo      = &image_descriptors.back();
+            write_data.pImageInfo      = &image_descriptors[idx++];
             write_data.dstBinding      = 0;
             write_data.dstSet          = m_output_storage_image_ds[i]->handle();
 
@@ -299,7 +302,7 @@ void Renderer::create_descriptor_sets()
 
             LUMEN_ZERO_MEMORY(image_info);
 
-            image_info.sampler     = backend->bilinear_sampler->handle();
+            image_info.sampler     = backend->bilinear_sampler()->handle();
             image_info.imageView   = m_output_image_views[i]->handle();
             image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -312,7 +315,7 @@ void Renderer::create_descriptor_sets()
             write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data.descriptorCount = 1;
             write_data.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            write_data.pImageInfo      = &image_descriptors.back();
+            write_data.pImageInfo      = &image_descriptors[idx++];
             write_data.dstBinding      = 0;
             write_data.dstSet          = m_input_combined_sampler_ds[i]->handle();
 
@@ -320,7 +323,7 @@ void Renderer::create_descriptor_sets()
         }
     }
 
-    vkUpdateDescriptorSets(backend->device(), write_datas.size(), write_datas.data(), 0, nullptr);
+    vkUpdateDescriptorSets(backend->device(), write_datas.size(), &write_datas[0], 0, nullptr);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
