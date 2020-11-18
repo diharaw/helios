@@ -3337,6 +3337,7 @@ Backend::~Backend()
     m_bilinear_sampler.reset();
     m_trilinear_sampler.reset();
     m_nearest_sampler.reset();
+    m_combined_sampler_descriptor_set_layout.reset();
     m_image_descriptor_set_layout.reset();
     m_scene_descriptor_set_layout.reset();
 
@@ -3471,9 +3472,15 @@ void Backend::initialize()
 
     DescriptorSetLayout::Desc image_ds_layout_desc;
 
-    image_ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_RAYGEN_BIT_NV);
+    image_ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_NV);
 
     m_image_descriptor_set_layout = DescriptorSetLayout::create(shared_from_this(), image_ds_layout_desc);
+    
+    DescriptorSetLayout::Desc combined_sampler_ds_layout_desc;
+
+    combined_sampler_ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+
+    m_combined_sampler_descriptor_set_layout = DescriptorSetLayout::create(shared_from_this(), combined_sampler_ds_layout_desc);
 
     Sampler::Desc sampler_desc;
 

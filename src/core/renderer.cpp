@@ -15,6 +15,7 @@ Renderer::Renderer(vk::Backend::Ptr backend) :
     create_output_images();
     create_tone_map_pipeline();
     create_buffers();
+    create_descriptor_sets();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -97,29 +98,38 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
     render_state.m_write_image_ds = m_output_storage_image_ds[write_index];
     render_state.m_read_image_ds  = m_output_storage_image_ds[read_index];
 
-    // Transition output image to general layout during the first frame
+    VkImageSubresourceRange subresource_range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+    // Transition write image to general layout during the first frame
     if (backend->current_frame_idx() == 0)
     {
-        VkImageSubresourceRange subresource_range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-
         vk::utilities::set_image_layout(
             render_state.m_cmd_buffer->handle(),
             m_output_images[write_index]->handle(),
             VK_IMAGE_LAYOUT_UNDEFINED,
             VK_IMAGE_LAYOUT_GENERAL,
             subresource_range);
-
-        vk::utilities::set_image_layout(
-            render_state.m_cmd_buffer->handle(),
-            m_output_images[read_index]->handle(),
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_GENERAL,
-            subresource_range);
     }
+
+    // Transition the read image to general layout
+    vk::utilities::set_image_layout(
+        render_state.m_cmd_buffer->handle(),
+        m_output_images[read_index]->handle(),
+        backend->current_frame_idx() == 0 ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_GENERAL,
+        subresource_range);
 
     // Execute integrator
     if (integrator)
         integrator->execute(render_state);
+
+    // Transition the output image from general to as shader read-only layout
+    vk::utilities::set_image_layout(
+        render_state.m_cmd_buffer->handle(),
+        m_output_images[write_index]->handle(),
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        subresource_range);
 
     // Render final onscreen passes
     auto extents = backend->swap_chain_extents();
@@ -168,7 +178,7 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
     vkCmdSetScissor(render_state.m_cmd_buffer->handle(), 0, 1, &scissor_rect);
 
     // Perform tone mapping and render ImGui
-    tone_map(render_state.m_cmd_buffer, m_output_storage_image_ds[write_index]);
+    tone_map(render_state.m_cmd_buffer, m_input_combined_sampler_ds[write_index]);
 
     // Render ImGui
     ImGui::Render();
@@ -220,11 +230,12 @@ void Renderer::create_tone_map_pipeline()
 
     vk::PipelineLayout::Desc ds_desc;
 
-    ds_desc.add_descriptor_set_layout(backend->image_descriptor_set_layout());
+    ds_desc.add_descriptor_set_layout(backend->combined_sampler_descriptor_set_layout());
 
     m_tone_map_pipeline_layout = vk::PipelineLayout::create(backend, ds_desc);
     m_tone_map_pipeline        = vk::GraphicsPipeline::create_for_post_process(backend, "shader/triangle.vert.spv", "shader/tone_map.frag.spv", m_tone_map_pipeline_layout, backend->swapchain_render_pass());
 }
+
 // -----------------------------------------------------------------------------------------------------------------------------------
 
 void Renderer::create_output_images()
@@ -240,6 +251,76 @@ void Renderer::create_output_images()
         m_output_images[i]      = vk::Image::create(backend, VK_IMAGE_TYPE_2D, extents.width, extents.height, 1, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_SAMPLE_COUNT_1_BIT);
         m_output_image_views[i] = vk::ImageView::create(backend, m_output_images[i], VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
     }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_descriptor_sets()
+{
+    auto backend = m_backend.lock();
+
+    int idx = 0;
+
+    std::vector<VkWriteDescriptorSet>  write_datas;
+    std::vector<VkDescriptorImageInfo> image_descriptors;
+
+    for (int i = 0; i < 2; i++)
+    {
+        m_output_storage_image_ds[i]   = backend->allocate_descriptor_set(backend->image_descriptor_set_layout());
+        m_input_combined_sampler_ds[i] = backend->allocate_descriptor_set(backend->combined_sampler_descriptor_set_layout());
+
+        {
+            VkDescriptorImageInfo image_info;
+
+            LUMEN_ZERO_MEMORY(image_info);
+
+            image_info.sampler       = nullptr;
+            image_info.imageView     = m_output_image_views[i]->handle();
+            image_info.imageLayout   = VK_IMAGE_LAYOUT_GENERAL;
+
+            image_descriptors.push_back(image_info);
+
+            VkWriteDescriptorSet write_data;
+
+            LUMEN_ZERO_MEMORY(write_data);
+
+            write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_data.descriptorCount = 1;
+            write_data.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            write_data.pImageInfo      = &image_descriptors.back();
+            write_data.dstBinding      = 0;
+            write_data.dstSet          = m_output_storage_image_ds[i]->handle();
+
+            write_datas.push_back(write_data);
+        }
+
+        {
+            VkDescriptorImageInfo image_info;
+
+            LUMEN_ZERO_MEMORY(image_info);
+
+            image_info.sampler     = backend->bilinear_sampler->handle();
+            image_info.imageView   = m_output_image_views[i]->handle();
+            image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+            image_descriptors.push_back(image_info);
+
+            VkWriteDescriptorSet write_data;
+
+            LUMEN_ZERO_MEMORY(write_data);
+
+            write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_data.descriptorCount = 1;
+            write_data.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write_data.pImageInfo      = &image_descriptors.back();
+            write_data.dstBinding      = 0;
+            write_data.dstSet          = m_input_combined_sampler_ds[i]->handle();
+
+            write_datas.push_back(write_data);
+        }
+    }
+
+    vkUpdateDescriptorSets(backend->device(), write_datas.size(), write_datas.data(), 0, nullptr);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

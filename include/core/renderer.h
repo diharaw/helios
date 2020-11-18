@@ -16,6 +16,7 @@ private:
     vk::Image::Ptr             m_output_images[2];
     vk::ImageView::Ptr         m_output_image_views[2];
     vk::DescriptorSet::Ptr     m_output_storage_image_ds[2];
+    vk::DescriptorSet::Ptr     m_input_combined_sampler_ds[2];
     vk::GraphicsPipeline::Ptr  m_tone_map_pipeline;
     vk::PipelineLayout::Ptr    m_tone_map_pipeline_layout;
     bool                       m_output_ping_pong = false;
@@ -32,5 +33,6 @@ private:
     void create_output_images();
     void create_tone_map_pipeline();
     void create_buffers();
+    void create_descriptor_sets();
 };
 } // namespace lumen
