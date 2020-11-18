@@ -380,7 +380,7 @@ void MeshNode::create_instance_data_buffer()
         if (backend)
         {
             backend->queue_object_deletion(m_instance_data_buffer);
-            m_instance_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(glm::mat4) + sizeof(uint32_t) * (m_mesh->sub_meshes().size() + 1), VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+            m_instance_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(glm::mat4) + sizeof(uint32_t) * (m_mesh->sub_meshes().size() + 1), VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
         }
     }
 }
@@ -594,7 +594,14 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
     m_name(name), m_backend(backend), m_root(root)
 {
     // Allocate instance buffers
-    m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_CPU_ONLY, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+    m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_CPU_ONLY, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+
+    vk::AccelerationStructure::Desc desc;
+
+    desc.set_instance_count(MAX_SCENE_MESH_INSTANCE_COUNT);
+    desc.set_type(VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV);
+
+    m_tlas.tlas = vk::AccelerationStructure::create(backend, desc);
 
     // Allocate descriptor set
     m_descriptor_set = backend->allocate_descriptor_set(backend->scene_descriptor_set_layout());
@@ -604,10 +611,10 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
     m_camera_buffer              = vk::Buffer::create(backend, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, m_camera_buffer_aligned_size * vk::Backend::kMaxFramesInFlight, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
     // Create light data buffer
-    m_light_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(GPULight) * MAX_SCENE_LIGHT_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+    m_light_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(GPULight) * MAX_SCENE_LIGHT_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
     // Create material data buffer
-    m_material_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, sizeof(GPUMaterial) * MAX_SCENE_MATERIAL_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+    m_material_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(GPUMaterial) * MAX_SCENE_MATERIAL_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

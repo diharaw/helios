@@ -46,7 +46,7 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
             // Create top-level acceleration structure
             vk::AccelerationStructure::Desc desc;
 
-            desc.set_instance_count(MAX_SCENE_MESH_COUNT);
+            desc.set_instance_count(MAX_SCENE_MESH_INSTANCE_COUNT);
             desc.set_type(VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV);
             desc.set_flags(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_NV);
 
@@ -120,8 +120,8 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
         subresource_range);
 
     // Execute integrator
-    if (integrator)
-        integrator->execute(render_state);
+    //if (integrator)
+    //    integrator->execute(render_state);
 
     // Transition the output image from general to as shader read-only layout
     vk::utilities::set_image_layout(
@@ -219,7 +219,7 @@ void Renderer::create_buffers()
     auto backend = m_backend.lock();
 
     m_tlas_scratch_buffer         = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, 1024 * 1024 * 32, VMA_MEMORY_USAGE_GPU_ONLY, 0);
-    m_tlas_instance_buffer_device = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
+    m_tlas_instance_buffer_device = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
