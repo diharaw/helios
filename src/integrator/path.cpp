@@ -31,19 +31,27 @@ void PathIntegrator::execute(RenderState& render_state)
 
     int32_t push_constant_stages = VK_SHADER_STAGE_RAYGEN_BIT_NV | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV | VK_SHADER_STAGE_MISS_BIT_NV;
 
-    glm::uvec4 num_lights             = glm::uvec4(render_state.directional_lights().size(), render_state.point_lights().size(), render_state.spot_lights().size(), 0);
-    float      num_accumulated_frames = render_state.num_accumulated_frames();
-    float      accumulation           = num_accumulated_frames / (num_accumulated_frames + 1);
+    Integrator::PushConstants push_constants;
 
-    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_path_trace_pipeline_layout->handle(), VK_SHADER_STAGE_RAYGEN_BIT_NV, 0, sizeof(glm::uvec4), &num_lights);
-    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_path_trace_pipeline_layout->handle(), VK_SHADER_STAGE_RAYGEN_BIT_NV, sizeof(glm::uvec4), sizeof(float), &accumulation);
-    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_path_trace_pipeline_layout->handle(), VK_SHADER_STAGE_RAYGEN_BIT_NV, sizeof(glm::uvec4) + sizeof(float), sizeof(uint32_t), &num_accumulated_frames);
+    push_constants.num_lights   = glm::uvec4(render_state.directional_lights().size(), render_state.point_lights().size(), render_state.spot_lights().size(), 0);
+    push_constants.num_frames   = render_state.num_accumulated_frames();
+    push_constants.accumulation = float(push_constants.num_frames) / float(push_constants.num_frames + 1);
+
+    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_path_trace_pipeline_layout->handle(), push_constant_stages, 0, sizeof(Integrator::PushConstants), &push_constants);
 
     const uint32_t dynamic_offset = render_state.camera_buffer_offset();
 
-    vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_path_trace_pipeline_layout->handle(), 0, 1, &render_state.scene_descriptor_set()->handle(), 1, &dynamic_offset);
-    vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_path_trace_pipeline_layout->handle(), 1, 1, &render_state.read_image_descriptor_set()->handle(), 0, VK_NULL_HANDLE);
-    vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_path_trace_pipeline_layout->handle(), 2, 1, &render_state.write_image_descriptor_set()->handle(), 0, VK_NULL_HANDLE);
+    VkDescriptorSet descriptor_sets[] = {
+        render_state.scene_descriptor_set()->handle(),
+        render_state.vbo_descriptor_set()->handle(),
+        render_state.ibo_descriptor_set()->handle(),
+        render_state.instance_descriptor_set()->handle(),
+        render_state.texture_descriptor_set()->handle(),
+        render_state.read_image_descriptor_set()->handle(),
+        render_state.write_image_descriptor_set()->handle()
+    };
+
+    vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, m_path_trace_pipeline_layout->handle(), 0, 7, descriptor_sets, 1, &dynamic_offset);
 
     vkCmdTraceRaysNV(render_state.cmd_buffer()->handle(),
                      m_path_trace_pipeline->shader_binding_table_buffer()->handle(),
@@ -95,9 +103,13 @@ void PathIntegrator::create_pipeline(vk::DescriptorSetLayout::Ptr scene_ds_layou
 
     vk::PipelineLayout::Desc pl_desc;
 
-    pl_desc.add_push_constant_range(VK_SHADER_STAGE_RAYGEN_BIT_NV | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV | VK_SHADER_STAGE_MISS_BIT_NV, 0, sizeof(glm::uvec4) + sizeof(float) * 2);
+    pl_desc.add_push_constant_range(VK_SHADER_STAGE_RAYGEN_BIT_NV | VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV | VK_SHADER_STAGE_ANY_HIT_BIT_NV | VK_SHADER_STAGE_MISS_BIT_NV, 0, sizeof(Integrator::PushConstants));
 
     pl_desc.add_descriptor_set_layout(scene_ds_layout);
+    pl_desc.add_descriptor_set_layout(backend->buffer_array_descriptor_set_layout());
+    pl_desc.add_descriptor_set_layout(backend->buffer_array_descriptor_set_layout());
+    pl_desc.add_descriptor_set_layout(backend->buffer_array_descriptor_set_layout());
+    pl_desc.add_descriptor_set_layout(backend->combined_sampler_array_descriptor_set_layout());
     pl_desc.add_descriptor_set_layout(backend->image_descriptor_set_layout());
     pl_desc.add_descriptor_set_layout(backend->image_descriptor_set_layout());
 

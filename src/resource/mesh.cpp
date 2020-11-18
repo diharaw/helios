@@ -33,7 +33,7 @@ Mesh::Ptr Mesh::create(vk::Backend::Ptr                       backend,
     vk::Buffer::Ptr ibo = vk::Buffer::create(backend, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(uint32_t) * indices.size(), VMA_MEMORY_USAGE_GPU_ONLY, 0);
 
     uploader.upload_buffer_data(vbo, vertices.data(), 0, sizeof(Vertex) * vertices.size());
-    uploader.upload_buffer_data(vbo, indices.data(), 0, sizeof(uint32_t) * indices.size());
+    uploader.upload_buffer_data(ibo, indices.data(), 0, sizeof(uint32_t) * indices.size());
 
     return std::shared_ptr<Mesh>(new Mesh(backend, vbo, ibo, submeshes, materials, uploader));
 }

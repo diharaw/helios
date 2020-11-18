@@ -34,6 +34,8 @@ struct AccelerationStructureData
 {
     vk::AccelerationStructure::Ptr tlas;
     vk::Buffer::Ptr                instance_buffer_host;
+    vk::Buffer::Ptr                scratch_buffer;
+    bool                           is_built = false;
 };
 
 class Node
@@ -292,12 +294,17 @@ private:
     vk::DescriptorSet::Ptr             m_read_image_ds;
     vk::DescriptorSet::Ptr             m_write_image_ds;
     vk::DescriptorSet::Ptr             m_scene_ds;
+    vk::DescriptorSet::Ptr             m_vbo_ds;
+    vk::DescriptorSet::Ptr             m_ibo_ds;
+    vk::DescriptorSet::Ptr             m_instance_ds;
+    vk::DescriptorSet::Ptr             m_texture_ds;
     vk::CommandBuffer::Ptr             m_cmd_buffer;
 
 public:
     RenderState();
     ~RenderState();
 
+    void clear();
     void setup(vk::CommandBuffer::Ptr cmd_buffer);
 
     inline const std::vector<MeshNode*>&             meshes() { return m_meshes; }
@@ -313,6 +320,10 @@ public:
     inline vk::DescriptorSet::Ptr                    read_image_descriptor_set() { return m_read_image_ds; }
     inline vk::DescriptorSet::Ptr                    write_image_descriptor_set() { return m_write_image_ds; }
     inline vk::DescriptorSet::Ptr                    scene_descriptor_set() { return m_scene_ds; }
+    inline vk::DescriptorSet::Ptr                    vbo_descriptor_set() { return m_vbo_ds; }
+    inline vk::DescriptorSet::Ptr                    ibo_descriptor_set() { return m_ibo_ds; }
+    inline vk::DescriptorSet::Ptr                    instance_descriptor_set() { return m_instance_ds; }
+    inline vk::DescriptorSet::Ptr                    texture_descriptor_set() { return m_texture_ds; }
     inline vk::CommandBuffer::Ptr                    cmd_buffer() { return m_cmd_buffer; }
 };
 
@@ -353,7 +364,12 @@ private:
 private:
     AccelerationStructureData  m_tlas;
     Node::Ptr                  m_root;
-    vk::DescriptorSet::Ptr     m_descriptor_set;
+    vk::DescriptorPool::Ptr    m_descriptor_pool;
+    vk::DescriptorSet::Ptr     m_scene_descriptor_set;
+    vk::DescriptorSet::Ptr     m_vbo_descriptor_set;
+    vk::DescriptorSet::Ptr     m_ibo_descriptor_set;
+    vk::DescriptorSet::Ptr     m_instance_descriptor_set;
+    vk::DescriptorSet::Ptr     m_textures_descriptor_set;
     vk::Buffer::Ptr            m_camera_buffer;
     vk::Buffer::Ptr            m_light_data_buffer;
     vk::Buffer::Ptr            m_material_data_buffer;

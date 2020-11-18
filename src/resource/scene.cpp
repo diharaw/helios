@@ -563,22 +563,33 @@ RenderState::~RenderState()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void RenderState::setup(vk::CommandBuffer::Ptr cmd_buffer)
+void RenderState::clear()
 {
     m_meshes.clear();
     m_directional_lights.clear();
     m_spot_lights.clear();
     m_point_lights.clear();
-    m_camera                 = nullptr;
-    m_ibl_environment_map    = nullptr;
-    m_read_image_ds          = nullptr;
-    m_write_image_ds         = nullptr;
-    m_scene_ds               = nullptr;
-    m_cmd_buffer             = cmd_buffer;
-    m_scene                  = nullptr;
-    m_scene_state            = SCENE_STATE_READY;
-    m_camera_buffer_offset   = 0;
-    m_num_accumulated_frames = 0;
+    m_camera               = nullptr;
+    m_ibl_environment_map  = nullptr;
+    m_read_image_ds        = nullptr;
+    m_write_image_ds       = nullptr;
+    m_scene_ds             = nullptr;
+    m_cmd_buffer           = nullptr;
+    m_scene                = nullptr;
+    m_vbo_ds               = nullptr;
+    m_ibo_ds               = nullptr;
+    m_instance_ds          = nullptr;
+    m_texture_ds           = nullptr;
+    m_scene_state          = SCENE_STATE_READY;
+    m_camera_buffer_offset = 0;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void RenderState::setup(vk::CommandBuffer::Ptr cmd_buffer)
+{
+    clear();
+    m_cmd_buffer = cmd_buffer;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -593,18 +604,46 @@ Scene::Ptr Scene::create(vk::Backend::Ptr backend, const std::string& name, Node
 Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) :
     m_name(name), m_backend(backend), m_root(root)
 {
-    // Allocate instance buffers
-    m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_CPU_ONLY, VMA_ALLOCATION_CREATE_MAPPED_BIT);
-
+    // Create TLAS
     vk::AccelerationStructure::Desc desc;
 
-    desc.set_instance_count(MAX_SCENE_MESH_INSTANCE_COUNT);
+    desc.set_instance_count(1);
     desc.set_type(VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV);
+    desc.set_flags(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_NV);
 
     m_tlas.tlas = vk::AccelerationStructure::create(backend, desc);
 
+    // Allocate instance buffer
+    m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_CPU_ONLY, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+
+    // Allocate TLAS scratch buffer
+    VkAccelerationStructureMemoryRequirementsInfoNV memory_requirements_info;
+    memory_requirements_info.sType                 = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_NV;
+    memory_requirements_info.pNext                 = nullptr;
+    memory_requirements_info.type                  = VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_NV;
+    memory_requirements_info.accelerationStructure = m_tlas.tlas->handle();
+
+    VkMemoryRequirements2 mem_req_blas;
+    vkGetAccelerationStructureMemoryRequirementsNV(backend->device(), &memory_requirements_info, &mem_req_blas);
+
+    m_tlas.scratch_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, mem_req_blas.memoryRequirements.size, VMA_MEMORY_USAGE_GPU_ONLY, 0);
+
+    vk::DescriptorPool::Desc dp_desc;
+
+    dp_desc.set_max_sets(5)
+        .add_pool_size(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1)
+        .add_pool_size(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SCENE_MATERIAL_TEXTURE_COUNT)
+        .add_pool_size(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 5 * MAX_SCENE_MESH_INSTANCE_COUNT)
+        .add_pool_size(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, 1);
+
+    m_descriptor_pool = vk::DescriptorPool::create(backend, dp_desc);
+
     // Allocate descriptor set
-    m_descriptor_set = backend->allocate_descriptor_set(backend->scene_descriptor_set_layout());
+    m_scene_descriptor_set    = vk::DescriptorSet::create(backend, backend->scene_descriptor_set_layout(), m_descriptor_pool);
+    m_vbo_descriptor_set      = vk::DescriptorSet::create(backend, backend->buffer_array_descriptor_set_layout(), m_descriptor_pool);
+    m_ibo_descriptor_set      = vk::DescriptorSet::create(backend, backend->buffer_array_descriptor_set_layout(), m_descriptor_pool);
+    m_instance_descriptor_set = vk::DescriptorSet::create(backend, backend->buffer_array_descriptor_set_layout(), m_descriptor_pool);
+    m_textures_descriptor_set = vk::DescriptorSet::create(backend, backend->combined_sampler_array_descriptor_set_layout(), m_descriptor_pool);
 
     // Create camera buffer
     m_camera_buffer_aligned_size = backend->aligned_dynamic_ubo_size(sizeof(CameraData));
@@ -621,9 +660,15 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
 
 Scene::~Scene()
 {
-    m_descriptor_set.reset();
-    m_tlas.tlas.reset();
+    m_textures_descriptor_set.reset();
+    m_instance_descriptor_set.reset();
+    m_ibo_descriptor_set.reset();
+    m_vbo_descriptor_set.reset();
+    m_scene_descriptor_set.reset();
+    m_descriptor_pool.reset();
+    m_tlas.scratch_buffer.reset();
     m_tlas.instance_buffer_host.reset();
+    m_tlas.tlas.reset();
     m_light_data_buffer.reset();
     m_material_data_buffer.reset();
     m_root.reset();
@@ -657,8 +702,12 @@ void Scene::update(RenderState& render_state)
         render_state.m_camera_buffer_offset = camera_buffer_offset;
     }
 
-    render_state.m_scene_ds = m_descriptor_set;
-    render_state.m_scene    = this;
+    render_state.m_scene_ds    = m_scene_descriptor_set;
+    render_state.m_vbo_ds      = m_vbo_descriptor_set;
+    render_state.m_ibo_ds      = m_ibo_descriptor_set;
+    render_state.m_instance_ds = m_instance_descriptor_set;
+    render_state.m_texture_ds  = m_textures_descriptor_set;
+    render_state.m_scene       = this;
 
     create_gpu_resources(render_state);
 }
@@ -920,21 +969,21 @@ void Scene::create_gpu_resources(RenderState& render_state)
             write_data[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
             write_data[0].pBufferInfo     = &camera_buffer_info;
             write_data[0].dstBinding      = 0;
-            write_data[0].dstSet          = m_descriptor_set->handle();
+            write_data[0].dstSet          = m_scene_descriptor_set->handle();
 
             write_data[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[1].descriptorCount = 1;
             write_data[1].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             write_data[1].pBufferInfo     = &material_buffer_info;
             write_data[1].dstBinding      = 1;
-            write_data[1].dstSet          = m_descriptor_set->handle();
+            write_data[1].dstSet          = m_scene_descriptor_set->handle();
 
             write_data[2].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[2].descriptorCount = 1;
             write_data[2].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             write_data[2].pBufferInfo     = &light_buffer_info;
             write_data[2].dstBinding      = 2;
-            write_data[2].dstSet          = m_descriptor_set->handle();
+            write_data[2].dstSet          = m_scene_descriptor_set->handle();
 
             VkWriteDescriptorSetAccelerationStructureNV descriptor_as;
 
@@ -948,37 +997,37 @@ void Scene::create_gpu_resources(RenderState& render_state)
             write_data[3].descriptorCount = 1;
             write_data[3].descriptorType  = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
             write_data[3].dstBinding      = 3;
-            write_data[3].dstSet          = m_descriptor_set->handle();
+            write_data[3].dstSet          = m_scene_descriptor_set->handle();
 
             write_data[4].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[4].descriptorCount = vbo_descriptors.size();
             write_data[4].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             write_data[4].pBufferInfo     = vbo_descriptors.data();
-            write_data[4].dstBinding      = 4;
-            write_data[4].dstSet          = m_descriptor_set->handle();
+            write_data[4].dstBinding      = 0;
+            write_data[4].dstSet          = m_vbo_descriptor_set->handle();
 
             write_data[5].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[5].descriptorCount = ibo_descriptors.size();
             write_data[5].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             write_data[5].pBufferInfo     = ibo_descriptors.data();
-            write_data[5].dstBinding      = 5;
-            write_data[5].dstSet          = m_descriptor_set->handle();
+            write_data[5].dstBinding      = 0;
+            write_data[5].dstSet          = m_ibo_descriptor_set->handle();
 
             write_data[6].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[6].descriptorCount = instance_data_descriptors.size();
             write_data[6].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             write_data[6].pBufferInfo     = instance_data_descriptors.data();
-            write_data[6].dstBinding      = 6;
-            write_data[6].dstSet          = m_descriptor_set->handle();
+            write_data[6].dstBinding      = 0;
+            write_data[6].dstSet          = m_instance_descriptor_set->handle();
 
             write_data[7].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[7].descriptorCount = image_descriptors.size();
             write_data[7].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             write_data[7].pImageInfo      = image_descriptors.data();
-            write_data[7].dstBinding      = 7;
-            write_data[7].dstSet          = m_descriptor_set->handle();
+            write_data[7].dstBinding      = 0;
+            write_data[7].dstSet          = m_textures_descriptor_set->handle();
 
-            vkUpdateDescriptorSets(backend->device(), 8, write_data, 0, nullptr);
+            vkUpdateDescriptorSets(backend->device(), image_descriptors.size() > 0 ? 8 : 7, write_data, 0, nullptr);
         }
 
         // Copy lights

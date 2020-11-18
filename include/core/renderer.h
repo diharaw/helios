@@ -11,7 +11,6 @@ class Renderer
 {
 private:
     std::weak_ptr<vk::Backend> m_backend;
-    vk::Buffer::Ptr            m_tlas_scratch_buffer;
     vk::Buffer::Ptr            m_tlas_instance_buffer_device;
     vk::Image::Ptr             m_output_images[2];
     vk::ImageView::Ptr         m_output_image_views[2];

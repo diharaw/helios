@@ -23,7 +23,6 @@ Renderer::Renderer(vk::Backend::Ptr backend) :
 Renderer::~Renderer()
 {
     m_tlas_instance_buffer_device.reset();
-    m_tlas_scratch_buffer.reset();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -38,20 +37,6 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
     if (render_state.m_scene_state == SCENE_STATE_HIERARCHY_UPDATED)
     {
         auto& tlas_data = render_state.m_scene->acceleration_structure_data();
-
-        bool is_update = tlas_data.tlas ? true : false;
-
-        if (!is_update)
-        {
-            // Create top-level acceleration structure
-            vk::AccelerationStructure::Desc desc;
-
-            desc.set_instance_count(MAX_SCENE_MESH_INSTANCE_COUNT);
-            desc.set_type(VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV);
-            desc.set_flags(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_NV);
-
-            tlas_data.tlas = vk::AccelerationStructure::create(backend, desc);
-        }
 
         VkBufferCopy copy_region;
         LUMEN_ZERO_MEMORY(copy_region);
@@ -75,10 +60,10 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
                                           &tlas_data.tlas->info(),
                                           m_tlas_instance_buffer_device->handle(),
                                           0,
-                                          is_update,
+                                          tlas_data.is_built,
                                           tlas_data.tlas->handle(),
-                                          is_update ? tlas_data.tlas->handle() : VK_NULL_HANDLE,
-                                          m_tlas_scratch_buffer->handle(),
+                                          tlas_data.is_built ? tlas_data.tlas->handle() : VK_NULL_HANDLE,
+                                          tlas_data.scratch_buffer->handle(),
                                           0);
 
         {
@@ -90,6 +75,8 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
 
             vkCmdPipelineBarrier(render_state.m_cmd_buffer->handle(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, 0, 1, &memory_barrier, 0, 0, 0, 0);
         }
+
+        tlas_data.is_built = true;
     }
 
     const uint32_t write_index = (uint32_t)m_output_ping_pong;
@@ -120,8 +107,8 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
         subresource_range);
 
     // Execute integrator
-    //if (integrator)
-    //    integrator->execute(render_state);
+    if (integrator)
+        integrator->execute(render_state);
 
     // Transition the output image from general to as shader read-only layout
     vk::utilities::set_image_layout(
@@ -188,6 +175,8 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
 
     render_state.m_num_accumulated_frames++;
     m_output_ping_pong = !m_output_ping_pong;
+
+    render_state.clear();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -218,7 +207,6 @@ void Renderer::create_buffers()
 {
     auto backend = m_backend.lock();
 
-    m_tlas_scratch_buffer         = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, 1024 * 1024 * 32, VMA_MEMORY_USAGE_GPU_ONLY, 0);
     m_tlas_instance_buffer_device = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
 }
 

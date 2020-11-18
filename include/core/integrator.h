@@ -12,6 +12,13 @@ class Integrator
 public:
     friend class Renderer;
 
+    struct PushConstants
+    {
+        glm::uvec4 num_lights; // x: directional lights, y: point lights, z: spot lights, w: area lights
+        float      accumulation;
+        uint32_t   num_frames;
+    };
+
 protected:
     std::weak_ptr<vk::Backend> m_backend;
 

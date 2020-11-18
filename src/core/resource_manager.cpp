@@ -524,10 +524,10 @@ MeshNode::Ptr ResourceManager::create_mesh_node(std::shared_ptr<ast::MeshNode> a
         if (ast_node->material_override != "")
         {
             material_override = load_material_internal(ast_node->material_override, false, uploader);
-            
+
             if (!material_override)
                 LUMEN_LOG_ERROR("Failed to load material override: " + ast_node->material_override);
-            
+
             mesh_node->set_material_override(material_override);
         }
     }
