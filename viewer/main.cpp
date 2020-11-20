@@ -205,7 +205,7 @@ private:
     float               m_heading_speed      = 0.0f;
     float               m_sideways_speed     = 0.0f;
     float               m_camera_sensitivity = 0.05f;
-    float               m_camera_speed       = 0.2f;
+    float               m_camera_speed       = 0.02f;
 };
 } // namespace lumen
 

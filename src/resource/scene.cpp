@@ -46,6 +46,16 @@ struct GPULight
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+struct GPUInstance
+{
+    uint32_t   mesh_index;
+    float      padding[3];
+    glm::mat4  model;
+    glm::uvec2 primitive_offsets_material_indices;
+};
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 Node::Node(const NodeType& type, const std::string& name) :
     m_type(type), m_name(name)
 {
@@ -380,7 +390,7 @@ void MeshNode::create_instance_data_buffer()
         if (backend)
         {
             backend->queue_object_deletion(m_instance_data_buffer);
-            m_instance_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(glm::mat4) + sizeof(uint32_t) * (m_mesh->sub_meshes().size() + 1), VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+            m_instance_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(glm::vec4) + sizeof(glm::mat4) + sizeof(glm::uvec2) * (m_mesh->sub_meshes().size()), VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
         }
     }
 }
@@ -794,6 +804,12 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                             GPUMaterial& gpu_material = material_buffer[gpu_material_counter++];
 
+                            gpu_material.texture_indices0   = glm::ivec4(-1);
+                            gpu_material.texture_indices1   = glm::ivec4(-1);
+                            gpu_material.albedo             = glm::vec4(0.0f);
+                            gpu_material.emissive           = glm::vec4(0.0f);
+                            gpu_material.roughness_metallic = glm::vec4(0.0f);
+
                             // Fill GPUMaterial
                             if (material->albedo_texture())
                             {
@@ -929,25 +945,27 @@ void Scene::create_gpu_resources(RenderState& render_state)
                 rt_instance.accelerationStructureHandle = mesh->acceleration_structure()->opaque_handle();
 
                 // Update instance data
-                uint8_t*   base_instance_data_ptr = (uint8_t*)mesh_node->instance_data_buffer()->mapped_ptr();
-                glm::mat4* instance_transform     = (glm::mat4*)base_instance_data_ptr;
-
-                instance_transform[0] = mesh_node->model_matrix();
-
-                uint32_t* instance_indices = (uint32_t*)(base_instance_data_ptr + sizeof(glm::mat4));
+                GPUInstance* instance_data = (GPUInstance*)mesh_node->instance_data_buffer()->mapped_ptr();
 
                 // Set mesh data index
-                instance_indices[0] = global_mesh_indices[mesh->id()];
+                instance_data->mesh_index = global_mesh_indices[mesh->id()];
+                instance_data->model      = mesh_node->model_matrix();
+
+                glm::uvec2* primitive_offsets_material_indices = &instance_data->primitive_offsets_material_indices;
 
                 // Set submesh materials
                 for (uint32_t i = 0; i < submeshes.size(); i++)
                 {
+                    const auto& submesh = submeshes[i];
+
                     auto material = materials[submeshes[i].mat_idx];
 
                     if (mesh_node->material_override())
                         material = mesh_node->material_override();
 
-                    instance_indices[i + 1] = global_material_indices[material->id()];
+                    glm::uvec2 pair = glm::uvec2(submesh.base_index / 3, global_material_indices[material->id()]);
+
+                    primitive_offsets_material_indices[i] = pair;
                 }
             }
 

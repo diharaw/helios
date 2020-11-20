@@ -54,8 +54,9 @@ layout (set = 2, binding = 0) readonly buffer IndexBuffer
 
 layout (set = 3, binding = 0) readonly buffer InstanceBuffer 
 {
+    uint mesh_index;
     mat4 model;
-    uint indices[];
+    uvec2 primitive_offsets_material_indices[];
 } InstanceArray[];
 
 // ------------------------------------------------------------------------

@@ -54,8 +54,9 @@ layout (set = 2, binding = 0) readonly buffer IndexBuffer
 
 layout (set = 3, binding = 0) readonly buffer InstanceBuffer 
 {
+    uint mesh_index;
     mat4 model;
-    uint indices[];
+    uvec2 primitive_offsets_material_indices[];
 } InstanceArray[];
 
 // ------------------------------------------------------------------------
@@ -114,7 +115,7 @@ Triangle fetch_triangle()
 {
     Triangle tri;
 
-    uint mesh_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexNV)].indices[0];
+    uint mesh_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexNV)].mesh_index;
 
     uvec3 idx = uvec3(IndexArray[nonuniformEXT(mesh_idx)].indices[3 * gl_PrimitiveID], 
                       IndexArray[nonuniformEXT(mesh_idx)].indices[3 * gl_PrimitiveID + 1],
@@ -124,7 +125,7 @@ Triangle fetch_triangle()
     tri.v1 = get_vertex(mesh_idx, idx.y);
     tri.v2 = get_vertex(mesh_idx, idx.z);
 
-    tri.mat_idx = InstanceArray[nonuniformEXT(mesh_idx)].indices[uint(tri.v0.position.w) + 1];
+    tri.mat_idx = InstanceArray[nonuniformEXT(mesh_idx)].primitive_offsets_material_indices[uint(tri.v0.position.w)].y;
 
     return tri;
 }
