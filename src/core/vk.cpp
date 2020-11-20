@@ -298,7 +298,20 @@ thread_local DescriptorPool::Ptr                        g_descriptor_pools[MAX_D
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 {
-    LUMEN_LOG_ERROR("(Vulkan) Validation Layer: " + std::string(pCallbackData->pMessage));
+    std::string message_type_str = "General";
+
+    if (messageType == VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
+        message_type_str = "Validation";
+    else if (messageType == VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
+        message_type_str = "Performance";
+
+    if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT || messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
+        LUMEN_LOG_INFO("Vulkan - " + message_type_str + " : " + std::string(pCallbackData->pMessage));
+    if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+        LUMEN_LOG_WARNING("Vulkan -" + message_type_str + " : " + std::string(pCallbackData->pMessage));
+    if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+        LUMEN_LOG_ERROR("Vulkan - " + message_type_str + " : " + std::string(pCallbackData->pMessage));
+
     return VK_FALSE;
 }
 

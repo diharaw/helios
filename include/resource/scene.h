@@ -228,6 +228,8 @@ public:
 
     void update(RenderState& render_state) override;
 
+    glm::vec3        camera_forward();
+    glm::vec3        camera_left();
     inline void      set_near_plane(const float& near_plane) { m_near_plane = near_plane; }
     inline void      set_far_plane(const float& far_plane) { m_far_plane = far_plane; }
     inline void      set_fov(const float& fov) { m_fov = fov; }
@@ -291,6 +293,8 @@ private:
     Scene*                             m_scene;
     uint32_t                           m_camera_buffer_offset;
     uint32_t                           m_num_accumulated_frames = 0;
+    uint32_t                            m_viewport_width         = 0;
+    uint32_t                            m_viewport_height         = 0;
     vk::DescriptorSet::Ptr             m_read_image_ds;
     vk::DescriptorSet::Ptr             m_write_image_ds;
     vk::DescriptorSet::Ptr             m_scene_ds;
@@ -317,6 +321,8 @@ public:
     inline Scene*                                    scene() { return m_scene; }
     inline uint32_t                                  camera_buffer_offset() { return m_camera_buffer_offset; }
     inline uint32_t                                  num_accumulated_frames() { return m_num_accumulated_frames; }
+    inline uint32_t                                  viewport_width() { return m_viewport_width; }
+    inline uint32_t                                  viewport_height() { return m_viewport_height; }
     inline vk::DescriptorSet::Ptr                    read_image_descriptor_set() { return m_read_image_ds; }
     inline vk::DescriptorSet::Ptr                    write_image_descriptor_set() { return m_write_image_ds; }
     inline vk::DescriptorSet::Ptr                    scene_descriptor_set() { return m_scene_ds; }

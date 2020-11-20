@@ -12,7 +12,7 @@ protected:
     bool init(int argc, const char* argv[]) override
     {
         m_path_integrator = std::shared_ptr<PathIntegrator>(new PathIntegrator(m_vk_backend));
-        m_scene = m_resource_manager->load_scene("scene/pica_pica_no_ibl.json");
+        m_scene           = m_resource_manager->load_scene("scene/pica_pica_no_ibl.json");
 
         return true;
     }
@@ -22,6 +22,8 @@ protected:
     void update(double delta) override
     {
         gui();
+
+        update_camera();
 
         vk::CommandBuffer::Ptr cmd_buf = m_vk_backend->allocate_graphics_command_buffer();
 
@@ -63,9 +65,9 @@ protected:
 
         // Handle sideways movement.
         if (code == GLFW_KEY_A)
-            m_sideways_speed = -m_camera_speed;
-        else if (code == GLFW_KEY_D)
             m_sideways_speed = m_camera_speed;
+        else if (code == GLFW_KEY_D)
+            m_sideways_speed = -m_camera_speed;
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------
@@ -124,21 +126,24 @@ private:
             if (camera)
             {
                 // Translate
-                float forward_delta = m_heading_speed * m_delta_seconds;
-                float right_delta   = m_sideways_speed * m_delta_seconds;
+                float forward_delta  = m_heading_speed * m_delta_seconds;
+                float sideways_delta = m_sideways_speed * m_delta_seconds;
 
-                camera->move(camera->forward() + forward_delta);
-                camera->move(-camera->left() + right_delta);
+                camera->move(camera->camera_forward() * forward_delta);
+                camera->move(camera->camera_left() * sideways_delta);
 
-                // Rotate
-                m_camera_pitch += float(m_mouse_delta_y) * m_camera_sensitivity;
-                m_camera_pitch = glm::clamp(m_camera_pitch, -90.0f, 90.0f);
-                m_camera_yaw += float(m_mouse_delta_x) * m_camera_sensitivity;
+                if (m_mouse_look)
+                {
+                    // Rotate
+                    m_camera_pitch += float(m_mouse_delta_y) * m_camera_sensitivity;
+                    m_camera_pitch = glm::clamp(m_camera_pitch, -90.0f, 90.0f);
+                    m_camera_yaw += float(m_mouse_delta_x) * m_camera_sensitivity;
 
-                glm::quat frame_rotation = glm::angleAxis(glm::radians(-m_camera_yaw), glm::vec3(0.0f, 1.0f, 0.0f));
-                frame_rotation           = frame_rotation * glm::angleAxis(glm::radians(-m_camera_pitch), glm::vec3(1.0f, 0.0f, 0.0f));
+                    glm::quat frame_rotation = glm::angleAxis(glm::radians(-m_camera_yaw), glm::vec3(0.0f, 1.0f, 0.0f));
+                    frame_rotation           = frame_rotation * glm::angleAxis(glm::radians(-m_camera_pitch), glm::vec3(1.0f, 0.0f, 0.0f));
 
-                camera->set_orientation(frame_rotation);
+                    camera->set_orientation(frame_rotation);
+                }
             }
         }
     }

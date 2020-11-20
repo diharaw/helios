@@ -545,7 +545,7 @@ CameraNode::Ptr ResourceManager::create_camera_node(std::shared_ptr<ast::CameraN
     CameraNode::Ptr camera_node = std::shared_ptr<CameraNode>(new CameraNode(ast_node->name));
 
     camera_node->set_near_plane(ast_node->near_plane);
-    camera_node->set_far_plane(ast_node->near_plane);
+    camera_node->set_far_plane(ast_node->far_plane);
     camera_node->set_fov(ast_node->fov);
 
     populate_transform_node(camera_node, ast_node);

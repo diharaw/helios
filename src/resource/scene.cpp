@@ -487,7 +487,7 @@ void CameraNode::update(RenderState& render_state)
     {
         TransformNode::update(render_state);
 
-        m_projection_matrix = glm::perspective(glm::radians(m_fov), 1.0f, m_near_plane, m_far_plane);
+        m_projection_matrix = glm::perspective(glm::radians(m_fov), float(render_state.viewport_width()) / float(render_state.viewport_height()), m_near_plane, m_far_plane);
         m_view_matrix       = glm::inverse(m_model_matrix_without_scale);
 
         if (!render_state.m_camera)
@@ -495,6 +495,20 @@ void CameraNode::update(RenderState& render_state)
 
         update_children(render_state);
     }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+glm::vec3 CameraNode::camera_forward()
+{
+    return -forward();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+glm::vec3 CameraNode::camera_left()
+{
+    return -left();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -678,20 +692,29 @@ Scene::~Scene()
 
 void Scene::update(RenderState& render_state)
 {
+    auto backend = m_backend.lock();
+    auto extents = backend->swap_chain_extents();
+
+    render_state.m_scene_ds        = m_scene_descriptor_set;
+    render_state.m_vbo_ds          = m_vbo_descriptor_set;
+    render_state.m_ibo_ds          = m_ibo_descriptor_set;
+    render_state.m_instance_ds     = m_instance_descriptor_set;
+    render_state.m_texture_ds      = m_textures_descriptor_set;
+    render_state.m_scene           = this;
+    render_state.m_viewport_width  = extents.width;
+    render_state.m_viewport_height = extents.height;
+
     m_root->update(render_state);
 
     // Copy camera data
     if (render_state.m_camera)
     {
-        auto backend = m_backend.lock();
-
         CameraData camera_data;
 
         camera_data.view         = render_state.m_camera->view_matrix();
-        camera_data.view_inverse = glm::inverse(render_state.m_camera->view_matrix());
+        camera_data.view_inverse = glm::inverse(camera_data.view);
         camera_data.proj         = render_state.m_camera->projection_matrix();
-        camera_data.view_inverse = glm::inverse(render_state.m_camera->view_matrix());
-        camera_data.proj_inverse = glm::inverse(render_state.m_camera->projection_matrix());
+        camera_data.proj_inverse = glm::inverse(camera_data.proj);
         camera_data.cam_pos      = glm::vec4(render_state.m_camera->position(), 0.0f);
 
         uint32_t camera_buffer_offset = m_camera_buffer_aligned_size * backend->current_frame_idx();
@@ -701,13 +724,6 @@ void Scene::update(RenderState& render_state)
 
         render_state.m_camera_buffer_offset = camera_buffer_offset;
     }
-
-    render_state.m_scene_ds    = m_scene_descriptor_set;
-    render_state.m_vbo_ds      = m_vbo_descriptor_set;
-    render_state.m_ibo_ds      = m_ibo_descriptor_set;
-    render_state.m_instance_ds = m_instance_descriptor_set;
-    render_state.m_texture_ds  = m_textures_descriptor_set;
-    render_state.m_scene       = this;
 
     create_gpu_resources(render_state);
 }
