@@ -631,26 +631,26 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
     // Create TLAS
     vk::AccelerationStructure::Desc desc;
 
-    desc.set_instance_count(1);
-    desc.set_type(VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV);
-    desc.set_flags(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_NV);
+    desc.set_max_geometry_count(MAX_SCENE_MESH_INSTANCE_COUNT);
+    desc.set_type(VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR);
+    desc.set_flags(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR);
 
     m_tlas.tlas = vk::AccelerationStructure::create(backend, desc);
 
     // Allocate instance buffer
-    m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_CPU_ONLY, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+    m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(VkAccelerationStructureInstanceKHR) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_CPU_ONLY, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
     // Allocate TLAS scratch buffer
-    VkAccelerationStructureMemoryRequirementsInfoNV memory_requirements_info;
-    memory_requirements_info.sType                 = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_NV;
+    VkAccelerationStructureMemoryRequirementsInfoKHR memory_requirements_info;
+    memory_requirements_info.sType                 = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_KHR;
     memory_requirements_info.pNext                 = nullptr;
-    memory_requirements_info.type                  = VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_NV;
+    memory_requirements_info.type                  = VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_KHR;
     memory_requirements_info.accelerationStructure = m_tlas.tlas->handle();
 
     VkMemoryRequirements2 mem_req_blas;
-    vkGetAccelerationStructureMemoryRequirementsNV(backend->device(), &memory_requirements_info, &mem_req_blas);
+    vkGetAccelerationStructureMemoryRequirementsKHR(backend->device(), &memory_requirements_info, &mem_req_blas);
 
-    m_tlas.scratch_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, mem_req_blas.memoryRequirements.size, VMA_MEMORY_USAGE_GPU_ONLY, 0);
+    m_tlas.scratch_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, mem_req_blas.memoryRequirements.size, VMA_MEMORY_USAGE_GPU_ONLY, 0);
 
     vk::DescriptorPool::Desc dp_desc;
 
@@ -658,7 +658,7 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
         .add_pool_size(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1)
         .add_pool_size(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SCENE_MATERIAL_TEXTURE_COUNT)
         .add_pool_size(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 5 * MAX_SCENE_MESH_INSTANCE_COUNT)
-        .add_pool_size(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV, 1);
+        .add_pool_size(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1);
 
     m_descriptor_pool = vk::DescriptorPool::create(backend, dp_desc);
 
@@ -760,7 +760,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
             std::vector<VkDescriptorBufferInfo> instance_data_descriptors;
             uint32_t                            gpu_material_counter     = 0;
             GPUMaterial*                        material_buffer          = (GPUMaterial*)m_material_data_buffer->mapped_ptr();
-            RTGeometryInstance*                 geometry_instance_buffer = (RTGeometryInstance*)m_tlas.instance_buffer_host->mapped_ptr();
+            VkAccelerationStructureInstanceKHR* geometry_instance_buffer = (VkAccelerationStructureInstanceKHR*)m_tlas.instance_buffer_host->mapped_ptr();
 
             for (int mesh_node_idx = 0; mesh_node_idx < render_state.m_meshes.size(); mesh_node_idx++)
             {
@@ -935,14 +935,16 @@ void Scene::create_gpu_resources(RenderState& render_state)
                 instance_data_descriptors.push_back(instance_data_info);
 
                 // Copy geometry instance data
-                RTGeometryInstance& rt_instance = geometry_instance_buffer[mesh_node_idx];
+                VkAccelerationStructureInstanceKHR& rt_instance = geometry_instance_buffer[mesh_node_idx];
 
-                rt_instance.transform                   = glm::mat3x4(mesh_node->model_matrix());
+                glm::mat3x4 transform = glm::mat3x4(mesh_node->model_matrix());
+
+                memcpy(&transform, &rt_instance.transform.matrix[0][0], sizeof(glm::mat3x4));
                 rt_instance.instanceCustomIndex         = mesh_node_idx;
                 rt_instance.mask                        = 0xff;
-                rt_instance.instanceOffset              = 0;
-                rt_instance.flags                       = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV;
-                rt_instance.accelerationStructureHandle = mesh->acceleration_structure()->opaque_handle();
+                rt_instance.instanceShaderBindingTableRecordOffset = 0;
+                rt_instance.flags                                  = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+                rt_instance.accelerationStructureReference         = mesh->acceleration_structure()->device_address();
 
                 // Update instance data
                 GPUInstance* instance_data = (GPUInstance*)mesh_node->instance_data_buffer()->mapped_ptr();

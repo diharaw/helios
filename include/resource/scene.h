@@ -8,7 +8,7 @@
 
 namespace lumen
 {
-#define MAX_SCENE_MESH_INSTANCE_COUNT 100000
+#define MAX_SCENE_MESH_INSTANCE_COUNT 1024
 #define MAX_SCENE_LIGHT_COUNT 100000
 #define MAX_SCENE_MATERIAL_COUNT 4096
 #define MAX_SCENE_MATERIAL_TEXTURE_COUNT (MAX_SCENE_MATERIAL_COUNT * 4)
@@ -331,16 +331,6 @@ public:
     inline vk::DescriptorSet::Ptr                    instance_descriptor_set() { return m_instance_ds; }
     inline vk::DescriptorSet::Ptr                    texture_descriptor_set() { return m_texture_ds; }
     inline vk::CommandBuffer::Ptr                    cmd_buffer() { return m_cmd_buffer; }
-};
-
-struct RTGeometryInstance
-{
-    glm::mat3x4 transform;
-    uint32_t    instanceCustomIndex : 24;
-    uint32_t    mask : 8;
-    uint32_t    instanceOffset : 24;
-    uint32_t    flags : 8;
-    uint64_t    accelerationStructureHandle;
 };
 
 class Scene

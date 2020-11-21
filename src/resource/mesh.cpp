@@ -53,77 +53,107 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
     m_materials(materials),
     m_id(g_last_mesh_id++)
 {
-    VkGeometryNV geometry = {};
+    std::vector<VkAccelerationStructureBuildOffsetInfoKHR> build_offsets;
+    std::vector<VkAccelerationStructureGeometryKHR>        geometries;
+    std::vector<VkAccelerationStructureCreateGeometryTypeInfoKHR> geometry_type_infos;
 
-    VkGeometryFlagsNV geometry_flags = 0;
+    VkAccelerationStructureGeometryKHR geometry = {};
 
-    geometry.sType                              = VK_STRUCTURE_TYPE_GEOMETRY_NV;
-    geometry.pNext                              = nullptr;
-    geometry.geometryType                       = VK_GEOMETRY_TYPE_TRIANGLES_NV;
-    geometry.geometry.triangles.sType           = VK_STRUCTURE_TYPE_GEOMETRY_TRIANGLES_NV;
-    geometry.geometry.triangles.pNext           = nullptr;
-    geometry.geometry.triangles.vertexData      = m_vbo->handle();
-    geometry.geometry.triangles.vertexOffset    = 0;
-    geometry.geometry.triangles.vertexCount     = vbo->size() / sizeof(Vertex);
-    geometry.geometry.triangles.vertexStride    = sizeof(Vertex);
-    geometry.geometry.triangles.vertexFormat    = VK_FORMAT_R32G32B32_SFLOAT;
-    geometry.geometry.triangles.indexData       = m_ibo->handle();
-    geometry.geometry.triangles.indexOffset     = 0;
-    geometry.geometry.triangles.indexCount      = ibo->size() / sizeof(uint32_t);
-    geometry.geometry.triangles.indexType       = VK_INDEX_TYPE_UINT32;
-    geometry.geometry.triangles.transformData   = VK_NULL_HANDLE;
-    geometry.geometry.triangles.transformOffset = 0;
-    geometry.geometry.aabbs                     = {};
-    geometry.geometry.aabbs.sType               = VK_STRUCTURE_TYPE_GEOMETRY_AABB_NV;
-    geometry.flags                              = VK_GEOMETRY_OPAQUE_BIT_NV;
+    VkGeometryFlagsKHR geometry_flags = 0;
 
-    m_geometries.push_back(geometry);
+    geometry.sType                                       = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+    geometry.pNext                                       = nullptr;
+    geometry.geometryType                                = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+    geometry.geometry.triangles.sType                    = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+    geometry.geometry.triangles.pNext                    = nullptr;
+    geometry.geometry.triangles.vertexData.deviceAddress = m_vbo->device_address();
+    geometry.geometry.triangles.vertexStride             = sizeof(Vertex);
+    geometry.geometry.triangles.vertexFormat             = VK_FORMAT_R32G32B32_SFLOAT;
+    geometry.geometry.triangles.indexData.deviceAddress  = m_ibo->device_address();
+    geometry.geometry.triangles.indexType                = VK_INDEX_TYPE_UINT32;
+    geometry.flags                                       = VK_GEOMETRY_OPAQUE_BIT_KHR;
+
+    geometries.push_back(geometry);
+
+
+    VkAccelerationStructureCreateGeometryTypeInfoKHR geometry_type_info = {};
+
+    geometry_type_info.sType             = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_GEOMETRY_TYPE_INFO_KHR;
+    geometry_type_info.vertexFormat      = VK_FORMAT_R32G32B32_SFLOAT;
+    geometry_type_info.indexType         = VK_INDEX_TYPE_UINT32;
+    geometry_type_info.maxPrimitiveCount = (m_ibo->size() / sizeof(uint32_t)) / 3;
+    geometry_type_info.maxVertexCount    = m_vbo->size() / sizeof(Vertex);
+    geometry_type_info.allowsTransforms  = VK_FALSE;
+
+    geometry_type_infos.push_back(geometry_type_info);
+
+    VkAccelerationStructureBuildOffsetInfoKHR build_offset = {};
+
+    build_offset.primitiveCount = (m_ibo->size() / sizeof(uint32_t)) / 3;
+    build_offset.primitiveOffset = 0;
+    build_offset.firstVertex     = 0;
+    build_offset.transformOffset = 0;
+
+    build_offsets.push_back(build_offset);
 
     // Populate geometries
-    //for (int i = 0; i < submeshes.size(); i++)
-    //{
-    //    Material::Ptr material = materials[submeshes[i].mat_idx];
+    for (int i = 0; i < submeshes.size(); i++)
+    {
+        Material::Ptr material = materials[submeshes[i].mat_idx];
+    
+        VkAccelerationStructureGeometryKHR geometry = {};
+    
+        VkGeometryFlagsKHR geometry_flags = 0;
+    
+        if (material->type() == MATERIAL_OPAQUE || material->is_alpha_tested())
+            geometry_flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
 
-    //    VkGeometryNV geometry = {};
+        geometry.sType                                       = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+        geometry.pNext                                       = nullptr;
+        geometry.geometryType                                = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+        geometry.geometry.triangles.sType                    = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+        geometry.geometry.triangles.pNext                    = nullptr;
+        geometry.geometry.triangles.vertexData.deviceAddress = m_vbo->device_address();
+        geometry.geometry.triangles.vertexStride             = sizeof(Vertex);
+        geometry.geometry.triangles.vertexFormat             = VK_FORMAT_R32G32B32_SFLOAT;
+        geometry.geometry.triangles.indexData.deviceAddress  = m_ibo->device_address();
+        geometry.geometry.triangles.indexType                = VK_INDEX_TYPE_UINT32;
+        geometry.flags                                       = geometry_flags;
 
-    //    VkGeometryFlagsNV geometry_flags = 0;
+        geometries.push_back(geometry);
 
-    //    if (material->type() == MATERIAL_OPAQUE || material->is_alpha_tested())
-    //        geometry_flags = VK_GEOMETRY_OPAQUE_BIT_NV;
+        VkAccelerationStructureCreateGeometryTypeInfoKHR geometry_type_info = {};
 
-    //    geometry.sType                              = VK_STRUCTURE_TYPE_GEOMETRY_NV;
-    //    geometry.pNext                              = nullptr;
-    //    geometry.geometryType                       = VK_GEOMETRY_TYPE_TRIANGLES_NV;
-    //    geometry.geometry.triangles.sType           = VK_STRUCTURE_TYPE_GEOMETRY_TRIANGLES_NV;
-    //    geometry.geometry.triangles.pNext           = nullptr;
-    //    geometry.geometry.triangles.vertexData      = m_vbo->handle();
-    //    geometry.geometry.triangles.vertexOffset    = 0;
-    //    geometry.geometry.triangles.vertexCount     = submeshes[i].index_count / 3;
-    //    geometry.geometry.triangles.vertexStride    = sizeof(Vertex);
-    //    geometry.geometry.triangles.vertexFormat    = VK_FORMAT_R32G32B32_SFLOAT;
-    //    geometry.geometry.triangles.indexData       = m_ibo->handle();
-    //    geometry.geometry.triangles.indexOffset     = submeshes[i].base_index * sizeof(uint32_t);
-    //    geometry.geometry.triangles.indexCount      = submeshes[i].index_count;
-    //    geometry.geometry.triangles.indexType       = VK_INDEX_TYPE_UINT32;
-    //    geometry.geometry.triangles.transformData   = VK_NULL_HANDLE;
-    //    geometry.geometry.triangles.transformOffset = 0;
-    //    geometry.geometry.aabbs                     = {};
-    //    geometry.geometry.aabbs.sType               = VK_STRUCTURE_TYPE_GEOMETRY_AABB_NV;
-    //    geometry.flags                              = geometry_flags;
+        geometry_type_info.sType             = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_GEOMETRY_TYPE_INFO_KHR;
+        geometry_type_info.vertexFormat      = VK_FORMAT_R32G32B32_SFLOAT;
+        geometry_type_info.indexType         = VK_INDEX_TYPE_UINT32;
+        geometry_type_info.maxPrimitiveCount = submeshes[i].index_count / 3;
+        geometry_type_info.maxVertexCount    = submeshes[i].vertex_count;
+        geometry_type_info.allowsTransforms  = VK_FALSE;
 
-    //    m_geometries.push_back(geometry);
-    //}
+        geometry_type_infos.push_back(geometry_type_info);
 
+        VkAccelerationStructureBuildOffsetInfoKHR build_offset = {};
+
+        build_offset.primitiveCount  = submeshes[i].index_count / 3;
+        build_offset.primitiveOffset = submeshes[i].base_index / 3;
+        build_offset.firstVertex     = 0;
+        build_offset.transformOffset = 0;
+
+        build_offsets.push_back(build_offset);
+    }
+    
     // Create blas
     vk::AccelerationStructure::Desc desc;
 
-    desc.set_type(VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_NV);
-    desc.set_geometries(m_geometries);
-    desc.set_instance_count(0);
+    desc.set_type(VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR);
+    desc.set_flags(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
+    desc.set_geometry_type_infos(geometry_type_infos);
+    desc.set_max_geometry_count(geometry_type_infos.size());
 
     m_blas = vk::AccelerationStructure::create(backend, desc);
 
-    uploader.build_blas(m_blas, desc.create_info.info);
+    uploader.build_blas(m_blas, geometries, build_offsets);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

@@ -119,7 +119,7 @@ public:
     void             process_deletion_queue();
     void             queue_object_deletion(std::shared_ptr<Object> object);
 
-    inline VkPhysicalDeviceRayTracingPropertiesNV ray_tracing_properties() { return m_ray_tracing_properties; }
+    inline VkPhysicalDeviceRayTracingPropertiesKHR ray_tracing_properties() { return m_ray_tracing_properties; }
     inline VkFormat                               swap_chain_image_format() { return m_swap_chain_image_format; }
     inline VkFormat                               swap_chain_depth_format() { return m_swap_chain_depth_format; }
     inline VkExtent2D                             swap_chain_extents() { return m_swap_chain_extent; }
@@ -181,7 +181,7 @@ private:
     VkFormat                                                 m_swap_chain_image_format;
     VkFormat                                                 m_swap_chain_depth_format;
     VkExtent2D                                               m_swap_chain_extent;
-    VkPhysicalDeviceRayTracingPropertiesNV                   m_ray_tracing_properties;
+    VkPhysicalDeviceRayTracingPropertiesKHR                   m_ray_tracing_properties;
     VkPhysicalDeviceDescriptorIndexingFeaturesEXT            m_indexing_features;
     std::shared_ptr<RenderPass>                              m_swap_chain_render_pass;
     std::vector<std::shared_ptr<Image>>                      m_swap_chain_images;
@@ -329,6 +329,7 @@ public:
     inline const VkBuffer& handle() { return m_vk_buffer; }
     inline size_t          size() { return m_size; }
     inline void*           mapped_ptr() { return m_mapped_ptr; }
+    inline VkDeviceAddress device_address() { return m_device_address; }
 
 private:
     Buffer(Backend::Ptr backend, VkBufferUsageFlags usage, size_t size, VmaMemoryUsage memory_usage, VkFlags create_flags, void* data);
@@ -338,6 +339,7 @@ private:
     void*                 m_mapped_ptr       = nullptr;
     VkBuffer              m_vk_buffer        = nullptr;
     VkDeviceMemory        m_vk_device_memory = nullptr;
+    VkDeviceAddress       m_device_address   = 0;
     VmaAllocator_T*       m_vma_allocator    = nullptr;
     VmaAllocation_T*      m_vma_allocation   = nullptr;
     VmaMemoryUsage        m_vma_memory_usage;
@@ -657,7 +659,7 @@ public:
     static ShaderBindingTable::Ptr create(Backend::Ptr backend, Desc desc);
 
     inline const std::vector<VkPipelineShaderStageCreateInfo>&     stages() { return m_stages; }
-    inline const std::vector<VkRayTracingShaderGroupCreateInfoNV>& groups() { return m_groups; }
+    inline const std::vector<VkRayTracingShaderGroupCreateInfoKHR>& groups() { return m_groups; }
     VkDeviceSize                                                   hit_group_offset();
     VkDeviceSize                                                   miss_group_offset();
 
@@ -672,7 +674,7 @@ private:
     VkDeviceSize                                     m_miss_group_size;
     std::vector<std::string>                         m_entry_point_names;
     std::vector<VkPipelineShaderStageCreateInfo>     m_stages;
-    std::vector<VkRayTracingShaderGroupCreateInfoNV> m_groups;
+    std::vector<VkRayTracingShaderGroupCreateInfoKHR> m_groups;
 };
 
 class RayTracingPipeline : public Object
@@ -682,7 +684,7 @@ public:
 
     struct Desc
     {
-        VkRayTracingPipelineCreateInfoNV create_info;
+        VkRayTracingPipelineCreateInfoKHR create_info;
         ShaderBindingTable::Ptr          sbt;
 
         Desc();
@@ -717,20 +719,22 @@ public:
 
     struct Desc
     {
-        VkAccelerationStructureCreateInfoNV create_info;
+        VkAccelerationStructureCreateInfoKHR create_info;
 
         Desc();
-        Desc& set_type(VkAccelerationStructureTypeNV type);
-        Desc& set_geometries(const std::vector<VkGeometryNV>& geometry_vec);
-        Desc& set_instance_count(uint32_t count);
-        Desc& set_flags(VkBuildAccelerationStructureFlagsNV flags);
+        Desc& set_type(VkAccelerationStructureTypeKHR type);
+        Desc& set_geometry_type_infos(const std::vector<VkAccelerationStructureCreateGeometryTypeInfoKHR>& geometry_vec);
+        Desc& set_max_geometry_count(uint32_t count);
+        Desc& set_flags(VkBuildAccelerationStructureFlagsKHR flags);
+        Desc& set_compacted_size(uint32_t size);
+        Desc& set_device_address(VkDeviceAddress address);
     };
 
     static AccelerationStructure::Ptr create(Backend::Ptr backend, Desc desc);
 
-    inline VkAccelerationStructureInfoNV&   info() { return m_vk_acceleration_structure_info; };
-    inline const VkAccelerationStructureNV& handle() { return m_vk_acceleration_structure; }
-    inline uint64_t                         opaque_handle() { return m_handle; }
+    inline VkAccelerationStructureCreateInfoKHR& info() { return m_vk_acceleration_structure_info; };
+    inline const VkAccelerationStructureKHR&     handle() { return m_vk_acceleration_structure; }
+    inline VkDeviceAddress                       device_address() { return m_device_address; }
 
     ~AccelerationStructure();
 
@@ -739,9 +743,9 @@ private:
 
 private:
     VmaAllocation_T*              m_vma_allocation = nullptr;
-    uint64_t                      m_handle         = 0;
-    VkAccelerationStructureInfoNV m_vk_acceleration_structure_info;
-    VkAccelerationStructureNV     m_vk_acceleration_structure = nullptr;
+    VkDeviceAddress                      m_device_address = 0;
+    VkAccelerationStructureCreateInfoKHR m_vk_acceleration_structure_info;
+    VkAccelerationStructureKHR     m_vk_acceleration_structure = nullptr;
 };
 
 class Sampler : public Object
@@ -979,8 +983,11 @@ class BatchUploader
 private:
     struct BLASBuildRequest
     {
-        AccelerationStructure::Ptr    acceleration_structure;
-        VkAccelerationStructureInfoNV info;
+        AccelerationStructure::Ptr                                    acceleration_structure;
+        std::vector<VkAccelerationStructureGeometryKHR>               geometries;
+        std::vector<VkAccelerationStructureBuildOffsetInfoKHR> build_offsets;
+        const VkAccelerationStructureGeometryKHR*                     first_geometry;
+        const VkAccelerationStructureBuildOffsetInfoKHR*       first_build_offset;
     };
 
 public:
@@ -989,7 +996,7 @@ public:
 
     void upload_buffer_data(Buffer::Ptr buffer, void* data, const size_t& offset, const size_t& size);
     void upload_image_data(Image::Ptr image, void* data, const std::vector<size_t>& mip_level_sizes, VkImageLayout src_layout = VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout dst_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    void build_blas(AccelerationStructure::Ptr acceleration_structure, const VkAccelerationStructureInfoNV& info);
+    void build_blas(AccelerationStructure::Ptr acceleration_structure, const std::vector<VkAccelerationStructureGeometryKHR>& geometries, const std::vector<VkAccelerationStructureBuildOffsetInfoKHR> build_offsets);
     void submit();
 
 private:

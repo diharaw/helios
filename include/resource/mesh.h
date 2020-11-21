@@ -21,6 +21,7 @@ struct SubMesh
     std::string name;
     uint32_t    mat_idx;
     uint32_t    index_count;
+    uint32_t    vertex_count;
     uint32_t    base_vertex;
     uint32_t    base_index;
     glm::vec3   max_extents;
@@ -38,8 +39,7 @@ public:
 
 private:
     vk::AccelerationStructure::Ptr         m_blas;
-    VkAccelerationStructureInfoNV          m_blas_info;
-    std::vector<VkGeometryNV>              m_geometries;
+    VkAccelerationStructureCreateInfoKHR   m_blas_info;
     vk::Buffer::Ptr                        m_vbo;
     vk::Buffer::Ptr                        m_ibo;
     std::vector<SubMesh>                   m_sub_meshes;
@@ -63,7 +63,6 @@ public:
 
     inline const std::vector<std::shared_ptr<Material>>& materials() { return m_materials; }
     inline const std::vector<SubMesh>&                   sub_meshes() { return m_sub_meshes; }
-    inline const std::vector<VkGeometryNV>&              geometries() { return m_geometries; }
     inline vk::AccelerationStructure::Ptr                acceleration_structure() { return m_blas; }
     inline vk::Buffer::Ptr                               vertex_buffer() { return m_vbo; }
     inline vk::Buffer::Ptr                               index_buffer() { return m_ibo; }

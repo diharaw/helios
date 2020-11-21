@@ -1,5 +1,5 @@
 #version 460
-#extension GL_NV_ray_tracing : require
+#extension GL_EXT_ray_tracing : require
 #extension GL_GOOGLE_include_directive : require
 
 #include "common.glsl"
@@ -8,7 +8,7 @@
 // Payload ----------------------------------------------------------------
 // ------------------------------------------------------------------------
 
-layout(location = 0) rayPayloadInNV PathTracePayload ray_payload;
+layout(location = 0) rayPayloadInEXT PathTracePayload ray_payload;
 
 // ------------------------------------------------------------------------
 // Main -------------------------------------------------------------------

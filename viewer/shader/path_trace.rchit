@@ -1,5 +1,5 @@
 #version 460
-#extension GL_NV_ray_tracing : require
+#extension GL_EXT_ray_tracing : require
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : require
 
@@ -28,7 +28,7 @@ layout (set = 0, binding = 2, std430) readonly buffer LightBuffer
     Light data[];
 } Lights;
 
-layout (set = 0, binding = 3) uniform accelerationStructureNV u_TopLevelAS;
+layout (set = 0, binding = 3) uniform accelerationStructureEXT u_TopLevelAS;
 
 // ------------------------------------------------------------------------
 // Set 1 ------------------------------------------------------------------
@@ -92,13 +92,13 @@ layout(push_constant) uniform PathTraceConsts
 // Payload ----------------------------------------------------------------
 // ------------------------------------------------------------------------
 
-layout(location = 0) rayPayloadInNV PathTracePayload ray_payload;
+layout(location = 0) rayPayloadInEXT PathTracePayload ray_payload;
 
 // ------------------------------------------------------------------------
 // Hit Attributes ---------------------------------------------------------
 // ------------------------------------------------------------------------
 
-hitAttributeNV vec3 hit_attribs;
+hitAttributeEXT vec3 hit_attribs;
 
 // ------------------------------------------------------------------------
 // Functions --------------------------------------------------------------
@@ -115,7 +115,7 @@ Triangle fetch_triangle()
 {
     Triangle tri;
 
-    uint mesh_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexNV)].mesh_index;
+    uint mesh_idx = InstanceArray[nonuniformEXT(gl_InstanceID)].mesh_index;
 
     uvec3 idx = uvec3(IndexArray[nonuniformEXT(mesh_idx)].indices[3 * gl_PrimitiveID], 
                       IndexArray[nonuniformEXT(mesh_idx)].indices[3 * gl_PrimitiveID + 1],
@@ -134,7 +134,7 @@ Triangle fetch_triangle()
 
 Vertex interpolated_vertex(in Triangle tri)
 {
-    mat4 model_mat = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexNV)].model;
+    mat4 model_mat = InstanceArray[nonuniformEXT(gl_InstanceID)].model;
     mat3 normal_mat = mat3(model_mat);
 
     const vec3 barycentrics = vec3(1.0 - hit_attribs.x - hit_attribs.y, hit_attribs.x, hit_attribs.y);

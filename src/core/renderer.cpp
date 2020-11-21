@@ -42,7 +42,7 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
         LUMEN_ZERO_MEMORY(copy_region);
 
         copy_region.dstOffset = 0;
-        copy_region.size      = sizeof(RTGeometryInstance) * render_state.m_meshes.size();
+        copy_region.size      = sizeof(VkAccelerationStructureInstanceKHR) * render_state.m_meshes.size();
 
         vkCmdCopyBuffer(render_state.m_cmd_buffer->handle(), tlas_data.instance_buffer_host->handle(), m_tlas_instance_buffer_device->handle(), 1, &copy_region);
 
@@ -51,29 +51,55 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
             memory_barrier.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
             memory_barrier.pNext         = nullptr;
             memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV;
+            memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
 
             vkCmdPipelineBarrier(render_state.m_cmd_buffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &memory_barrier, 0, nullptr, 0, nullptr);
         }
 
-        vkCmdBuildAccelerationStructureNV(render_state.m_cmd_buffer->handle(),
-                                          &tlas_data.tlas->info(),
-                                          m_tlas_instance_buffer_device->handle(),
-                                          0,
-                                          tlas_data.is_built,
-                                          tlas_data.tlas->handle(),
-                                          tlas_data.is_built ? tlas_data.tlas->handle() : VK_NULL_HANDLE,
-                                          tlas_data.scratch_buffer->handle(),
-                                          0);
+        VkAccelerationStructureGeometryKHR geometry;
+        LUMEN_ZERO_MEMORY(geometry);
+
+        geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+        geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+        geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+        geometry.geometry.instances.arrayOfPointers = VK_FALSE;
+        geometry.geometry.instances.data.deviceAddress = m_tlas_instance_buffer_device->device_address();
+
+        VkAccelerationStructureGeometryKHR* ptr_geometry = &geometry;
+
+        VkAccelerationStructureBuildGeometryInfoKHR build_info;
+        LUMEN_ZERO_MEMORY(build_info);
+
+        build_info.sType                     = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+        build_info.type                      = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+        build_info.flags                     = tlas_data.tlas->info().flags;
+        build_info.update                    = tlas_data.is_built;
+        build_info.srcAccelerationStructure  = tlas_data.is_built ? tlas_data.tlas->handle() : VK_NULL_HANDLE;
+        build_info.dstAccelerationStructure  = tlas_data.tlas->handle();
+        build_info.geometryArrayOfPointers   = VK_FALSE;
+        build_info.geometryCount             = 1;
+        build_info.ppGeometries              = &ptr_geometry;
+        build_info.scratchData.deviceAddress = tlas_data.scratch_buffer->device_address();
+
+        VkAccelerationStructureBuildOffsetInfoKHR build_offset_info;
+
+        build_offset_info.primitiveCount  = render_state.m_meshes.size();
+        build_offset_info.primitiveOffset = 0;
+        build_offset_info.firstVertex = 0;
+        build_offset_info.transformOffset = 0;
+
+        const VkAccelerationStructureBuildOffsetInfoKHR* ptr_build_offset_info = &build_offset_info;
+
+        vkCmdBuildAccelerationStructureKHR(render_state.m_cmd_buffer->handle(), 1, &build_info, &ptr_build_offset_info);
 
         {
             VkMemoryBarrier memory_barrier;
             memory_barrier.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
             memory_barrier.pNext         = nullptr;
-            memory_barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
-            memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
+            memory_barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+            memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
 
-            vkCmdPipelineBarrier(render_state.m_cmd_buffer->handle(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, 0, 1, &memory_barrier, 0, 0, 0, 0);
+            vkCmdPipelineBarrier(render_state.m_cmd_buffer->handle(), VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &memory_barrier, 0, 0, 0, 0);
         }
 
         tlas_data.is_built = true;
@@ -207,7 +233,7 @@ void Renderer::create_buffers()
 {
     auto backend = m_backend.lock();
 
-    m_tlas_instance_buffer_device = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(RTGeometryInstance) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
+    m_tlas_instance_buffer_device = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, sizeof(VkAccelerationStructureInstanceKHR) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 #version 460
-#extension GL_NV_ray_tracing : require
+#extension GL_EXT_ray_tracing : require
 #extension GL_GOOGLE_include_directive : require
 
 #include "common.glsl"
@@ -28,7 +28,7 @@ layout (set = 0, binding = 2, std430) readonly buffer LightBuffer
     Light data[];
 } Lights;
 
-layout (set = 0, binding = 3) uniform accelerationStructureNV u_TopLevelAS;
+layout (set = 0, binding = 3) uniform accelerationStructureEXT u_TopLevelAS;
 
 // ------------------------------------------------------------------------
 // Set 1 ------------------------------------------------------------------
@@ -92,7 +92,7 @@ layout(push_constant) uniform PathTraceConsts
 // Payload ----------------------------------------------------------------
 // ------------------------------------------------------------------------
 
-layout(location = 0) rayPayloadNV PathTracePayload ray_payload;
+layout(location = 0) rayPayloadEXT PathTracePayload ray_payload;
 
 // ------------------------------------------------------------------------
 // Functions --------------------------------------------------------------
@@ -116,12 +116,12 @@ void main()
     ray_payload.depth = 0;
     ray_payload.roughness = 0.0f;
     ray_payload.roughness_bias = 0.0f;
-    ray_payload.rng = rng_init(gl_LaunchIDNV.xy, u_PathTraceConsts.num_frames);
+    ray_payload.rng = rng_init(gl_LaunchIDEXT.xy, u_PathTraceConsts.num_frames);
 
     // Compute Pixel Coordinates
-    const vec2 pixel_coord = vec2(gl_LaunchIDNV.xy) + vec2(0.5);
+    const vec2 pixel_coord = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
     const vec2 jittered_coord = pixel_coord + vec2(next_float(ray_payload.rng), next_float(ray_payload.rng)); 
-    const vec2 tex_coord    = jittered_coord / vec2(gl_LaunchSizeNV.xy);
+    const vec2 tex_coord    = jittered_coord / vec2(gl_LaunchIDEXT.xy);
     const vec2 tex_coord_neg_to_pos = tex_coord * 2.0 - 1.0;
 
     // Compute Ray Direction and Origin
@@ -134,13 +134,13 @@ void main()
     vec4 ray_origin = u_PerFrameUBO.view_inverse * vec4(0.0, 0.0, 0.0, 1.0);
     ray_origin.xyz /= ray_origin.w;
 
-    uint  ray_flags = gl_RayFlagsOpaqueNV;
+    uint  ray_flags = gl_RayFlagsOpaqueEXT;
     uint  cull_mask = 0xff;
     float tmin      = 0.0001;
     float tmax      = 10000.0;
 
     // Trace Ray
-    traceNV(u_TopLevelAS, 
+    traceRayEXT(u_TopLevelAS, 
             ray_flags, 
             cull_mask, 
             PATH_TRACE_RAY_GEN_SHADER_IDX, 
@@ -162,11 +162,11 @@ void main()
     //     if (is_nan(final_color))
     //         final_color = vec3(1.0, 0.0, 0.0);
 
-    //     imageStore(i_CurrentColor, ivec2(gl_LaunchIDNV.xy), vec4(final_color, 1.0));
+    //     imageStore(i_CurrentColor, ivec2(gl_LaunchIDEXT.xy), vec4(final_color, 1.0));
     // }
     // else
     // {
-    //     vec3 prev_color = imageLoad(i_PreviousColor, ivec2(gl_LaunchIDNV.xy)).rgb;
+    //     vec3 prev_color = imageLoad(i_PreviousColor, ivec2(gl_LaunchIDEXT.xy)).rgb;
 
     //     //vec3 accumulated_color = mix(ray_payload.color, prev_color, u_PathTraceConsts.accumulation); 
     //     vec3 accumulated_color = prev_color + (clamped_color - prev_color) / float(u_PathTraceConsts.num_frames);
@@ -176,10 +176,10 @@ void main()
     //     if (is_nan(final_color))
     //         final_color = vec3(1.0, 0.0, 0.0);
 
-    //     imageStore(i_CurrentColor, ivec2(gl_LaunchIDNV.xy), vec4(final_color, 1.0));
+    //     imageStore(i_CurrentColor, ivec2(gl_LaunchIDEXT.xy), vec4(final_color, 1.0));
     // }
 
-    imageStore(i_CurrentColor, ivec2(gl_LaunchIDNV.xy), vec4(ray_payload.color, 1.0));
+    imageStore(i_CurrentColor, ivec2(gl_LaunchIDEXT.xy), vec4(ray_payload.color, 1.0));
 }
 
 // ------------------------------------------------------------------------
