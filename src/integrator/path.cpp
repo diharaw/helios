@@ -53,14 +53,13 @@ void PathIntegrator::execute(RenderState& render_state)
 
     vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_path_trace_pipeline_layout->handle(), 0, 7, descriptor_sets, 1, &dynamic_offset);
 
-    
-    VkDeviceSize prog_size = rt_props.shaderGroupBaseAlignment; 
+    VkDeviceSize prog_size = rt_props.shaderGroupBaseAlignment;
     VkDeviceSize sbt_size  = prog_size * m_path_trace_pipeline->shader_binding_table()->groups().size();
 
-    const VkStridedBufferRegionKHR raygen_sbt = { m_path_trace_pipeline->shader_binding_table_buffer()->handle(), 0, prog_size, sbt_size };
-    const VkStridedBufferRegionKHR miss_sbt   = { m_path_trace_pipeline->shader_binding_table_buffer()->handle(), m_path_trace_sbt->miss_group_offset(), prog_size, rt_props.shaderGroupBaseAlignment };
-    const VkStridedBufferRegionKHR hit_sbt    = { m_path_trace_pipeline->shader_binding_table_buffer()->handle(), m_path_trace_sbt->hit_group_offset(), prog_size, rt_props.shaderGroupBaseAlignment };
-    const VkStridedBufferRegionKHR callable_sbt    = { VK_NULL_HANDLE, 0, 0, 0 };
+    const VkStridedBufferRegionKHR raygen_sbt   = { m_path_trace_pipeline->shader_binding_table_buffer()->handle(), 0, prog_size, sbt_size };
+    const VkStridedBufferRegionKHR miss_sbt     = { m_path_trace_pipeline->shader_binding_table_buffer()->handle(), m_path_trace_sbt->miss_group_offset(), prog_size, rt_props.shaderGroupBaseAlignment };
+    const VkStridedBufferRegionKHR hit_sbt      = { m_path_trace_pipeline->shader_binding_table_buffer()->handle(), m_path_trace_sbt->hit_group_offset(), prog_size, rt_props.shaderGroupBaseAlignment };
+    const VkStridedBufferRegionKHR callable_sbt = { VK_NULL_HANDLE, 0, 0, 0 };
 
     vkCmdTraceRaysKHR(render_state.cmd_buffer()->handle(), &raygen_sbt, &miss_sbt, &hit_sbt, &callable_sbt, extents.width, extents.height, 1);
 }

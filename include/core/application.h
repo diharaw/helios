@@ -31,7 +31,6 @@ struct Settings
     bool                     enable_gui   = false;
     int                      width        = 800;
     int                      height       = 600;
-    void*                    device_pnext = nullptr;
     std::vector<const char*> device_extensions;
 };
 

@@ -629,11 +629,20 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
     m_name(name), m_backend(backend), m_root(root)
 {
     // Create TLAS
+    VkAccelerationStructureCreateGeometryTypeInfoKHR tlas_geometry_type_info;
+    LUMEN_ZERO_MEMORY(tlas_geometry_type_info);
+
+    tlas_geometry_type_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_GEOMETRY_TYPE_INFO_KHR;
+    tlas_geometry_type_info.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+    tlas_geometry_type_info.maxPrimitiveCount = MAX_SCENE_MESH_INSTANCE_COUNT;
+    tlas_geometry_type_info.allowsTransforms  = (VK_TRUE);
+    
     vk::AccelerationStructure::Desc desc;
 
-    desc.set_max_geometry_count(MAX_SCENE_MESH_INSTANCE_COUNT);
+    desc.set_max_geometry_count(1);
+    desc.set_geometry_type_infos({ tlas_geometry_type_info });
     desc.set_type(VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR);
-    desc.set_flags(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR);
+    desc.set_flags(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR);
 
     m_tlas.tlas = vk::AccelerationStructure::create(backend, desc);
 
@@ -645,9 +654,14 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
     memory_requirements_info.sType                 = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_KHR;
     memory_requirements_info.pNext                 = nullptr;
     memory_requirements_info.type                  = VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_KHR;
+    memory_requirements_info.buildType             = VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR;
     memory_requirements_info.accelerationStructure = m_tlas.tlas->handle();
 
     VkMemoryRequirements2 mem_req_blas;
+    LUMEN_ZERO_MEMORY(mem_req_blas);
+
+    mem_req_blas.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+
     vkGetAccelerationStructureMemoryRequirementsKHR(backend->device(), &memory_requirements_info, &mem_req_blas);
 
     m_tlas.scratch_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, mem_req_blas.memoryRequirements.size, VMA_MEMORY_USAGE_GPU_ONLY, 0);
@@ -939,9 +953,9 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                 glm::mat3x4 transform = glm::mat3x4(mesh_node->model_matrix());
 
-                memcpy(&transform, &rt_instance.transform.matrix[0][0], sizeof(glm::mat3x4));
-                rt_instance.instanceCustomIndex         = mesh_node_idx;
-                rt_instance.mask                        = 0xff;
+                memcpy(&rt_instance.transform.matrix[0][0], &transform, sizeof(glm::mat3x4));
+                rt_instance.instanceCustomIndex                    = mesh_node_idx;
+                rt_instance.mask                                   = 0xff;
                 rt_instance.instanceShaderBindingTableRecordOffset = 0;
                 rt_instance.flags                                  = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
                 rt_instance.accelerationStructureReference         = mesh->acceleration_structure()->device_address();
@@ -1021,9 +1035,9 @@ void Scene::create_gpu_resources(RenderState& render_state)
             write_data[2].dstBinding      = 2;
             write_data[2].dstSet          = m_scene_descriptor_set->handle();
 
-            VkWriteDescriptorSetAccelerationStructureNV descriptor_as;
+            VkWriteDescriptorSetAccelerationStructureKHR descriptor_as;
 
-            descriptor_as.sType                      = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_NV;
+            descriptor_as.sType                      = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
             descriptor_as.pNext                      = nullptr;
             descriptor_as.accelerationStructureCount = 1;
             descriptor_as.pAccelerationStructures    = &m_tlas.tlas->handle();
@@ -1031,7 +1045,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
             write_data[3].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[3].pNext           = &descriptor_as;
             write_data[3].descriptorCount = 1;
-            write_data[3].descriptorType  = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV;
+            write_data[3].descriptorType  = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
             write_data[3].dstBinding      = 3;
             write_data[3].dstSet          = m_scene_descriptor_set->handle();
 

@@ -59,10 +59,10 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
         VkAccelerationStructureGeometryKHR geometry;
         LUMEN_ZERO_MEMORY(geometry);
 
-        geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-        geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
-        geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-        geometry.geometry.instances.arrayOfPointers = VK_FALSE;
+        geometry.sType                                 = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+        geometry.geometryType                          = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+        geometry.geometry.instances.sType              = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+        geometry.geometry.instances.arrayOfPointers    = VK_FALSE;
         geometry.geometry.instances.data.deviceAddress = m_tlas_instance_buffer_device->device_address();
 
         VkAccelerationStructureGeometryKHR* ptr_geometry = &geometry;
@@ -85,7 +85,7 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
 
         build_offset_info.primitiveCount  = render_state.m_meshes.size();
         build_offset_info.primitiveOffset = 0;
-        build_offset_info.firstVertex = 0;
+        build_offset_info.firstVertex     = 0;
         build_offset_info.transformOffset = 0;
 
         const VkAccelerationStructureBuildOffsetInfoKHR* ptr_build_offset_info = &build_offset_info;

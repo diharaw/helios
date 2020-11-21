@@ -108,14 +108,13 @@ bool Application::init_base(int argc, const char* argv[])
 
     m_vk_backend = vk::Backend::create(m_window,
 #if defined(_DEBUG)
-                                       true
+                                       false
 #else
                                        false
 #endif
                                        ,
                                        true,
-                                       settings.device_extensions,
-                                       settings.device_pnext);
+                                       settings.device_extensions);
 
     m_image_available_semaphores.resize(vk::Backend::kMaxFramesInFlight);
     m_render_finished_semaphores.resize(vk::Backend::kMaxFramesInFlight);

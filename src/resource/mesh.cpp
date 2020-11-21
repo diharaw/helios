@@ -1,6 +1,7 @@
 #include <resource/mesh.h>
 #include <resource/material.h>
 #include <vk_mem_alloc.h>
+#include <utility/macros.h>
 
 namespace lumen
 {
@@ -29,8 +30,8 @@ Mesh::Ptr Mesh::create(vk::Backend::Ptr                       backend,
                        std::vector<std::shared_ptr<Material>> materials,
                        vk::BatchUploader&                     uploader)
 {
-    vk::Buffer::Ptr vbo = vk::Buffer::create(backend, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Vertex) * vertices.size(), VMA_MEMORY_USAGE_GPU_ONLY, 0);
-    vk::Buffer::Ptr ibo = vk::Buffer::create(backend, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(uint32_t) * indices.size(), VMA_MEMORY_USAGE_GPU_ONLY, 0);
+    vk::Buffer::Ptr vbo = vk::Buffer::create(backend, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, sizeof(Vertex) * vertices.size(), VMA_MEMORY_USAGE_GPU_ONLY, 0);
+    vk::Buffer::Ptr ibo = vk::Buffer::create(backend, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, sizeof(uint32_t) * indices.size(), VMA_MEMORY_USAGE_GPU_ONLY, 0);
 
     uploader.upload_buffer_data(vbo, vertices.data(), 0, sizeof(Vertex) * vertices.size());
     uploader.upload_buffer_data(ibo, indices.data(), 0, sizeof(uint32_t) * indices.size());
@@ -53,11 +54,12 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
     m_materials(materials),
     m_id(g_last_mesh_id++)
 {
-    std::vector<VkAccelerationStructureBuildOffsetInfoKHR> build_offsets;
-    std::vector<VkAccelerationStructureGeometryKHR>        geometries;
+    std::vector<VkAccelerationStructureBuildOffsetInfoKHR>        build_offsets;
+    std::vector<VkAccelerationStructureGeometryKHR>               geometries;
     std::vector<VkAccelerationStructureCreateGeometryTypeInfoKHR> geometry_type_infos;
 
-    VkAccelerationStructureGeometryKHR geometry = {};
+    VkAccelerationStructureGeometryKHR geometry;
+    LUMEN_ZERO_MEMORY(geometry);
 
     VkGeometryFlagsKHR geometry_flags = 0;
 
@@ -75,8 +77,8 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
 
     geometries.push_back(geometry);
 
-
-    VkAccelerationStructureCreateGeometryTypeInfoKHR geometry_type_info = {};
+    VkAccelerationStructureCreateGeometryTypeInfoKHR geometry_type_info;
+    LUMEN_ZERO_MEMORY(geometry_type_info);
 
     geometry_type_info.sType             = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_GEOMETRY_TYPE_INFO_KHR;
     geometry_type_info.vertexFormat      = VK_FORMAT_R32G32B32_SFLOAT;
@@ -87,9 +89,10 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
 
     geometry_type_infos.push_back(geometry_type_info);
 
-    VkAccelerationStructureBuildOffsetInfoKHR build_offset = {};
+    VkAccelerationStructureBuildOffsetInfoKHR build_offset;
+    LUMEN_ZERO_MEMORY(build_offset);
 
-    build_offset.primitiveCount = (m_ibo->size() / sizeof(uint32_t)) / 3;
+    build_offset.primitiveCount  = (m_ibo->size() / sizeof(uint32_t)) / 3;
     build_offset.primitiveOffset = 0;
     build_offset.firstVertex     = 0;
     build_offset.transformOffset = 0;
@@ -97,52 +100,52 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
     build_offsets.push_back(build_offset);
 
     // Populate geometries
-    for (int i = 0; i < submeshes.size(); i++)
-    {
-        Material::Ptr material = materials[submeshes[i].mat_idx];
-    
-        VkAccelerationStructureGeometryKHR geometry = {};
-    
-        VkGeometryFlagsKHR geometry_flags = 0;
-    
-        if (material->type() == MATERIAL_OPAQUE || material->is_alpha_tested())
-            geometry_flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+    //for (int i = 0; i < submeshes.size(); i++)
+    //{
+    //    Material::Ptr material = materials[submeshes[i].mat_idx];
 
-        geometry.sType                                       = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-        geometry.pNext                                       = nullptr;
-        geometry.geometryType                                = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
-        geometry.geometry.triangles.sType                    = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
-        geometry.geometry.triangles.pNext                    = nullptr;
-        geometry.geometry.triangles.vertexData.deviceAddress = m_vbo->device_address();
-        geometry.geometry.triangles.vertexStride             = sizeof(Vertex);
-        geometry.geometry.triangles.vertexFormat             = VK_FORMAT_R32G32B32_SFLOAT;
-        geometry.geometry.triangles.indexData.deviceAddress  = m_ibo->device_address();
-        geometry.geometry.triangles.indexType                = VK_INDEX_TYPE_UINT32;
-        geometry.flags                                       = geometry_flags;
+    //    VkAccelerationStructureGeometryKHR geometry = {};
 
-        geometries.push_back(geometry);
+    //    VkGeometryFlagsKHR geometry_flags = 0;
 
-        VkAccelerationStructureCreateGeometryTypeInfoKHR geometry_type_info = {};
+    //    if (material->type() == MATERIAL_OPAQUE || material->is_alpha_tested())
+    //        geometry_flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
 
-        geometry_type_info.sType             = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_GEOMETRY_TYPE_INFO_KHR;
-        geometry_type_info.vertexFormat      = VK_FORMAT_R32G32B32_SFLOAT;
-        geometry_type_info.indexType         = VK_INDEX_TYPE_UINT32;
-        geometry_type_info.maxPrimitiveCount = submeshes[i].index_count / 3;
-        geometry_type_info.maxVertexCount    = submeshes[i].vertex_count;
-        geometry_type_info.allowsTransforms  = VK_FALSE;
+    //    geometry.sType                                       = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+    //    geometry.pNext                                       = nullptr;
+    //    geometry.geometryType                                = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+    //    geometry.geometry.triangles.sType                    = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+    //    geometry.geometry.triangles.pNext                    = nullptr;
+    //    geometry.geometry.triangles.vertexData.deviceAddress = m_vbo->device_address();
+    //    geometry.geometry.triangles.vertexStride             = sizeof(Vertex);
+    //    geometry.geometry.triangles.vertexFormat             = VK_FORMAT_R32G32B32_SFLOAT;
+    //    geometry.geometry.triangles.indexData.deviceAddress  = m_ibo->device_address();
+    //    geometry.geometry.triangles.indexType                = VK_INDEX_TYPE_UINT32;
+    //    geometry.flags                                       = geometry_flags;
 
-        geometry_type_infos.push_back(geometry_type_info);
+    //    geometries.push_back(geometry);
 
-        VkAccelerationStructureBuildOffsetInfoKHR build_offset = {};
+    //    VkAccelerationStructureCreateGeometryTypeInfoKHR geometry_type_info = {};
 
-        build_offset.primitiveCount  = submeshes[i].index_count / 3;
-        build_offset.primitiveOffset = submeshes[i].base_index / 3;
-        build_offset.firstVertex     = 0;
-        build_offset.transformOffset = 0;
+    //    geometry_type_info.sType             = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_GEOMETRY_TYPE_INFO_KHR;
+    //    geometry_type_info.vertexFormat      = VK_FORMAT_R32G32B32_SFLOAT;
+    //    geometry_type_info.indexType         = VK_INDEX_TYPE_UINT32;
+    //    geometry_type_info.maxPrimitiveCount = submeshes[i].index_count / 3;
+    //    geometry_type_info.maxVertexCount    = submeshes[i].vertex_count;
+    //    geometry_type_info.allowsTransforms  = VK_FALSE;
 
-        build_offsets.push_back(build_offset);
-    }
-    
+    //    geometry_type_infos.push_back(geometry_type_info);
+
+    //    VkAccelerationStructureBuildOffsetInfoKHR build_offset = {};
+
+    //    build_offset.primitiveCount  = submeshes[i].index_count / 3;
+    //    build_offset.primitiveOffset = submeshes[i].base_index / 3;
+    //    build_offset.firstVertex     = 0;
+    //    build_offset.transformOffset = 0;
+
+    //    build_offsets.push_back(build_offset);
+    //}
+
     // Create blas
     vk::AccelerationStructure::Desc desc;
 

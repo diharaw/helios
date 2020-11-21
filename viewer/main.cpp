@@ -129,10 +129,13 @@ private:
                 float forward_delta  = m_heading_speed * m_delta_seconds;
                 float sideways_delta = m_sideways_speed * m_delta_seconds;
 
-                camera->move(camera->camera_forward() * forward_delta);
-                camera->move(camera->camera_left() * sideways_delta);
+                if (m_heading_speed != 0.0f || sideways_delta != 0.0f)
+                {
+                    camera->move(camera->camera_forward() * forward_delta);
+                    camera->move(camera->camera_left() * sideways_delta);
+                }
 
-                if (m_mouse_look)
+                if (m_mouse_look && (m_mouse_delta_x != 0.0f || m_mouse_delta_y != 0.0f))
                 {
                     // Rotate
                     m_camera_pitch += float(m_mouse_delta_y) * m_camera_sensitivity;
