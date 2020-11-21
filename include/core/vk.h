@@ -137,7 +137,7 @@ public:
 private:
     Backend(GLFWwindow* window, bool enable_validation_layers, bool require_ray_tracing, std::vector<const char*> additional_device_extensions, void* pnext);
     void                     initialize();
-    void                     load_ray_tracing_funcs();
+    void                     load_extensions();
     VkFormat                 find_depth_format();
     bool                     check_validation_layer_support(std::vector<const char*> layers);
     bool                     check_device_extension_support(VkPhysicalDevice device, std::vector<const char*> extensions);

@@ -2,6 +2,7 @@
 #include <utility/logger.h>
 #include <utility/macros.h>
 #include <fstream>
+#include <core/extensions_vk.h>
 
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
@@ -12,170 +13,6 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
-
-struct RayTracingFunctionTable
-{
-    PFN_vkCreateAccelerationStructureNV                _vkCreateAccelerationStructureNV;
-    PFN_vkDestroyAccelerationStructureNV               _vkDestroyAccelerationStructureNV;
-    PFN_vkGetAccelerationStructureMemoryRequirementsNV _vkGetAccelerationStructureMemoryRequirementsNV;
-    PFN_vkBindAccelerationStructureMemoryNV            _vkBindAccelerationStructureMemoryNV;
-    PFN_vkCmdBuildAccelerationStructureNV              _vkCmdBuildAccelerationStructureNV;
-    PFN_vkCmdCopyAccelerationStructureNV               _vkCmdCopyAccelerationStructureNV;
-    PFN_vkCmdTraceRaysNV                               _vkCmdTraceRaysNV;
-    PFN_vkCreateRayTracingPipelinesNV                  _vkCreateRayTracingPipelinesNV;
-    PFN_vkGetRayTracingShaderGroupHandlesNV            _vkGetRayTracingShaderGroupHandlesNV;
-    PFN_vkGetAccelerationStructureHandleNV             _vkGetAccelerationStructureHandleNV;
-    PFN_vkCmdWriteAccelerationStructuresPropertiesNV   _vkCmdWriteAccelerationStructuresPropertiesNV;
-    PFN_vkCompileDeferredNV                            _vkCompileDeferredNV;
-};
-
-static RayTracingFunctionTable g_ray_tracing_func_table;
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-VKAPI_ATTR VkResult VKAPI_CALL
-    vkCreateAccelerationStructureNV(VkDevice                                   device,
-                                    const VkAccelerationStructureCreateInfoNV* pCreateInfo,
-                                    const VkAllocationCallbacks*               pAllocator,
-                                    VkAccelerationStructureNV*                 pAccelerationStructure)
-{
-    return g_ray_tracing_func_table._vkCreateAccelerationStructureNV(device, pCreateInfo, pAllocator, pAccelerationStructure);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-VKAPI_ATTR void VKAPI_CALL
-    vkDestroyAccelerationStructureNV(VkDevice                     device,
-                                     VkAccelerationStructureNV    accelerationStructure,
-                                     const VkAllocationCallbacks* pAllocator)
-{
-    return g_ray_tracing_func_table._vkDestroyAccelerationStructureNV(device, accelerationStructure, pAllocator);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-VKAPI_ATTR void VKAPI_CALL vkGetAccelerationStructureMemoryRequirementsNV(
-    VkDevice                                               device,
-    const VkAccelerationStructureMemoryRequirementsInfoNV* pInfo,
-    VkMemoryRequirements2KHR*                              pMemoryRequirements)
-{
-    return g_ray_tracing_func_table._vkGetAccelerationStructureMemoryRequirementsNV(device, pInfo, pMemoryRequirements);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-VKAPI_ATTR VkResult VKAPI_CALL
-    vkBindAccelerationStructureMemoryNV(VkDevice                                       device,
-                                        uint32_t                                       bindInfoCount,
-                                        const VkBindAccelerationStructureMemoryInfoNV* pBindInfos)
-{
-    return g_ray_tracing_func_table._vkBindAccelerationStructureMemoryNV(device, bindInfoCount, pBindInfos);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-VKAPI_ATTR void VKAPI_CALL
-    vkCmdBuildAccelerationStructureNV(VkCommandBuffer                      commandBuffer,
-                                      const VkAccelerationStructureInfoNV* pInfo,
-                                      VkBuffer                             instanceData,
-                                      VkDeviceSize                         instanceOffset,
-                                      VkBool32                             update,
-                                      VkAccelerationStructureNV            dst,
-                                      VkAccelerationStructureNV            src,
-                                      VkBuffer                             scratch,
-                                      VkDeviceSize                         scratchOffset)
-{
-    return g_ray_tracing_func_table._vkCmdBuildAccelerationStructureNV(commandBuffer, pInfo, instanceData, instanceOffset, update, dst, src, scratch, scratchOffset);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-VKAPI_ATTR void VKAPI_CALL vkCmdCopyAccelerationStructureNV(VkCommandBuffer                   cmdBuf,
-                                                            VkAccelerationStructureNV         dst,
-                                                            VkAccelerationStructureNV         src,
-                                                            VkCopyAccelerationStructureModeNV mode)
-{
-    return g_ray_tracing_func_table._vkCmdCopyAccelerationStructureNV(cmdBuf, dst, src, mode);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-VKAPI_ATTR void VKAPI_CALL vkCmdTraceRaysNV(VkCommandBuffer commandBuffer,
-                                            VkBuffer        raygenShaderBindingTableBuffer,
-                                            VkDeviceSize    raygenShaderBindingOffset,
-                                            VkBuffer        missShaderBindingTableBuffer,
-                                            VkDeviceSize    missShaderBindingOffset,
-                                            VkDeviceSize    missShaderBindingStride,
-                                            VkBuffer        hitShaderBindingTableBuffer,
-                                            VkDeviceSize    hitShaderBindingOffset,
-                                            VkDeviceSize    hitShaderBindingStride,
-                                            VkBuffer        callableShaderBindingTableBuffer,
-                                            VkDeviceSize    callableShaderBindingOffset,
-                                            VkDeviceSize    callableShaderBindingStride,
-                                            uint32_t        width,
-                                            uint32_t        height,
-                                            uint32_t        depth)
-{
-    return g_ray_tracing_func_table._vkCmdTraceRaysNV(commandBuffer, raygenShaderBindingTableBuffer, raygenShaderBindingOffset, missShaderBindingTableBuffer, missShaderBindingOffset, missShaderBindingStride, hitShaderBindingTableBuffer, hitShaderBindingOffset, hitShaderBindingStride, callableShaderBindingTableBuffer, callableShaderBindingOffset, callableShaderBindingStride, width, height, depth);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-VKAPI_ATTR VkResult VKAPI_CALL
-    vkCreateRayTracingPipelinesNV(VkDevice                                device,
-                                  VkPipelineCache                         pipelineCache,
-                                  uint32_t                                createInfoCount,
-                                  const VkRayTracingPipelineCreateInfoNV* pCreateInfos,
-                                  const VkAllocationCallbacks*            pAllocator,
-                                  VkPipeline*                             pPipelines)
-{
-    return g_ray_tracing_func_table._vkCreateRayTracingPipelinesNV(device, pipelineCache, createInfoCount, pCreateInfos, pAllocator, pPipelines);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-VKAPI_ATTR VkResult VKAPI_CALL vkGetRayTracingShaderGroupHandlesNV(VkDevice   device,
-                                                                   VkPipeline pipeline,
-                                                                   uint32_t   firstGroup,
-                                                                   uint32_t   groupCount,
-                                                                   size_t     dataSize,
-                                                                   void*      pData)
-{
-    return g_ray_tracing_func_table._vkGetRayTracingShaderGroupHandlesNV(device, pipeline, firstGroup, groupCount, dataSize, pData);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-VKAPI_ATTR VkResult VKAPI_CALL
-    vkGetAccelerationStructureHandleNV(VkDevice                  device,
-                                       VkAccelerationStructureNV accelerationStructure,
-                                       size_t                    dataSize,
-                                       void*                     pData)
-{
-    return g_ray_tracing_func_table._vkGetAccelerationStructureHandleNV(device, accelerationStructure, dataSize, pData);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-VKAPI_ATTR void VKAPI_CALL vkCmdWriteAccelerationStructuresPropertiesNV(
-    VkCommandBuffer                  commandBuffer,
-    uint32_t                         accelerationStructureCount,
-    const VkAccelerationStructureNV* pAccelerationStructures,
-    VkQueryType                      queryType,
-    VkQueryPool                      queryPool,
-    uint32_t                         firstQuery)
-{
-    return g_ray_tracing_func_table._vkCmdWriteAccelerationStructuresPropertiesNV(commandBuffer, accelerationStructureCount, pAccelerationStructures, queryType, queryPool, firstQuery);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-VKAPI_ATTR VkResult VKAPI_CALL vkCompileDeferredNV(VkDevice   device,
-                                                   VkPipeline pipeline,
-                                                   uint32_t   shader)
-{
-    return g_ray_tracing_func_table._vkCompileDeferredNV(device, pipeline, shader);
-}
 
 namespace lumen
 {
@@ -3332,8 +3169,7 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
         throw std::runtime_error("(Vulkan) Failed to create Allocator.");
     }
 
-    if (require_ray_tracing)
-        load_ray_tracing_funcs();
+    load_extensions();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -3527,20 +3363,17 @@ void Backend::initialize()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Backend::load_ray_tracing_funcs()
+void Backend::load_extensions()
 {
-    g_ray_tracing_func_table._vkCreateAccelerationStructureNV                = reinterpret_cast<PFN_vkCreateAccelerationStructureNV>(vkGetDeviceProcAddr(m_vk_device, "vkCreateAccelerationStructureNV"));
-    g_ray_tracing_func_table._vkDestroyAccelerationStructureNV               = reinterpret_cast<PFN_vkDestroyAccelerationStructureNV>(vkGetDeviceProcAddr(m_vk_device, "vkDestroyAccelerationStructureNV"));
-    g_ray_tracing_func_table._vkGetAccelerationStructureMemoryRequirementsNV = reinterpret_cast<PFN_vkGetAccelerationStructureMemoryRequirementsNV>(vkGetDeviceProcAddr(m_vk_device, "vkGetAccelerationStructureMemoryRequirementsNV"));
-    g_ray_tracing_func_table._vkBindAccelerationStructureMemoryNV            = reinterpret_cast<PFN_vkBindAccelerationStructureMemoryNV>(vkGetDeviceProcAddr(m_vk_device, "vkBindAccelerationStructureMemoryNV"));
-    g_ray_tracing_func_table._vkCmdBuildAccelerationStructureNV              = reinterpret_cast<PFN_vkCmdBuildAccelerationStructureNV>(vkGetDeviceProcAddr(m_vk_device, "vkCmdBuildAccelerationStructureNV"));
-    g_ray_tracing_func_table._vkCmdCopyAccelerationStructureNV               = reinterpret_cast<PFN_vkCmdCopyAccelerationStructureNV>(vkGetDeviceProcAddr(m_vk_device, "vkCmdCopyAccelerationStructureNV"));
-    g_ray_tracing_func_table._vkCmdTraceRaysNV                               = reinterpret_cast<PFN_vkCmdTraceRaysNV>(vkGetDeviceProcAddr(m_vk_device, "vkCmdTraceRaysNV"));
-    g_ray_tracing_func_table._vkCreateRayTracingPipelinesNV                  = reinterpret_cast<PFN_vkCreateRayTracingPipelinesNV>(vkGetDeviceProcAddr(m_vk_device, "vkCreateRayTracingPipelinesNV"));
-    g_ray_tracing_func_table._vkGetRayTracingShaderGroupHandlesNV            = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesNV>(vkGetDeviceProcAddr(m_vk_device, "vkGetRayTracingShaderGroupHandlesNV"));
-    g_ray_tracing_func_table._vkGetAccelerationStructureHandleNV             = reinterpret_cast<PFN_vkGetAccelerationStructureHandleNV>(vkGetDeviceProcAddr(m_vk_device, "vkGetAccelerationStructureHandleNV"));
-    g_ray_tracing_func_table._vkCmdWriteAccelerationStructuresPropertiesNV   = reinterpret_cast<PFN_vkCmdWriteAccelerationStructuresPropertiesNV>(vkGetDeviceProcAddr(m_vk_device, "vkCmdWriteAccelerationStructuresPropertiesNV"));
-    g_ray_tracing_func_table._vkCompileDeferredNV                            = reinterpret_cast<PFN_vkCompileDeferredNV>(vkGetDeviceProcAddr(m_vk_device, "vkCompileDeferredNV"));
+#if VK_EXT_debug_marker
+    load_VK_EXT_debug_marker(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
+#endif
+#if VK_KHR_ray_tracing
+        load_VK_KHR_ray_tracing(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
+#endif
+#if VK_NV_ray_tracing
+        load_VK_NV_ray_tracing(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
+#endif
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
