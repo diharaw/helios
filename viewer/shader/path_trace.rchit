@@ -98,7 +98,7 @@ layout(location = 0) rayPayloadInEXT PathTracePayload ray_payload;
 // Hit Attributes ---------------------------------------------------------
 // ------------------------------------------------------------------------
 
-hitAttributeEXT vec3 hit_attribs;
+hitAttributeEXT vec2 hit_attribs;
 
 // ------------------------------------------------------------------------
 // Functions --------------------------------------------------------------
@@ -134,7 +134,7 @@ Triangle fetch_triangle()
 
 Vertex interpolated_vertex(in Triangle tri)
 {
-    mat4 model_mat = InstanceArray[nonuniformEXT(gl_InstanceID)].model;
+    mat4 model_mat = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].model;
     mat3 normal_mat = mat3(model_mat);
 
     const vec3 barycentrics = vec3(1.0 - hit_attribs.x - hit_attribs.y, hit_attribs.x, hit_attribs.y);
@@ -244,9 +244,9 @@ void main()
 {
     SurfaceProperties p;
 
-    populate_surface_properties(p);
+    //populate_surface_properties(p);
 
-    ray_payload.color = p.albedo.rgb;
+    ray_payload.color = vec3(1.0, 0.0, 0.0);//p.albedo.rgb;
 }
 
 // ------------------------------------------------------------------------

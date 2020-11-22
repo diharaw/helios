@@ -632,11 +632,11 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
     VkAccelerationStructureCreateGeometryTypeInfoKHR tlas_geometry_type_info;
     LUMEN_ZERO_MEMORY(tlas_geometry_type_info);
 
-    tlas_geometry_type_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_GEOMETRY_TYPE_INFO_KHR;
-    tlas_geometry_type_info.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+    tlas_geometry_type_info.sType             = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_GEOMETRY_TYPE_INFO_KHR;
+    tlas_geometry_type_info.geometryType      = VK_GEOMETRY_TYPE_INSTANCES_KHR;
     tlas_geometry_type_info.maxPrimitiveCount = MAX_SCENE_MESH_INSTANCE_COUNT;
-    tlas_geometry_type_info.allowsTransforms  = (VK_TRUE);
-    
+    tlas_geometry_type_info.allowsTransforms  = VK_TRUE;
+
     vk::AccelerationStructure::Desc desc;
 
     desc.set_max_geometry_count(1);
@@ -668,11 +668,11 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
 
     vk::DescriptorPool::Desc dp_desc;
 
-    dp_desc.set_max_sets(5)
-        .add_pool_size(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1)
+    dp_desc.set_max_sets(25)
+        .add_pool_size(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10)
         .add_pool_size(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SCENE_MATERIAL_TEXTURE_COUNT)
         .add_pool_size(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 5 * MAX_SCENE_MESH_INSTANCE_COUNT)
-        .add_pool_size(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1);
+        .add_pool_size(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 10);
 
     m_descriptor_pool = vk::DescriptorPool::create(backend, dp_desc);
 
@@ -1056,6 +1056,9 @@ void Scene::create_gpu_resources(RenderState& render_state)
             write_data[4].dstBinding      = 0;
             write_data[4].dstSet          = m_vbo_descriptor_set->handle();
 
+            backend->wait_idle();
+            vkUpdateDescriptorSets(backend->device(), 1, &write_data[0], 0, nullptr);
+
             write_data[5].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[5].descriptorCount = ibo_descriptors.size();
             write_data[5].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -1063,12 +1066,18 @@ void Scene::create_gpu_resources(RenderState& render_state)
             write_data[5].dstBinding      = 0;
             write_data[5].dstSet          = m_ibo_descriptor_set->handle();
 
+            backend->wait_idle();
+            vkUpdateDescriptorSets(backend->device(), 1, &write_data[1], 0, nullptr);
+
             write_data[6].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[6].descriptorCount = instance_data_descriptors.size();
             write_data[6].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             write_data[6].pBufferInfo     = instance_data_descriptors.data();
             write_data[6].dstBinding      = 0;
             write_data[6].dstSet          = m_instance_descriptor_set->handle();
+
+            backend->wait_idle();
+            vkUpdateDescriptorSets(backend->device(), 1, &write_data[2], 0, nullptr);
 
             write_data[7].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[7].descriptorCount = image_descriptors.size();

@@ -718,7 +718,7 @@ public:
 
     struct Desc
     {
-        VkAccelerationStructureCreateInfoKHR create_info;
+        VkAccelerationStructureCreateInfoKHR                          create_info;
         std::vector<VkAccelerationStructureCreateGeometryTypeInfoKHR> geometries;
 
         Desc();

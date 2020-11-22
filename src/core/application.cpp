@@ -108,7 +108,7 @@ bool Application::init_base(int argc, const char* argv[])
 
     m_vk_backend = vk::Backend::create(m_window,
 #if defined(_DEBUG)
-                                       false
+                                       true
 #else
                                        false
 #endif

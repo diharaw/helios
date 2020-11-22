@@ -3,6 +3,7 @@
 #include <utility/macros.h>
 #include <fstream>
 #include <core/extensions_vk.h>
+#include <resource/scene.h>
 
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
@@ -2121,8 +2122,8 @@ RayTracingPipeline::Desc::Desc()
 {
     LUMEN_ZERO_MEMORY(create_info);
 
-    create_info.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
-    create_info.pNext = nullptr;
+    create_info.sType           = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
+    create_info.pNext           = nullptr;
     create_info.libraries.sType = VK_STRUCTURE_TYPE_PIPELINE_LIBRARY_CREATE_INFO_KHR;
 }
 
@@ -2363,7 +2364,7 @@ AccelerationStructure::AccelerationStructure(Backend::Ptr backend, Desc desc) :
 
     vmaAllocateMemory(backend->allocator(), &memory_requirements.memoryRequirements, &alloc_create_info, &m_vma_allocation, &alloc_info);
 
-    VkBindAccelerationStructureMemoryInfoNV bind_info;
+    VkBindAccelerationStructureMemoryInfoKHR bind_info;
     bind_info.sType                 = VK_STRUCTURE_TYPE_BIND_ACCELERATION_STRUCTURE_MEMORY_INFO_KHR;
     bind_info.pNext                 = nullptr;
     bind_info.accelerationStructure = m_vk_acceleration_structure;
@@ -3047,8 +3048,8 @@ void BatchUploader::submit()
             memory_barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
 
             VkAccelerationStructureMemoryRequirementsInfoKHR memory_requirements_info;
-            memory_requirements_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_KHR;
-            memory_requirements_info.pNext = nullptr;
+            memory_requirements_info.sType     = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_KHR;
+            memory_requirements_info.pNext     = nullptr;
             memory_requirements_info.buildType = VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR;
 
             VkDeviceSize scratch_buffer_size = 0;
@@ -3072,7 +3073,7 @@ void BatchUploader::submit()
 
             for (int i = 0; i < m_blas_build_requests.size(); i++)
             {
-                const VkAccelerationStructureGeometryKHR*        ptr_geometry = &m_blas_build_requests[i].geometries[0];
+                const VkAccelerationStructureGeometryKHR*        ptr_geometry     = &m_blas_build_requests[i].geometries[0];
                 const VkAccelerationStructureBuildOffsetInfoKHR* ptr_build_offset = &m_blas_build_requests[i].build_offsets[0];
 
                 VkAccelerationStructureBuildGeometryInfoKHR build_info;
@@ -3135,9 +3136,9 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
     LUMEN_ZERO_MEMORY(appInfo);
 
     appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName   = "Inferno Runtime";
+    appInfo.pApplicationName   = "Lumen";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName        = "Inferno";
+    appInfo.pEngineName        = "Lumen";
     appInfo.engineVersion      = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion         = VK_API_VERSION_1_2;
 
@@ -3157,11 +3158,21 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
 
     if (enable_validation_layers)
     {
+        VkValidationFeatureEnableEXT enabled_features[] = { VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT };
+
+        VkValidationFeaturesEXT validation_features;
+        LUMEN_ZERO_MEMORY(validation_features);
+
+        validation_features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+        validation_features.enabledValidationFeatureCount = 1;
+        validation_features.pEnabledValidationFeatures    = enabled_features;
+
         LUMEN_ZERO_MEMORY(debug_create_info);
         create_info.enabledLayerCount   = static_cast<uint32_t>(kValidationLayers.size());
         create_info.ppEnabledLayerNames = kValidationLayers.data();
 
         debug_create_info.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        //debug_create_info.pNext           = &validation_features;
         debug_create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
         debug_create_info.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         debug_create_info.pfnUserCallback = debug_callback;
@@ -3191,6 +3202,7 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
 
     std::vector<const char*> device_extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
+    device_extensions.push_back(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
     device_extensions.push_back(VK_KHR_RAY_TRACING_EXTENSION_NAME);
     device_extensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
     device_extensions.push_back(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
@@ -3361,17 +3373,18 @@ void Backend::initialize()
     set_layout_binding_flags.bindingCount  = 1;
     set_layout_binding_flags.pBindingFlags = descriptor_binding_flags.data();
 
+    // Buffers
     DescriptorSetLayout::Desc buffer_array_ds_layout_desc;
 
-    // Material Textures
-    buffer_array_ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10000, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+    buffer_array_ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SCENE_MESH_INSTANCE_COUNT, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
     buffer_array_ds_layout_desc.set_next_ptr(&set_layout_binding_flags);
 
     m_buffer_array_descriptor_set_layout = DescriptorSetLayout::create(shared_from_this(), buffer_array_ds_layout_desc);
 
+    // Material Textures
     DescriptorSetLayout::Desc combined_sampler_array_ds_layout_desc;
 
-    combined_sampler_array_ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8096, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+    combined_sampler_array_ds_layout_desc.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SCENE_MATERIAL_TEXTURE_COUNT, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
     combined_sampler_array_ds_layout_desc.set_next_ptr(&set_layout_binding_flags);
 
     m_combined_sampler_array_descriptor_set_layout = DescriptorSetLayout::create(shared_from_this(), combined_sampler_array_ds_layout_desc);
@@ -4371,8 +4384,34 @@ bool Backend::is_queue_compatible(VkQueueFlags current_queue_flags, int32_t grap
 
 bool Backend::create_logical_device(std::vector<const char*> extensions)
 {
-    VkPhysicalDeviceFeatures supported_features;
-    LUMEN_ZERO_MEMORY(supported_features);
+    // Ray Tracing Features
+    VkPhysicalDeviceRayTracingFeaturesKHR device_ray_tracing_features;
+    LUMEN_ZERO_MEMORY(device_ray_tracing_features);
+
+    device_ray_tracing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_FEATURES_KHR;
+    device_ray_tracing_features.pNext = nullptr;
+
+    // Vulkan 1.1/1.2 Features
+    VkPhysicalDeviceVulkan11Features features11;
+    VkPhysicalDeviceVulkan12Features features12;
+
+    LUMEN_ZERO_MEMORY(features11);
+    LUMEN_ZERO_MEMORY(features12);
+
+    features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+    features11.pNext = &features12;
+
+    features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    features12.pNext = &device_ray_tracing_features;
+
+    // Physical Device Features 2
+    VkPhysicalDeviceFeatures2 physical_device_features_2;
+    LUMEN_ZERO_MEMORY(physical_device_features_2);
+
+    physical_device_features_2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    physical_device_features_2.pNext = &features11;
+
+    vkGetPhysicalDeviceFeatures2(m_vk_physical_device, &physical_device_features_2);
 
     VkDeviceCreateInfo device_info;
     LUMEN_ZERO_MEMORY(device_info);
@@ -4382,41 +4421,8 @@ bool Backend::create_logical_device(std::vector<const char*> extensions)
     device_info.queueCreateInfoCount    = static_cast<uint32_t>(m_selected_queues.queue_count);
     device_info.enabledExtensionCount   = extensions.size();
     device_info.ppEnabledExtensionNames = extensions.data();
-    device_info.pEnabledFeatures        = &supported_features;
-    device_info.pNext                   = nullptr;
-
-    // Ray Tracing Features
-    VkPhysicalDeviceRayTracingFeaturesKHR device_ray_tracing_features;
-    LUMEN_ZERO_MEMORY(device_ray_tracing_features);
-
-    device_ray_tracing_features.sType      = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_FEATURES_KHR;
-    device_ray_tracing_features.pNext      = nullptr;
-    device_ray_tracing_features.rayTracing = VK_TRUE;
-
-    // Vulkan 1.2 Features
-    VkPhysicalDeviceVulkan12Features device_vulkan_12_features;
-    LUMEN_ZERO_MEMORY(device_vulkan_12_features);
-
-    device_vulkan_12_features.sType               = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-    device_vulkan_12_features.pNext               = &device_ray_tracing_features;
-    device_vulkan_12_features.bufferDeviceAddress = VK_TRUE;
-    device_vulkan_12_features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-    device_vulkan_12_features.runtimeDescriptorArray                    = VK_TRUE;
-    device_vulkan_12_features.descriptorBindingVariableDescriptorCount  = VK_TRUE;
-    device_vulkan_12_features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
-
-    // Physical Device Features 2
-    VkPhysicalDeviceFeatures2 physical_device_features_2;
-    LUMEN_ZERO_MEMORY(physical_device_features_2);
-
-    vkGetPhysicalDeviceFeatures2(m_vk_physical_device, &physical_device_features_2);
-
-    physical_device_features_2.sType    = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    physical_device_features_2.features = supported_features;
-    physical_device_features_2.pNext    = &device_vulkan_12_features;
-
-    device_info.pEnabledFeatures = nullptr;
-    device_info.pNext            = &physical_device_features_2;
+    device_info.pEnabledFeatures        = nullptr;
+    device_info.pNext                   = &physical_device_features_2;
 
     if (m_vk_debug_messenger)
     {
