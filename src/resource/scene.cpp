@@ -953,9 +953,10 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                 glm::mat3x4 transform = glm::mat3x4(mesh_node->model_matrix());
 
-                memcpy(&rt_instance.transform.matrix[0][0], &transform, sizeof(glm::mat3x4));
+                memcpy(&rt_instance.transform, &transform, sizeof(rt_instance.transform));
+
                 rt_instance.instanceCustomIndex                    = mesh_node_idx;
-                rt_instance.mask                                   = 0xff;
+                rt_instance.mask                                   = 0xFF;
                 rt_instance.instanceShaderBindingTableRecordOffset = 0;
                 rt_instance.flags                                  = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
                 rt_instance.accelerationStructureReference         = mesh->acceleration_structure()->device_address();

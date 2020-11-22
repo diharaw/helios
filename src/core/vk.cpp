@@ -4413,6 +4413,8 @@ bool Backend::create_logical_device(std::vector<const char*> extensions)
 
     vkGetPhysicalDeviceFeatures2(m_vk_physical_device, &physical_device_features_2);
 
+    physical_device_features_2.features.robustBufferAccess = VK_FALSE;
+
     VkDeviceCreateInfo device_info;
     LUMEN_ZERO_MEMORY(device_info);
 

@@ -119,24 +119,19 @@ void main()
     ray_payload.rng = rng_init(gl_LaunchIDEXT.xy, u_PathTraceConsts.num_frames);
 
     // Compute Pixel Coordinates
-    const vec2 pixel_coord = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
+    const vec2 pixel_coord    = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
     const vec2 jittered_coord = pixel_coord + vec2(next_float(ray_payload.rng), next_float(ray_payload.rng)); 
-    const vec2 tex_coord    = jittered_coord / vec2(gl_LaunchIDEXT.xy);
-    const vec2 tex_coord_neg_to_pos = tex_coord * 2.0 - 1.0;
+    const vec2 tex_coord      = jittered_coord / vec2(gl_LaunchSizeEXT.xy);
+    vec2 tex_coord_neg_to_pos = tex_coord * 2.0 - 1.0;
 
-    // Compute Ray Direction and Origin
-    vec4 clip_pos = vec4(tex_coord_neg_to_pos.x, tex_coord_neg_to_pos.y, -1.0, 1.0);
-    vec4 view_pos = u_PerFrameUBO.proj_inverse * clip_pos;
-
-    vec3 ray_direction = vec3(u_PerFrameUBO.view_inverse * vec4(view_pos.x, view_pos.y, -1.0, 0.0));
-    ray_direction = normalize(ray_direction);
-
-    vec4 ray_origin = u_PerFrameUBO.view_inverse * vec4(0.0, 0.0, 0.0, 1.0);
-    ray_origin.xyz /= ray_origin.w;
+    // Compute Ray Origin and Direction
+    vec4 origin = u_PerFrameUBO.view_inverse * vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 target = u_PerFrameUBO.proj_inverse * vec4(tex_coord_neg_to_pos.x, tex_coord_neg_to_pos.y, 1.0, 1.0);
+    vec4 direction = u_PerFrameUBO.view_inverse * vec4(normalize(target.xyz), 0.0);
 
     uint  ray_flags = gl_RayFlagsOpaqueEXT;
-    uint  cull_mask = 0xff;
-    float tmin      = 0.0001;
+    uint  cull_mask = 0xFF;
+    float tmin      = 0.001;
     float tmax      = 10000.0;
 
     // Trace Ray
@@ -146,9 +141,9 @@ void main()
             0, 
             0, 
             0, 
-            ray_origin.xyz, 
+            origin.xyz, 
             tmin, 
-            ray_direction, 
+            direction.xyz, 
             tmax, 
             0);
 

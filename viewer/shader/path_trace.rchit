@@ -244,9 +244,9 @@ void main()
 {
     SurfaceProperties p;
 
-    //populate_surface_properties(p);
+    populate_surface_properties(p);
 
-    ray_payload.color = vec3(1.0, 0.0, 0.0);//p.albedo.rgb;
+    ray_payload.color = p.albedo.rgb;
 }
 
 // ------------------------------------------------------------------------
