@@ -115,17 +115,19 @@ Triangle fetch_triangle()
 {
     Triangle tri;
 
-    uint mesh_idx = InstanceArray[nonuniformEXT(gl_InstanceID)].mesh_index;
+    uint mesh_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].mesh_index;
+    uvec2 primitive_offset_mat_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].primitive_offsets_material_indices[gl_GeometryIndexEXT];
+    uint primitive_id = gl_PrimitiveID + primitive_offset_mat_idx.x;
 
-    uvec3 idx = uvec3(IndexArray[nonuniformEXT(mesh_idx)].indices[3 * gl_PrimitiveID], 
-                      IndexArray[nonuniformEXT(mesh_idx)].indices[3 * gl_PrimitiveID + 1],
-                      IndexArray[nonuniformEXT(mesh_idx)].indices[3 * gl_PrimitiveID + 2]);
+    uvec3 idx = uvec3(IndexArray[nonuniformEXT(mesh_idx)].indices[3 * primitive_id], 
+                      IndexArray[nonuniformEXT(mesh_idx)].indices[3 * primitive_id + 1],
+                      IndexArray[nonuniformEXT(mesh_idx)].indices[3 * primitive_id + 2]);
 
     tri.v0 = get_vertex(mesh_idx, idx.x);
     tri.v1 = get_vertex(mesh_idx, idx.y);
     tri.v2 = get_vertex(mesh_idx, idx.z);
 
-    tri.mat_idx = InstanceArray[nonuniformEXT(mesh_idx)].primitive_offsets_material_indices[uint(tri.v0.position.w)].y;
+    tri.mat_idx = primitive_offset_mat_idx.y;
 
     return tri;
 }
