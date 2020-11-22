@@ -68,4 +68,12 @@ struct Light
     vec4 light_data2; // x: range, y: cone angle
 };
 
+struct Instance
+{
+    uint mesh_idx;
+    uint mat_idx;
+    uint primitive_offset;
+    mat4 transform;
+};
+
 #endif

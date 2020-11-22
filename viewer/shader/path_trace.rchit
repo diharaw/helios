@@ -111,32 +111,48 @@ Vertex get_vertex(uint mesh_idx, uint vertex_idx)
 
 // ------------------------------------------------------------------------
 
-Triangle fetch_triangle()
+Instance fetch_instance()
+{
+    uint mesh_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].mesh_index;
+    uvec2 primitive_offset_mat_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].primitive_offsets_material_indices[gl_GeometryIndexEXT];
+    mat4 transform = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].model;
+
+    Instance instance;
+
+    instance.mesh_idx = mesh_idx;
+    instance.mat_idx = primitive_offset_mat_idx.y;
+    instance.primitive_offset = primitive_offset_mat_idx.x;
+    instance.transform = transform;
+
+    return instance;
+}
+
+// ------------------------------------------------------------------------
+
+Triangle fetch_triangle(in Instance instance)
 {
     Triangle tri;
 
-    uint mesh_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].mesh_index;
-    uvec2 primitive_offset_mat_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].primitive_offsets_material_indices[gl_GeometryIndexEXT];
-    uint primitive_id = gl_PrimitiveID + primitive_offset_mat_idx.x;
+    uint primitive_id = gl_PrimitiveID + instance.primitive_offset;
 
-    uvec3 idx = uvec3(IndexArray[nonuniformEXT(mesh_idx)].indices[3 * primitive_id], 
-                      IndexArray[nonuniformEXT(mesh_idx)].indices[3 * primitive_id + 1],
-                      IndexArray[nonuniformEXT(mesh_idx)].indices[3 * primitive_id + 2]);
+    uvec3 idx = uvec3(IndexArray[nonuniformEXT(instance.mesh_idx)].indices[3 * primitive_id], 
+                      IndexArray[nonuniformEXT(instance.mesh_idx)].indices[3 * primitive_id + 1],
+                      IndexArray[nonuniformEXT(instance.mesh_idx)].indices[3 * primitive_id + 2]);
 
-    tri.v0 = get_vertex(mesh_idx, idx.x);
-    tri.v1 = get_vertex(mesh_idx, idx.y);
-    tri.v2 = get_vertex(mesh_idx, idx.z);
+    tri.v0 = get_vertex(instance.mesh_idx, idx.x);
+    tri.v1 = get_vertex(instance.mesh_idx, idx.y);
+    tri.v2 = get_vertex(instance.mesh_idx, idx.z);
 
-    tri.mat_idx = primitive_offset_mat_idx.y;
+    tri.mat_idx = instance.mat_idx;
 
     return tri;
 }
 
 // ------------------------------------------------------------------------
 
-Vertex interpolated_vertex(in Triangle tri)
-{
-    mat4 model_mat = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].model;
+Vertex interpolated_vertex(in Instance instance, in Triangle tri)
+{;
+    mat4 model_mat = instance.transform;
     mat3 normal_mat = mat3(model_mat);
 
     const vec3 barycentrics = vec3(1.0 - hit_attribs.x - hit_attribs.y, hit_attribs.x, hit_attribs.y);
@@ -222,10 +238,11 @@ void fetch_emissive(in Material material, inout SurfaceProperties p)
 
 void populate_surface_properties(out SurfaceProperties p)
 {
-    const Triangle tri = fetch_triangle();
-    const Material material = Materials.data[tri.mat_idx];
+    const Instance instance = fetch_instance();
+    const Triangle triangle = fetch_triangle(instance);
+    const Material material = Materials.data[triangle.mat_idx];
 
-    p.vertex = interpolated_vertex(tri);
+    p.vertex = interpolated_vertex(instance, triangle);
 
     fetch_albedo(material, p);
     fetch_normal(material, p);
