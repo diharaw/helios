@@ -1057,9 +1057,6 @@ void Scene::create_gpu_resources(RenderState& render_state)
             write_data[4].dstBinding      = 0;
             write_data[4].dstSet          = m_vbo_descriptor_set->handle();
 
-            backend->wait_idle();
-            vkUpdateDescriptorSets(backend->device(), 1, &write_data[0], 0, nullptr);
-
             write_data[5].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[5].descriptorCount = ibo_descriptors.size();
             write_data[5].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -1067,18 +1064,12 @@ void Scene::create_gpu_resources(RenderState& render_state)
             write_data[5].dstBinding      = 0;
             write_data[5].dstSet          = m_ibo_descriptor_set->handle();
 
-            backend->wait_idle();
-            vkUpdateDescriptorSets(backend->device(), 1, &write_data[1], 0, nullptr);
-
             write_data[6].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[6].descriptorCount = instance_data_descriptors.size();
             write_data[6].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             write_data[6].pBufferInfo     = instance_data_descriptors.data();
             write_data[6].dstBinding      = 0;
             write_data[6].dstSet          = m_instance_descriptor_set->handle();
-
-            backend->wait_idle();
-            vkUpdateDescriptorSets(backend->device(), 1, &write_data[2], 0, nullptr);
 
             write_data[7].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[7].descriptorCount = image_descriptors.size();

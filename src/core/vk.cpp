@@ -15,6 +15,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+//#define ENABLE_GPU_ASSISTED_VALIDATION
+
 namespace lumen
 {
 namespace vk
@@ -3163,7 +3165,7 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
         VkValidationFeaturesEXT validation_features;
         LUMEN_ZERO_MEMORY(validation_features);
 
-        validation_features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+        validation_features.sType                         = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
         validation_features.enabledValidationFeatureCount = 1;
         validation_features.pEnabledValidationFeatures    = enabled_features;
 
@@ -3171,8 +3173,10 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
         create_info.enabledLayerCount   = static_cast<uint32_t>(kValidationLayers.size());
         create_info.ppEnabledLayerNames = kValidationLayers.data();
 
-        debug_create_info.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-        //debug_create_info.pNext           = &validation_features;
+        debug_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+#if defined(ENABLE_GPU_ASSISTED_VALIDATION)
+        debug_create_info.pNext = &validation_features;
+#endif
         debug_create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
         debug_create_info.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         debug_create_info.pfnUserCallback = debug_callback;

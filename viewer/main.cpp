@@ -21,7 +21,8 @@ protected:
 
     void update(double delta) override
     {
-        gui();
+        if (m_show_gui)
+            gui();
 
         update_camera();
 
@@ -68,6 +69,9 @@ protected:
             m_sideways_speed = m_camera_speed;
         else if (code == GLFW_KEY_D)
             m_sideways_speed = -m_camera_speed;
+
+        if (code == GLFW_KEY_G)
+            m_show_gui = !m_show_gui;
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------
@@ -157,6 +161,7 @@ private:
     {
         bool open = true;
 
+        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
         ImGui::SetNextWindowSize(ImVec2(m_width * 0.3f, m_height));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
@@ -202,6 +207,7 @@ private:
     RenderState         m_render_state;
     Scene::Ptr          m_scene;
     PathIntegrator::Ptr m_path_integrator;
+    bool                m_show_gui           = true;
     bool                m_mouse_look         = false;
     float               m_camera_yaw         = 0.0f;
     float               m_camera_pitch       = 0.0f;

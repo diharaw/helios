@@ -4,6 +4,7 @@
 #extension GL_EXT_nonuniform_qualifier : require
 
 #include "common.glsl"
+#include "brdf.glsl"
 
 // ------------------------------------------------------------------------
 // Set 0 ------------------------------------------------------------------
@@ -208,7 +209,7 @@ void fetch_normal(in Material material, inout SurfaceProperties p)
 
 void fetch_roughness(in Material material, inout SurfaceProperties p)
 {
-    if (material.texture_indices0.x == -1)
+    if (material.texture_indices0.z == -1)
         p.roughness = material.roughness_metallic.r;
     else
         p.roughness = textureLod(s_Textures[nonuniformEXT(material.texture_indices0.z)], p.vertex.tex_coord.xy, 0.0)[material.texture_indices1.z];
@@ -250,6 +251,8 @@ void populate_surface_properties(out SurfaceProperties p)
     fetch_metallic(material, p);
     fetch_emissive(material, p);
 
+    p.roughness = max(p.roughness, MIN_ROUGHNESS);
+
     p.F0 = mix(vec3(0.03), p.albedo.xyz, p.metallic);
     p.alpha = p.roughness * p.roughness;
     p.alpha2 = p.alpha * p.alpha;
@@ -265,7 +268,40 @@ void main()
 
     populate_surface_properties(p);
 
-    ray_payload.color = p.albedo.rgb;
+    vec3 Wo = -gl_WorldRayDirectionEXT;
+    vec3 Wi;
+    float pdf;
+
+    vec3 brdf = sample_uber(p, Wo, ray_payload.rng, Wi, pdf);
+
+    float cos_theta = clamp(dot(p.normal, Wo), 0.0, 1.0);
+
+    ray_payload.attenuation *= (brdf * cos_theta) / pdf;
+
+    if (ray_payload.depth < MAX_RAY_BOUNCES)
+    {
+        ray_payload.depth += 1;
+
+        uint  ray_flags = gl_RayFlagsOpaqueEXT;
+        uint  cull_mask = 0xFF;
+        float tmin      = 0.0001;
+        float tmax      = 10000.0;
+
+        // Trace Ray
+        traceRayEXT(u_TopLevelAS, 
+                ray_flags, 
+                cull_mask, 
+                PATH_TRACE_RAY_GEN_SHADER_IDX, 
+                PATH_TRACE_CLOSEST_HIT_SHADER_IDX, 
+                PATH_TRACE_MISS_SHADER_IDX, 
+                p.vertex.position.xyz, 
+                tmin, 
+                Wi, 
+                tmax, 
+                0);
+    }
+
+    // ray_payload.color = vec3(p.roughness);
 }
 
 // ------------------------------------------------------------------------

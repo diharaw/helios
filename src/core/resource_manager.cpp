@@ -448,14 +448,14 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
 
             for (int i = 0; i < ast_mesh.submeshes.size(); i++)
             {
-                submeshes[i].name        = ast_mesh.submeshes[i].name;
-                submeshes[i].mat_idx     = ast_mesh.submeshes[i].material_index;
-                submeshes[i].index_count = ast_mesh.submeshes[i].index_count;
+                submeshes[i].name         = ast_mesh.submeshes[i].name;
+                submeshes[i].mat_idx      = ast_mesh.submeshes[i].material_index;
+                submeshes[i].index_count  = ast_mesh.submeshes[i].index_count;
                 submeshes[i].vertex_count = ast_mesh.submeshes[i].vertex_count;
-                submeshes[i].base_vertex = ast_mesh.submeshes[i].base_vertex;
-                submeshes[i].base_index  = ast_mesh.submeshes[i].base_index;
-                submeshes[i].max_extents = ast_mesh.submeshes[i].max_extents;
-                submeshes[i].min_extents = ast_mesh.submeshes[i].min_extents;
+                submeshes[i].base_vertex  = ast_mesh.submeshes[i].base_vertex;
+                submeshes[i].base_index   = ast_mesh.submeshes[i].base_index;
+                submeshes[i].max_extents  = ast_mesh.submeshes[i].max_extents;
+                submeshes[i].min_extents  = ast_mesh.submeshes[i].min_extents;
             }
 
             for (int submesh_idx = 0; submesh_idx < submeshes.size(); submesh_idx++)

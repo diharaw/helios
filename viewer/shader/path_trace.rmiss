@@ -16,7 +16,8 @@ layout(location = 0) rayPayloadInEXT PathTracePayload ray_payload;
 
 void main()
 {
-    ray_payload.color = vec3(0.77f, 0.77f, 0.9f);
+    ray_payload.color = vec3(0.77f, 0.77f, 0.9f) * ray_payload.attenuation;
+    ray_payload.hit_distance = 0.0f;
 }
 
 // ------------------------------------------------------------------------

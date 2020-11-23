@@ -88,7 +88,7 @@ void PathIntegrator::create_pipeline(vk::DescriptorSetLayout::Ptr scene_ds_layou
 
     vk::RayTracingPipeline::Desc desc;
 
-    desc.set_recursion_depth(1);
+    desc.set_recursion_depth(8);
     desc.set_shader_binding_table(m_path_trace_sbt);
 
     // ---------------------------------------------------------------------------

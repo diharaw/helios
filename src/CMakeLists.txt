@@ -10,7 +10,7 @@ endif()
 
 add_definitions(-DVK_ENABLE_BETA_EXTENSIONS)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 find_program(CLANG_FORMAT_EXE NAMES "clang-format" DOC "Path to clang-format executable")
@@ -55,7 +55,7 @@ foreach(GLSL ${LUMEN_SHADER_SOURCES})
     add_custom_command(
         OUTPUT ${SPIRV}
         COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/bin/$(Configuration)/shader"
-        COMMAND ${GLSL_VALIDATOR} --target-env spirv1.5 -V ${GLSL} -o ${SPIRV}
+        COMMAND ${GLSL_VALIDATOR} --target-env vulkan1.2 -V ${GLSL} -o ${SPIRV}
         DEPENDS ${GLSL})
     list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(GLSL)

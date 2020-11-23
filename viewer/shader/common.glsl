@@ -10,14 +10,16 @@
 #define M_PI 3.14159265359
 #define EPSILON 0.0001f
 #define INFINITY 100000.0f
+#define MIN_ROUGHNESS 0.1f
+#define RADIANCE_CLAMP_COLOR vec3(1.0f)
+
+#define MAX_RAY_BOUNCES 5
 
 struct PathTracePayload
 {
     vec3 color;
     vec3 attenuation;
     float hit_distance;
-    float roughness;
-    float roughness_bias;
     uint depth;
     RNG rng;
 };
