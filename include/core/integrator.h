@@ -29,5 +29,6 @@ public:
 
 protected:
     virtual void execute(RenderState& render_state) = 0;
+    virtual void gather_debug_rays(const glm::ivec2& pixel_coord, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state);
 };
 } // namespace lumen

@@ -26,6 +26,8 @@ public:
 
     void render(RenderState& render_state, std::shared_ptr<Integrator> integrator);
     void on_window_resize();
+    void add_ray_debug_view(const glm::ivec2& pixel_coord, const glm::mat4& view, const glm::mat4& projection);
+    void clear_ray_debug_views();
 
 private:
     void tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr read_image);
