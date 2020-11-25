@@ -4,6 +4,8 @@
 
 namespace lumen
 {
+#define MAX_DEBUG_RAY_DRAW_COUNT 1024
+
 class Integrator;
 class ResourceManager;
 
@@ -18,6 +20,11 @@ private:
     vk::DescriptorSet::Ptr     m_input_combined_sampler_ds[2];
     vk::GraphicsPipeline::Ptr  m_tone_map_pipeline;
     vk::PipelineLayout::Ptr    m_tone_map_pipeline_layout;
+    vk::GraphicsPipeline::Ptr  m_ray_debug_pipeline;
+    vk::PipelineLayout::Ptr    m_ray_debug_pipeline_layout;
+    vk::Buffer::Ptr            m_ray_debug_vbo;
+    vk::Buffer::Ptr            m_ray_debug_draw_cmd;
+    vk::Buffer::Ptr            m_ray_debug_draw_count;
     bool                       m_output_ping_pong = false;
 
 public:
@@ -31,8 +38,11 @@ public:
 
 private:
     void tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr read_image);
+    void render_ray_debug_views(RenderState& render_state);
     void create_output_images();
     void create_tone_map_pipeline();
+    void create_ray_debug_pipeline();
+    void create_ray_debug_buffers();
     void create_buffers();
     void create_descriptor_sets();
 };

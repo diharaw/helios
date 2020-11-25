@@ -4,9 +4,16 @@
 #include <core/integrator.h>
 #include <imgui.h>
 #include <examples/imgui_impl_vulkan.h>
+#include <resource/scene.h>
 
 namespace lumen
 {
+struct RayDebugVertex
+{
+    glm::vec4 position;
+    glm::vec4 color;
+};
+
 // -----------------------------------------------------------------------------------------------------------------------------------
 
 Renderer::Renderer(vk::Backend::Ptr backend) :
@@ -16,12 +23,17 @@ Renderer::Renderer(vk::Backend::Ptr backend) :
     create_tone_map_pipeline();
     create_buffers();
     create_descriptor_sets();
+    create_ray_debug_buffers();
+    create_ray_debug_pipeline();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
 Renderer::~Renderer()
 {
+    m_ray_debug_vbo.reset();
+    m_ray_debug_draw_cmd.reset();
+    m_ray_debug_draw_count.reset();
     m_tlas_instance_buffer_device.reset();
 }
 
@@ -209,15 +221,28 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
 
 void Renderer::tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr read_image)
 {
-    auto backend = m_backend.lock();
-    auto extents = backend->swap_chain_extents();
-
     vkCmdBindPipeline(cmd_buf->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_tone_map_pipeline->handle());
 
     vkCmdBindDescriptorSets(cmd_buf->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_tone_map_pipeline_layout->handle(), 0, 1, &read_image->handle(), 0, nullptr);
 
     // Apply tonemapping
     vkCmdDraw(cmd_buf->handle(), 3, 1, 0, 0);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::render_ray_debug_views(RenderState& render_state)
+{
+    vkCmdBindPipeline(render_state.cmd_buffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_ray_debug_pipeline->handle());
+
+    const VkDeviceSize offset = 0;
+
+    vkCmdBindVertexBuffers(render_state.cmd_buffer->handle(), 0, 1, &m_ray_debug_vbo->handle(), &offset);
+
+    glm::mat4 view_proj = render_state.m_camera->projection_matrix() * render_state.m_camera->view_matrix();
+    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_ray_debug_pipeline_layout->handle(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::mat4), &view_proj);
+
+    vkCmdDrawIndirectCount(render_state.cmd_buffer->handle(), m_ray_debug_draw_cmd->handle(), 0, m_ray_debug_draw_count->handle(), 0, MAX_DEBUG_RAY_DRAW_COUNT, sizeof(uint32_t));
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -260,6 +285,165 @@ void Renderer::create_tone_map_pipeline()
 
     m_tone_map_pipeline_layout = vk::PipelineLayout::create(backend, ds_desc);
     m_tone_map_pipeline        = vk::GraphicsPipeline::create_for_post_process(backend, "shader/triangle.vert.spv", "shader/tone_map.frag.spv", m_tone_map_pipeline_layout, backend->swapchain_render_pass());
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_ray_debug_pipeline()
+{
+    auto backend = m_backend.lock();
+
+    // ---------------------------------------------------------------------------
+    // Create shader modules
+    // ---------------------------------------------------------------------------
+
+    std::vector<char> spirv;
+
+    vk::ShaderModule::Ptr vs = vk::ShaderModule::create_from_file(backend, "shaders/debug_ray.vert.spv");
+    vk::ShaderModule::Ptr fs = vk::ShaderModule::create_from_file(backend, "shaders/debug_ray.frag.spv");
+
+    vk::GraphicsPipeline::Desc pso_desc;
+
+    pso_desc.add_shader_stage(VK_SHADER_STAGE_VERTEX_BIT, vs, "main")
+        .add_shader_stage(VK_SHADER_STAGE_FRAGMENT_BIT, fs, "main");
+
+    // ---------------------------------------------------------------------------
+    // Create vertex input state
+    // ---------------------------------------------------------------------------
+
+    vk::VertexInputStateDesc vertex_input_state_desc;
+
+    vertex_input_state_desc.add_binding_desc(0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX);
+
+    vertex_input_state_desc.add_attribute_desc(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
+    vertex_input_state_desc.add_attribute_desc(1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
+
+    pso_desc.set_vertex_input_state(vertex_input_state_desc);
+
+    // ---------------------------------------------------------------------------
+    // Create pipeline input assembly state
+    // ---------------------------------------------------------------------------
+
+    vk::InputAssemblyStateDesc input_assembly_state_desc;
+
+    input_assembly_state_desc.set_primitive_restart_enable(false);
+
+    // ---------------------------------------------------------------------------
+    // Create viewport state
+    // ---------------------------------------------------------------------------
+
+    vk::ViewportStateDesc vp_desc;
+
+    vp_desc.add_viewport(0.0f, 0.0f, 1024, 1024, 0.0f, 1.0f)
+        .add_scissor(0, 0, 1024, 1024);
+
+    pso_desc.set_viewport_state(vp_desc);
+
+    // ---------------------------------------------------------------------------
+    // Create rasterization state
+    // ---------------------------------------------------------------------------
+
+    vk::RasterizationStateDesc rs_state;
+
+    rs_state.set_depth_clamp(VK_FALSE)
+        .set_rasterizer_discard_enable(VK_FALSE)
+        .set_polygon_mode(VK_POLYGON_MODE_FILL)
+        .set_line_width(1.0f)
+        .set_cull_mode(VK_CULL_MODE_NONE)
+        .set_front_face(VK_FRONT_FACE_COUNTER_CLOCKWISE)
+        .set_depth_bias(VK_FALSE);
+
+    pso_desc.set_rasterization_state(rs_state);
+
+    // ---------------------------------------------------------------------------
+    // Create multisample state
+    // ---------------------------------------------------------------------------
+
+    vk::MultisampleStateDesc ms_state;
+
+    ms_state.set_sample_shading_enable(VK_FALSE)
+        .set_rasterization_samples(VK_SAMPLE_COUNT_1_BIT);
+
+    pso_desc.set_multisample_state(ms_state);
+
+    // ---------------------------------------------------------------------------
+    // Create depth stencil state
+    // ---------------------------------------------------------------------------
+
+    vk::DepthStencilStateDesc ds_state;
+
+    ds_state.set_depth_test_enable(VK_FALSE)
+        .set_depth_write_enable(VK_TRUE)
+        .set_depth_compare_op(VK_COMPARE_OP_LESS)
+        .set_depth_bounds_test_enable(VK_FALSE)
+        .set_stencil_test_enable(VK_FALSE);
+
+    pso_desc.set_depth_stencil_state(ds_state);
+
+    // ---------------------------------------------------------------------------
+    // Create color blend state
+    // ---------------------------------------------------------------------------
+
+    vk::ColorBlendAttachmentStateDesc blend_att_desc;
+
+    blend_att_desc.set_color_write_mask(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT)
+        .set_src_color_blend_factor(VK_BLEND_FACTOR_SRC_ALPHA)
+        .set_dst_color_blend_Factor(VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+        .set_src_alpha_blend_factor(VK_BLEND_FACTOR_ONE)
+        .set_dst_alpha_blend_factor(VK_BLEND_FACTOR_ZERO)
+        .set_color_blend_op(VK_BLEND_OP_ADD)
+        .set_blend_enable(VK_FALSE);
+
+    vk::ColorBlendStateDesc blend_state;
+
+    blend_state.set_logic_op_enable(VK_FALSE)
+        .set_logic_op(VK_LOGIC_OP_COPY)
+        .set_blend_constants(0.0f, 0.0f, 0.0f, 0.0f)
+        .add_attachment(blend_att_desc);
+
+    pso_desc.set_color_blend_state(blend_state);
+
+    // ---------------------------------------------------------------------------
+    // Create pipeline layout
+    // ---------------------------------------------------------------------------
+
+    vk::PipelineLayout::Desc pl_desc;
+
+    pl_desc.add_push_constant_range(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::mat4));
+
+    m_ray_debug_pipeline_layout = vk::PipelineLayout::create(backend, pl_desc);
+
+    pso_desc.set_pipeline_layout(m_ray_debug_pipeline_layout);
+
+    // ---------------------------------------------------------------------------
+    // Create dynamic state
+    // ---------------------------------------------------------------------------
+
+    pso_desc.add_dynamic_state(VK_DYNAMIC_STATE_VIEWPORT)
+        .add_dynamic_state(VK_DYNAMIC_STATE_SCISSOR);
+
+    pso_desc.set_render_pass(backend->swapchain_render_pass());
+
+    // ---------------------------------------------------------------------------
+    // Create line list pipeline
+    // ---------------------------------------------------------------------------
+
+    input_assembly_state_desc.set_topology(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+
+    pso_desc.set_input_assembly_state(input_assembly_state_desc);
+
+    m_ray_debug_pipeline = vk::GraphicsPipeline::create(backend, pso_desc);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_ray_debug_buffers()
+{
+    auto backend = m_backend.lock();
+
+    m_ray_debug_vbo        = vk::Buffer::create(backend, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(RayDebugVertex) * MAX_DEBUG_RAY_DRAW_COUNT * 2, VMA_MEMORY_USAGE_GPU_ONLY, 0);
+    m_ray_debug_draw_cmd   = vk::Buffer::create(backend, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(int32_t) * 4 * MAX_DEBUG_RAY_DRAW_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
+    m_ray_debug_draw_count = vk::Buffer::create(backend, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(uint32_t) * MAX_DEBUG_RAY_DRAW_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
