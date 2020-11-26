@@ -12,6 +12,14 @@ class ResourceManager;
 class Renderer
 {
 private:
+    struct RayDebugView
+    {
+        glm::ivec2 pixel_coord;
+        glm::mat4 view;
+        glm::mat4 projection;
+    };
+
+    std::vector<RayDebugView>  m_ray_debug_views;
     std::weak_ptr<vk::Backend> m_backend;
     vk::Buffer::Ptr            m_tlas_instance_buffer_device;
     vk::Image::Ptr             m_output_images[2];
@@ -26,6 +34,7 @@ private:
     vk::Buffer::Ptr            m_ray_debug_draw_cmd;
     vk::Buffer::Ptr            m_ray_debug_draw_count;
     bool                       m_output_ping_pong = false;
+    bool                       m_ray_debug_view_added = false;
 
 public:
     Renderer(vk::Backend::Ptr backend);

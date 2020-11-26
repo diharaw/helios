@@ -146,7 +146,15 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
 
     // Execute integrator
     if (integrator)
+    {
         integrator->execute(render_state);
+
+        if (m_ray_debug_view_added)
+        {
+            const auto& view = m_ray_debug_views.back();
+            integrator->gather_debug_rays(view.pixel_coord, view.view, view.projection, render_state);
+        }
+    }
 
     // Transition the output image from general to as shader read-only layout
     vk::utilities::set_image_layout(
@@ -205,6 +213,10 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
     // Perform tone mapping and render ImGui
     tone_map(render_state.m_cmd_buffer, m_input_combined_sampler_ds[write_index]);
 
+    // If any ray debug views were added, render them
+    if (m_ray_debug_views.size() > 0)
+        render_ray_debug_views(render_state);
+
     // Render ImGui
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), render_state.m_cmd_buffer->handle());
@@ -256,12 +268,15 @@ void Renderer::on_window_resize()
 
 void Renderer::add_ray_debug_view(const glm::ivec2& pixel_coord, const glm::mat4& view, const glm::mat4& projection)
 {
+    m_ray_debug_views.push_back({ pixel_coord, view, projection });
+    m_ray_debug_view_added = true;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
 void Renderer::clear_ray_debug_views()
 {
+    m_ray_debug_views.clear();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
