@@ -314,8 +314,8 @@ void Renderer::create_ray_debug_pipeline()
 
     std::vector<char> spirv;
 
-    vk::ShaderModule::Ptr vs = vk::ShaderModule::create_from_file(backend, "shaders/debug_ray.vert.spv");
-    vk::ShaderModule::Ptr fs = vk::ShaderModule::create_from_file(backend, "shaders/debug_ray.frag.spv");
+    vk::ShaderModule::Ptr vs = vk::ShaderModule::create_from_file(backend, "shader/debug_ray.vert.spv");
+    vk::ShaderModule::Ptr fs = vk::ShaderModule::create_from_file(backend, "shader/debug_ray.frag.spv");
 
     vk::GraphicsPipeline::Desc pso_desc;
 
