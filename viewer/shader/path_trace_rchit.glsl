@@ -284,6 +284,27 @@ void main()
 
     ray_payload.attenuation *= (brdf * cos_theta) / pdf;
 
+#if defined(RAY_DEBUG_VIEW)
+    // Skip the primary ray
+    if (ray_payload.depth > 0)
+    {
+        uint debug_ray_vert_idx = atomicAdd(DebugRayDrawArgs.count, 2);
+
+        DebugRayVertex v0;
+
+        v0.position = vec4(gl_WorldRayOriginEXT, 1.0f);
+        v0.color = vec4(ray_payload.color, 1.0f);
+
+        DebugRayVertex v1;
+
+        v1.position = vec4(gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT  * gl_HitTEXT, 1.0f);
+        v1.color = vec4(ray_payload.color, 1.0f);
+
+        DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 0] = v0;
+        DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 1] = v1;
+    }
+#endif
+
     if (ray_payload.depth < MAX_RAY_BOUNCES)
     {
         ray_payload.depth += 1;
@@ -306,23 +327,6 @@ void main()
                 tmax, 
                 0);
     }
-
-#if defined(RAY_DEBUG_VIEW)
-    uint debug_ray_vert_idx = atomicAdd(DebugRayDrawArgs.count, 2);
-
-    DebugRayVertex v0;
-
-    v0.position = vec4(gl_WorldRayOriginEXT, 1.0f);
-    v0.color = vec4(ray_payload.color, 1.0f);
-
-    DebugRayVertex v1;
-
-    v1.position = vec4(gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT  * gl_HitTEXT, 1.0f);
-    v1.color = vec4(ray_payload.color, 1.0f);
-
-    DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 0] = v0;
-    DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 1] = v1;
-#endif
 }
 
 // ------------------------------------------------------------------------
