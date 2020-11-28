@@ -15,7 +15,9 @@ public:
 
 protected:
     void execute(RenderState& render_state) override;
+    void gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state) override;
     void create_pipeline(vk::DescriptorSetLayout::Ptr scene_ds_layout);
+    void create_ray_debug_pipeline(vk::DescriptorSetLayout::Ptr scene_ds_layout);
 
 private:
     vk::DescriptorSet::Ptr      m_path_trace_ds[2];

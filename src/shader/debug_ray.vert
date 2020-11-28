@@ -13,5 +13,5 @@ layout(push_constant) uniform PathTraceConsts
 void main()
 {
     FS_IN_Color = VS_IN_Color;
-    gl_Position = u_PathTraceConsts.view_proj * vec4(VS_IN_Position, 1.0);
+    gl_Position = u_PathTraceConsts.view_proj * VS_IN_Position;
 }

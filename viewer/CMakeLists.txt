@@ -15,7 +15,10 @@ find_program(CLANG_FORMAT_EXE NAMES "clang-format" DOC "Path to clang-format exe
 
 set(LUMEN_VIEWER_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rchit
                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rgen
-                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rmiss)
+                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rmiss
+                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rchit
+                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rgen
+                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rmiss)
 
 if (APPLE)
     add_executable(LumenViewer MACOSX_BUNDLE "main.cpp")

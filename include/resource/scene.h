@@ -3,6 +3,7 @@
 #include <core/vk.h>
 #include <glm.hpp>
 #include <gtc/quaternion.hpp>
+#include <utility/macros.h>
 #include <memory>
 #include <vector>
 
@@ -291,7 +292,6 @@ private:
     IBLNode*                           m_ibl_environment_map;
     SceneState                         m_scene_state = SCENE_STATE_READY;
     Scene*                             m_scene;
-    uint32_t                           m_camera_buffer_offset;
     uint32_t                           m_num_accumulated_frames = 0;
     uint32_t                           m_viewport_width         = 0;
     uint32_t                           m_viewport_height        = 0;
@@ -319,7 +319,6 @@ public:
     inline IBLNode*                                  ibl_environment_map() { return m_ibl_environment_map; }
     inline SceneState                                scene_state() { return m_scene_state; }
     inline Scene*                                    scene() { return m_scene; }
-    inline uint32_t                                  camera_buffer_offset() { return m_camera_buffer_offset; }
     inline uint32_t                                  num_accumulated_frames() { return m_num_accumulated_frames; }
     inline uint32_t                                  viewport_width() { return m_viewport_width; }
     inline uint32_t                                  viewport_height() { return m_viewport_height; }
@@ -366,7 +365,6 @@ private:
     vk::DescriptorSet::Ptr     m_ibo_descriptor_set;
     vk::DescriptorSet::Ptr     m_instance_descriptor_set;
     vk::DescriptorSet::Ptr     m_textures_descriptor_set;
-    vk::Buffer::Ptr            m_camera_buffer;
     vk::Buffer::Ptr            m_light_data_buffer;
     vk::Buffer::Ptr            m_material_data_buffer;
     size_t                     m_camera_buffer_aligned_size;

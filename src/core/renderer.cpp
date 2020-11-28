@@ -22,19 +22,31 @@ Renderer::Renderer(vk::Backend::Ptr backend) :
     create_output_images();
     create_tone_map_pipeline();
     create_buffers();
-    create_descriptor_sets();
     create_ray_debug_buffers();
     create_ray_debug_pipeline();
+    create_descriptor_sets();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
 Renderer::~Renderer()
 {
+    for (int i = 0; i < 2; i++)
+    {
+        m_output_images[i].reset();
+        m_output_image_views[i].reset();
+        m_output_storage_image_ds[i].reset();
+        m_input_combined_sampler_ds[i].reset();
+    }
+
     m_ray_debug_vbo.reset();
     m_ray_debug_draw_cmd.reset();
-    m_ray_debug_draw_count.reset();
     m_tlas_instance_buffer_device.reset();
+    m_ray_debug_ds.reset();
+    m_tone_map_pipeline.reset();
+    m_tone_map_pipeline_layout.reset();
+    m_ray_debug_pipeline.reset();
+    m_ray_debug_pipeline_layout.reset();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -151,8 +163,23 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
 
         if (m_ray_debug_view_added)
         {
+            // If the ray debug view was just added in the current frame, reset the draw cmd data.
+            if (m_ray_debug_views.size() == 1)
+            {
+                uint32_t draw_args[4] = { 0, 1, 0, 0 };
+                vkCmdUpdateBuffer(render_state.m_cmd_buffer->handle(), m_ray_debug_draw_cmd->handle(), 0, sizeof(uint32_t) * 4, &draw_args[0]);
+
+                VkMemoryBarrier memory_barrier;
+                memory_barrier.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+                memory_barrier.pNext         = nullptr;
+                memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                memory_barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+
+                vkCmdPipelineBarrier(render_state.m_cmd_buffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0, 1, &memory_barrier, 0, nullptr, 0, nullptr);
+            }
+
             const auto& view = m_ray_debug_views.back();
-            integrator->gather_debug_rays(view.pixel_coord, view.view, view.projection, render_state);
+            integrator->gather_debug_rays(view.pixel_coord, view.num_debug_rays, view.view, view.projection, render_state);
         }
     }
 
@@ -245,16 +272,16 @@ void Renderer::tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr r
 
 void Renderer::render_ray_debug_views(RenderState& render_state)
 {
-    vkCmdBindPipeline(render_state.cmd_buffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_ray_debug_pipeline->handle());
+    vkCmdBindPipeline(render_state.m_cmd_buffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_ray_debug_pipeline->handle());
 
     const VkDeviceSize offset = 0;
 
-    vkCmdBindVertexBuffers(render_state.cmd_buffer->handle(), 0, 1, &m_ray_debug_vbo->handle(), &offset);
+    vkCmdBindVertexBuffers(render_state.m_cmd_buffer->handle(), 0, 1, &m_ray_debug_vbo->handle(), &offset);
 
     glm::mat4 view_proj = render_state.m_camera->projection_matrix() * render_state.m_camera->view_matrix();
-    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_ray_debug_pipeline_layout->handle(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::mat4), &view_proj);
+    vkCmdPushConstants(render_state.m_cmd_buffer->handle(), m_ray_debug_pipeline_layout->handle(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::mat4), &view_proj);
 
-    vkCmdDrawIndirectCount(render_state.cmd_buffer->handle(), m_ray_debug_draw_cmd->handle(), 0, m_ray_debug_draw_count->handle(), 0, MAX_DEBUG_RAY_DRAW_COUNT, sizeof(uint32_t));
+    vkCmdDrawIndirect(render_state.m_cmd_buffer->handle(), m_ray_debug_draw_cmd->handle(), 0, 1, sizeof(uint32_t) * 4);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -266,9 +293,9 @@ void Renderer::on_window_resize()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Renderer::add_ray_debug_view(const glm::ivec2& pixel_coord, const glm::mat4& view, const glm::mat4& projection)
+void Renderer::add_ray_debug_view(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection)
 {
-    m_ray_debug_views.push_back({ pixel_coord, view, projection });
+    m_ray_debug_views.push_back({ pixel_coord, num_debug_rays, view, projection });
     m_ray_debug_view_added = true;
 }
 
@@ -424,7 +451,7 @@ void Renderer::create_ray_debug_pipeline()
 
     vk::PipelineLayout::Desc pl_desc;
 
-    pl_desc.add_push_constant_range(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::mat4));
+    pl_desc.add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4));
 
     m_ray_debug_pipeline_layout = vk::PipelineLayout::create(backend, pl_desc);
 
@@ -456,9 +483,8 @@ void Renderer::create_ray_debug_buffers()
 {
     auto backend = m_backend.lock();
 
-    m_ray_debug_vbo        = vk::Buffer::create(backend, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(RayDebugVertex) * MAX_DEBUG_RAY_DRAW_COUNT * 2, VMA_MEMORY_USAGE_GPU_ONLY, 0);
-    m_ray_debug_draw_cmd   = vk::Buffer::create(backend, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(int32_t) * 4 * MAX_DEBUG_RAY_DRAW_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
-    m_ray_debug_draw_count = vk::Buffer::create(backend, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(uint32_t) * MAX_DEBUG_RAY_DRAW_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
+    m_ray_debug_vbo      = vk::Buffer::create(backend, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(RayDebugVertex) * MAX_DEBUG_RAY_DRAW_COUNT * 2, VMA_MEMORY_USAGE_GPU_ONLY, 0);
+    m_ray_debug_draw_cmd = vk::Buffer::create(backend, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, sizeof(int32_t) * 4, VMA_MEMORY_USAGE_GPU_ONLY, 0);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -491,6 +517,8 @@ void Renderer::create_descriptor_sets()
 
     write_datas.reserve(4);
     image_descriptors.reserve(4);
+
+    m_ray_debug_ds = backend->allocate_descriptor_set(backend->ray_debug_descriptor_set_layout());
 
     for (int i = 0; i < 2; i++)
     {
@@ -547,6 +575,48 @@ void Renderer::create_descriptor_sets()
             write_datas.push_back(write_data);
         }
     }
+
+    VkDescriptorBufferInfo ray_debug_vbo_buffer_info;
+
+    LUMEN_ZERO_MEMORY(ray_debug_vbo_buffer_info);
+
+    ray_debug_vbo_buffer_info.buffer = m_ray_debug_vbo->handle();
+    ray_debug_vbo_buffer_info.offset = 0;
+    ray_debug_vbo_buffer_info.range  = VK_WHOLE_SIZE;
+
+    VkWriteDescriptorSet ray_debug_vbo_buffer_write_data;
+
+    LUMEN_ZERO_MEMORY(ray_debug_vbo_buffer_write_data);
+
+    ray_debug_vbo_buffer_write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    ray_debug_vbo_buffer_write_data.descriptorCount = 1;
+    ray_debug_vbo_buffer_write_data.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    ray_debug_vbo_buffer_write_data.pBufferInfo     = &ray_debug_vbo_buffer_info;
+    ray_debug_vbo_buffer_write_data.dstBinding      = 0;
+    ray_debug_vbo_buffer_write_data.dstSet          = m_ray_debug_ds->handle();
+
+    write_datas.push_back(ray_debug_vbo_buffer_write_data);
+
+    VkDescriptorBufferInfo ray_debug_draw_args_buffer_info;
+
+    LUMEN_ZERO_MEMORY(ray_debug_draw_args_buffer_info);
+
+    ray_debug_draw_args_buffer_info.buffer = m_ray_debug_draw_cmd->handle();
+    ray_debug_draw_args_buffer_info.offset = 0;
+    ray_debug_draw_args_buffer_info.range  = VK_WHOLE_SIZE;
+
+    VkWriteDescriptorSet ray_debug_draw_args_write_data;
+
+    LUMEN_ZERO_MEMORY(ray_debug_draw_args_write_data);
+
+    ray_debug_draw_args_write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    ray_debug_draw_args_write_data.descriptorCount = 1;
+    ray_debug_draw_args_write_data.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    ray_debug_draw_args_write_data.pBufferInfo     = &ray_debug_draw_args_buffer_info;
+    ray_debug_draw_args_write_data.dstBinding      = 1;
+    ray_debug_draw_args_write_data.dstSet          = m_ray_debug_ds->handle();
+
+    write_datas.push_back(ray_debug_vbo_buffer_write_data);
 
     vkUpdateDescriptorSets(backend->device(), write_datas.size(), &write_datas[0], 0, nullptr);
 }

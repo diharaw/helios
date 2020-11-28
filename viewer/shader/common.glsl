@@ -33,6 +33,12 @@ struct Vertex
     vec4 bitangent;
 };
 
+struct DebugRayVertex
+{
+    vec4 position;
+    vec4 color;
+};
+
 struct Triangle
 {
     Vertex v0;

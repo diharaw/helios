@@ -14,7 +14,10 @@ public:
 
     struct PushConstants
     {
+        glm::mat4  view_inverse;
+        glm::mat4  proj_inverse;
         glm::uvec4 num_lights; // x: directional lights, y: point lights, z: spot lights, w: area lights
+        glm::ivec2 ray_debug_pixel_coord;
         float      accumulation;
         uint32_t   num_frames;
     };
@@ -29,6 +32,6 @@ public:
 
 protected:
     virtual void execute(RenderState& render_state) = 0;
-    virtual void gather_debug_rays(const glm::ivec2& pixel_coord, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state);
+    virtual void gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state);
 };
 } // namespace lumen

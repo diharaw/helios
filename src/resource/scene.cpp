@@ -2,7 +2,6 @@
 #include <resource/mesh.h>
 #include <resource/material.h>
 #include <resource/texture.h>
-#include <utility/macros.h>
 #include <vk_mem_alloc.h>
 #include <unordered_map>
 #include <unordered_set>
@@ -11,22 +10,7 @@ namespace lumen
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-struct CameraData
-{
-    LUMEN_ALIGNED(16)
-    glm::mat4 view_inverse;
-    LUMEN_ALIGNED(16)
-    glm::mat4 proj_inverse;
-    LUMEN_ALIGNED(16)
-    glm::mat4 view;
-    LUMEN_ALIGNED(16)
-    glm::mat4 proj;
-    LUMEN_ALIGNED(16)
-    glm::vec4 cam_pos;
-};
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-struct GPUMaterial
+struct MaterialData
 {
     glm::ivec4 texture_indices0 = glm::ivec4(-1); // x: albedo, y: normals, z: roughness, w: metallic
     glm::ivec4 texture_indices1 = glm::ivec4(-1); // x: emissive, z: roughness_channel, w: metallic_channel
@@ -37,7 +21,7 @@ struct GPUMaterial
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-struct GPULight
+struct LightData
 {
     glm::vec4 light_data0; // x: light type, yzw: color
     glm::vec4 light_data1; // xyz: direction, w: intensity
@@ -46,7 +30,7 @@ struct GPULight
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-struct GPUInstance
+struct InstanceData
 {
     uint32_t   mesh_index;
     float      padding[3];
@@ -593,19 +577,18 @@ void RenderState::clear()
     m_directional_lights.clear();
     m_spot_lights.clear();
     m_point_lights.clear();
-    m_camera               = nullptr;
-    m_ibl_environment_map  = nullptr;
-    m_read_image_ds        = nullptr;
-    m_write_image_ds       = nullptr;
-    m_scene_ds             = nullptr;
-    m_cmd_buffer           = nullptr;
-    m_scene                = nullptr;
-    m_vbo_ds               = nullptr;
-    m_ibo_ds               = nullptr;
-    m_instance_ds          = nullptr;
-    m_texture_ds           = nullptr;
-    m_scene_state          = SCENE_STATE_READY;
-    m_camera_buffer_offset = 0;
+    m_camera              = nullptr;
+    m_ibl_environment_map = nullptr;
+    m_read_image_ds       = nullptr;
+    m_write_image_ds      = nullptr;
+    m_scene_ds            = nullptr;
+    m_cmd_buffer          = nullptr;
+    m_scene               = nullptr;
+    m_vbo_ds              = nullptr;
+    m_ibo_ds              = nullptr;
+    m_instance_ds         = nullptr;
+    m_texture_ds          = nullptr;
+    m_scene_state         = SCENE_STATE_READY;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -683,15 +666,11 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
     m_instance_descriptor_set = vk::DescriptorSet::create(backend, backend->buffer_array_descriptor_set_layout(), m_descriptor_pool);
     m_textures_descriptor_set = vk::DescriptorSet::create(backend, backend->combined_sampler_array_descriptor_set_layout(), m_descriptor_pool);
 
-    // Create camera buffer
-    m_camera_buffer_aligned_size = backend->aligned_dynamic_ubo_size(sizeof(CameraData));
-    m_camera_buffer              = vk::Buffer::create(backend, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, m_camera_buffer_aligned_size * vk::Backend::kMaxFramesInFlight, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
-
     // Create light data buffer
-    m_light_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(GPULight) * MAX_SCENE_LIGHT_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+    m_light_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(LightData) * MAX_SCENE_LIGHT_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
     // Create material data buffer
-    m_material_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(GPUMaterial) * MAX_SCENE_MATERIAL_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+    m_material_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(MaterialData) * MAX_SCENE_MATERIAL_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -730,25 +709,6 @@ void Scene::update(RenderState& render_state)
 
     m_root->update(render_state);
 
-    // Copy camera data
-    if (render_state.m_camera)
-    {
-        CameraData camera_data;
-
-        camera_data.view         = render_state.m_camera->view_matrix();
-        camera_data.view_inverse = glm::inverse(camera_data.view);
-        camera_data.proj         = render_state.m_camera->projection_matrix();
-        camera_data.proj_inverse = glm::inverse(camera_data.proj);
-        camera_data.cam_pos      = glm::vec4(render_state.m_camera->position(), 0.0f);
-
-        uint32_t camera_buffer_offset = m_camera_buffer_aligned_size * backend->current_frame_idx();
-
-        uint8_t* ptr = (uint8_t*)m_camera_buffer->mapped_ptr();
-        memcpy(ptr + camera_buffer_offset, &camera_data, sizeof(CameraData));
-
-        render_state.m_camera_buffer_offset = camera_buffer_offset;
-    }
-
     create_gpu_resources(render_state);
 }
 
@@ -773,7 +733,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
             std::vector<VkDescriptorImageInfo>  image_descriptors;
             std::vector<VkDescriptorBufferInfo> instance_data_descriptors;
             uint32_t                            gpu_material_counter     = 0;
-            GPUMaterial*                        material_buffer          = (GPUMaterial*)m_material_data_buffer->mapped_ptr();
+            MaterialData*                       material_buffer          = (MaterialData*)m_material_data_buffer->mapped_ptr();
             VkAccelerationStructureInstanceKHR* geometry_instance_buffer = (VkAccelerationStructureInstanceKHR*)m_tlas.instance_buffer_host->mapped_ptr();
 
             for (int mesh_node_idx = 0; mesh_node_idx < render_state.m_meshes.size(); mesh_node_idx++)
@@ -816,13 +776,13 @@ void Scene::create_gpu_resources(RenderState& render_state)
                         {
                             processed_materials.insert(material->id());
 
-                            GPUMaterial& gpu_material = material_buffer[gpu_material_counter++];
+                            MaterialData& material_data = material_buffer[gpu_material_counter++];
 
-                            gpu_material.texture_indices0   = glm::ivec4(-1);
-                            gpu_material.texture_indices1   = glm::ivec4(-1);
-                            gpu_material.albedo             = glm::vec4(0.0f);
-                            gpu_material.emissive           = glm::vec4(0.0f);
-                            gpu_material.roughness_metallic = glm::vec4(0.0f);
+                            material_data.texture_indices0   = glm::ivec4(-1);
+                            material_data.texture_indices1   = glm::ivec4(-1);
+                            material_data.albedo             = glm::vec4(0.0f);
+                            material_data.emissive           = glm::vec4(0.0f);
+                            material_data.roughness_metallic = glm::vec4(0.0f);
 
                             // Fill GPUMaterial
                             if (material->albedo_texture())
@@ -839,13 +799,13 @@ void Scene::create_gpu_resources(RenderState& render_state)
                                     image_info.imageView   = texture->image_view()->handle();
                                     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-                                    gpu_material.texture_indices0.x = image_descriptors.size();
+                                    material_data.texture_indices0.x = image_descriptors.size();
 
                                     image_descriptors.push_back(image_info);
                                 }
                             }
                             else
-                                gpu_material.albedo = material->albedo_value();
+                                material_data.albedo = material->albedo_value();
 
                             if (material->normal_texture())
                             {
@@ -861,7 +821,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
                                     image_info.imageView   = texture->image_view()->handle();
                                     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-                                    gpu_material.texture_indices0.y = image_descriptors.size();
+                                    material_data.texture_indices0.y = image_descriptors.size();
 
                                     image_descriptors.push_back(image_info);
                                 }
@@ -881,14 +841,14 @@ void Scene::create_gpu_resources(RenderState& render_state)
                                     image_info.imageView   = texture->image_view()->handle();
                                     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-                                    gpu_material.texture_indices0.z = image_descriptors.size();
-                                    gpu_material.texture_indices1.z = material->roughness_texture_info().array_index;
+                                    material_data.texture_indices0.z = image_descriptors.size();
+                                    material_data.texture_indices1.z = material->roughness_texture_info().array_index;
 
                                     image_descriptors.push_back(image_info);
                                 }
                             }
                             else
-                                gpu_material.roughness_metallic.x = material->roughness_value();
+                                material_data.roughness_metallic.x = material->roughness_value();
 
                             if (material->metallic_texture())
                             {
@@ -904,14 +864,14 @@ void Scene::create_gpu_resources(RenderState& render_state)
                                     image_info.imageView   = texture->image_view()->handle();
                                     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-                                    gpu_material.texture_indices0.w = image_descriptors.size();
-                                    gpu_material.texture_indices1.w = material->metallic_texture_info().array_index;
+                                    material_data.texture_indices0.w = image_descriptors.size();
+                                    material_data.texture_indices1.w = material->metallic_texture_info().array_index;
 
                                     image_descriptors.push_back(image_info);
                                 }
                             }
                             else
-                                gpu_material.roughness_metallic.y = material->metallic_value();
+                                material_data.roughness_metallic.y = material->metallic_value();
 
                             if (material->emissive_texture())
                             {
@@ -927,13 +887,13 @@ void Scene::create_gpu_resources(RenderState& render_state)
                                     image_info.imageView   = texture->image_view()->handle();
                                     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-                                    gpu_material.texture_indices1.x = image_descriptors.size();
+                                    material_data.texture_indices1.x = image_descriptors.size();
 
                                     image_descriptors.push_back(image_info);
                                 }
                             }
                             else
-                                gpu_material.emissive = material->emissive_value();
+                                material_data.emissive = material->emissive_value();
 
                             global_material_indices[material->id()] = gpu_material_counter - 1;
                         }
@@ -962,7 +922,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
                 rt_instance.accelerationStructureReference         = mesh->acceleration_structure()->device_address();
 
                 // Update instance data
-                GPUInstance* instance_data = (GPUInstance*)mesh_node->instance_data_buffer()->mapped_ptr();
+                InstanceData* instance_data = (InstanceData*)mesh_node->instance_data_buffer()->mapped_ptr();
 
                 // Set mesh data index
                 instance_data->mesh_index = global_mesh_indices[mesh->id()];
@@ -986,12 +946,6 @@ void Scene::create_gpu_resources(RenderState& render_state)
                 }
             }
 
-            VkDescriptorBufferInfo camera_buffer_info;
-
-            camera_buffer_info.buffer = m_camera_buffer->handle();
-            camera_buffer_info.offset = 0;
-            camera_buffer_info.range  = VK_WHOLE_SIZE;
-
             VkDescriptorBufferInfo material_buffer_info;
 
             material_buffer_info.buffer = m_material_data_buffer->handle();
@@ -1004,7 +958,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
             light_buffer_info.offset = 0;
             light_buffer_info.range  = VK_WHOLE_SIZE;
 
-            VkWriteDescriptorSet write_data[8];
+            VkWriteDescriptorSet write_data[7];
 
             LUMEN_ZERO_MEMORY(write_data[0]);
             LUMEN_ZERO_MEMORY(write_data[1]);
@@ -1013,28 +967,20 @@ void Scene::create_gpu_resources(RenderState& render_state)
             LUMEN_ZERO_MEMORY(write_data[4]);
             LUMEN_ZERO_MEMORY(write_data[5]);
             LUMEN_ZERO_MEMORY(write_data[6]);
-            LUMEN_ZERO_MEMORY(write_data[7]);
 
             write_data[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[0].descriptorCount = 1;
-            write_data[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-            write_data[0].pBufferInfo     = &camera_buffer_info;
+            write_data[0].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            write_data[0].pBufferInfo     = &material_buffer_info;
             write_data[0].dstBinding      = 0;
             write_data[0].dstSet          = m_scene_descriptor_set->handle();
 
             write_data[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[1].descriptorCount = 1;
             write_data[1].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[1].pBufferInfo     = &material_buffer_info;
+            write_data[1].pBufferInfo     = &light_buffer_info;
             write_data[1].dstBinding      = 1;
             write_data[1].dstSet          = m_scene_descriptor_set->handle();
-
-            write_data[2].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[2].descriptorCount = 1;
-            write_data[2].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[2].pBufferInfo     = &light_buffer_info;
-            write_data[2].dstBinding      = 2;
-            write_data[2].dstSet          = m_scene_descriptor_set->handle();
 
             VkWriteDescriptorSetAccelerationStructureKHR descriptor_as;
 
@@ -1043,78 +989,78 @@ void Scene::create_gpu_resources(RenderState& render_state)
             descriptor_as.accelerationStructureCount = 1;
             descriptor_as.pAccelerationStructures    = &m_tlas.tlas->handle();
 
+            write_data[2].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_data[2].pNext           = &descriptor_as;
+            write_data[2].descriptorCount = 1;
+            write_data[2].descriptorType  = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+            write_data[2].dstBinding      = 2;
+            write_data[2].dstSet          = m_scene_descriptor_set->handle();
+
             write_data[3].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[3].pNext           = &descriptor_as;
-            write_data[3].descriptorCount = 1;
-            write_data[3].descriptorType  = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-            write_data[3].dstBinding      = 3;
-            write_data[3].dstSet          = m_scene_descriptor_set->handle();
+            write_data[3].descriptorCount = vbo_descriptors.size();
+            write_data[3].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            write_data[3].pBufferInfo     = vbo_descriptors.data();
+            write_data[3].dstBinding      = 0;
+            write_data[3].dstSet          = m_vbo_descriptor_set->handle();
 
             write_data[4].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[4].descriptorCount = vbo_descriptors.size();
+            write_data[4].descriptorCount = ibo_descriptors.size();
             write_data[4].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[4].pBufferInfo     = vbo_descriptors.data();
+            write_data[4].pBufferInfo     = ibo_descriptors.data();
             write_data[4].dstBinding      = 0;
-            write_data[4].dstSet          = m_vbo_descriptor_set->handle();
+            write_data[4].dstSet          = m_ibo_descriptor_set->handle();
 
             write_data[5].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[5].descriptorCount = ibo_descriptors.size();
+            write_data[5].descriptorCount = instance_data_descriptors.size();
             write_data[5].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[5].pBufferInfo     = ibo_descriptors.data();
+            write_data[5].pBufferInfo     = instance_data_descriptors.data();
             write_data[5].dstBinding      = 0;
-            write_data[5].dstSet          = m_ibo_descriptor_set->handle();
+            write_data[5].dstSet          = m_instance_descriptor_set->handle();
 
             write_data[6].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[6].descriptorCount = instance_data_descriptors.size();
-            write_data[6].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[6].pBufferInfo     = instance_data_descriptors.data();
+            write_data[6].descriptorCount = image_descriptors.size();
+            write_data[6].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write_data[6].pImageInfo      = image_descriptors.data();
             write_data[6].dstBinding      = 0;
-            write_data[6].dstSet          = m_instance_descriptor_set->handle();
+            write_data[6].dstSet          = m_textures_descriptor_set->handle();
 
-            write_data[7].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[7].descriptorCount = image_descriptors.size();
-            write_data[7].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            write_data[7].pImageInfo      = image_descriptors.data();
-            write_data[7].dstBinding      = 0;
-            write_data[7].dstSet          = m_textures_descriptor_set->handle();
-
-            vkUpdateDescriptorSets(backend->device(), image_descriptors.size() > 0 ? 8 : 7, write_data, 0, nullptr);
+            vkUpdateDescriptorSets(backend->device(), image_descriptors.size() > 0 ? 7 : 6, write_data, 0, nullptr);
         }
 
         // Copy lights
-        uint32_t  gpu_light_counter = 0;
-        GPULight* light_buffer      = (GPULight*)m_light_data_buffer->mapped_ptr();
+        uint32_t   gpu_light_counter = 0;
+        LightData* light_buffer      = (LightData*)m_light_data_buffer->mapped_ptr();
 
         for (int i = 0; i < render_state.m_directional_lights.size(); i++)
         {
             auto light = render_state.m_directional_lights[i];
 
-            GPULight& gpu_light = light_buffer[gpu_light_counter++];
+            LightData& light_data = light_buffer[gpu_light_counter++];
 
-            gpu_light.light_data0 = glm::vec4(0.0f, light->color());
-            gpu_light.light_data1 = glm::vec4(light->forward(), light->intensity());
+            light_data.light_data0 = glm::vec4(0.0f, light->color());
+            light_data.light_data1 = glm::vec4(light->forward(), light->intensity());
         }
 
         for (int i = 0; i < render_state.m_point_lights.size(); i++)
         {
             auto light = render_state.m_point_lights[i];
 
-            GPULight& gpu_light = light_buffer[gpu_light_counter++];
+            LightData& light_data = light_buffer[gpu_light_counter++];
 
-            gpu_light.light_data0 = glm::vec4(1.0f, light->color());
-            gpu_light.light_data1 = glm::vec4(0.0f, 0.0f, 0.0f, light->intensity());
-            gpu_light.light_data2 = glm::vec4(light->range(), 0.0f, 0.0f, 0.0f);
+            light_data.light_data0 = glm::vec4(1.0f, light->color());
+            light_data.light_data1 = glm::vec4(0.0f, 0.0f, 0.0f, light->intensity());
+            light_data.light_data2 = glm::vec4(light->range(), 0.0f, 0.0f, 0.0f);
         }
 
         for (int i = 0; i < render_state.m_spot_lights.size(); i++)
         {
             auto light = render_state.m_spot_lights[i];
 
-            GPULight& gpu_light = light_buffer[gpu_light_counter++];
+            LightData& light_data = light_buffer[gpu_light_counter++];
 
-            gpu_light.light_data0 = glm::vec4(2.0f, light->color());
-            gpu_light.light_data1 = glm::vec4(light->forward(), light->intensity());
-            gpu_light.light_data2 = glm::vec4(light->range(), light->cone_angle(), 0.0f, 0.0f);
+            light_data.light_data0 = glm::vec4(2.0f, light->color());
+            light_data.light_data1 = glm::vec4(light->forward(), light->intensity());
+            light_data.light_data2 = glm::vec4(light->range(), light->cone_angle(), 0.0f, 0.0f);
         }
     }
 }

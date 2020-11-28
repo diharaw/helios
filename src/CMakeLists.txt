@@ -35,7 +35,9 @@ list(APPEND LUMEN_SOURCES ${PROJECT_SOURCE_DIR}/external/imgui/imgui.cpp
                           ${PROJECT_SOURCE_DIR}/external/imgui/examples/imgui_impl_glfw.cpp)
 
 set(LUMEN_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/src/shader/triangle.vert
-                         ${PROJECT_SOURCE_DIR}/src/shader/tone_map.frag)
+                         ${PROJECT_SOURCE_DIR}/src/shader/tone_map.frag
+                         ${PROJECT_SOURCE_DIR}/src/shader/debug_ray.vert
+                         ${PROJECT_SOURCE_DIR}/src/shader/debug_ray.frag)
 
 if (APPLE)
     add_library(Lumen MACOSX_BUNDLE ${LUMEN_HEADERS} ${LUMEN_SOURCES})

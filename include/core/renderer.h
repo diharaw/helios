@@ -15,8 +15,9 @@ private:
     struct RayDebugView
     {
         glm::ivec2 pixel_coord;
-        glm::mat4 view;
-        glm::mat4 projection;
+        uint32_t   num_debug_rays;
+        glm::mat4  view;
+        glm::mat4  projection;
     };
 
     std::vector<RayDebugView>  m_ray_debug_views;
@@ -26,14 +27,14 @@ private:
     vk::ImageView::Ptr         m_output_image_views[2];
     vk::DescriptorSet::Ptr     m_output_storage_image_ds[2];
     vk::DescriptorSet::Ptr     m_input_combined_sampler_ds[2];
+    vk::DescriptorSet::Ptr     m_ray_debug_ds;
     vk::GraphicsPipeline::Ptr  m_tone_map_pipeline;
     vk::PipelineLayout::Ptr    m_tone_map_pipeline_layout;
     vk::GraphicsPipeline::Ptr  m_ray_debug_pipeline;
     vk::PipelineLayout::Ptr    m_ray_debug_pipeline_layout;
     vk::Buffer::Ptr            m_ray_debug_vbo;
     vk::Buffer::Ptr            m_ray_debug_draw_cmd;
-    vk::Buffer::Ptr            m_ray_debug_draw_count;
-    bool                       m_output_ping_pong = false;
+    bool                       m_output_ping_pong     = false;
     bool                       m_ray_debug_view_added = false;
 
 public:
@@ -42,7 +43,7 @@ public:
 
     void render(RenderState& render_state, std::shared_ptr<Integrator> integrator);
     void on_window_resize();
-    void add_ray_debug_view(const glm::ivec2& pixel_coord, const glm::mat4& view, const glm::mat4& projection);
+    void add_ray_debug_view(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection);
     void clear_ray_debug_views();
 
 private:

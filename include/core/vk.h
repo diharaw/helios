@@ -130,6 +130,7 @@ public:
     inline std::shared_ptr<DescriptorSetLayout>    combined_sampler_array_descriptor_set_layout() { return m_combined_sampler_array_descriptor_set_layout; }
     inline std::shared_ptr<DescriptorSetLayout>    image_descriptor_set_layout() { return m_image_descriptor_set_layout; }
     inline std::shared_ptr<DescriptorSetLayout>    combined_sampler_descriptor_set_layout() { return m_combined_sampler_descriptor_set_layout; }
+    inline std::shared_ptr<DescriptorSetLayout>    ray_debug_descriptor_set_layout() { return m_ray_debug_descriptor_set_layout; }
     inline std::shared_ptr<Sampler>                bilinear_sampler() { return m_bilinear_sampler; }
     inline std::shared_ptr<Sampler>                trilinear_sampler() { return m_trilinear_sampler; }
     inline std::shared_ptr<Sampler>                nearest_sampler() { return m_nearest_sampler; }
@@ -191,6 +192,7 @@ private:
     std::shared_ptr<DescriptorSetLayout>                     m_combined_sampler_array_descriptor_set_layout;
     std::shared_ptr<DescriptorSetLayout>                     m_image_descriptor_set_layout;
     std::shared_ptr<DescriptorSetLayout>                     m_combined_sampler_descriptor_set_layout;
+    std::shared_ptr<DescriptorSetLayout>                     m_ray_debug_descriptor_set_layout;
     std::shared_ptr<Sampler>                                 m_bilinear_sampler;
     std::shared_ptr<Sampler>                                 m_trilinear_sampler;
     std::shared_ptr<Sampler>                                 m_nearest_sampler;
