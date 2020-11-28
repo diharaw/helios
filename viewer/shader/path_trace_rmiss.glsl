@@ -36,13 +36,13 @@ void main()
 
     DebugRayVertex v0;
 
-    v0.position = vec4(gl_WorldRayOriginEXT, 0.0f);
-    v0.color = vec4(ray_payload.color, 0.0f);
+    v0.position = vec4(gl_WorldRayOriginEXT, 1.0f);
+    v0.color = vec4(ray_payload.color, 1.0f);
 
     DebugRayVertex v1;
 
-    v1.position = vec4(gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT  * gl_RayTmaxEXT, 0.0f);
-    v1.color = vec4(ray_payload.color, 0.0f);
+    v1.position = vec4(gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT  * gl_RayTmaxEXT, 1.0f);
+    v1.color = vec4(ray_payload.color, 1.0f);
 
     DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 0] = v0;
     DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 1] = v1;

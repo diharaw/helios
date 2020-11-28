@@ -302,6 +302,7 @@ private:
     vk::DescriptorSet::Ptr             m_ibo_ds;
     vk::DescriptorSet::Ptr             m_instance_ds;
     vk::DescriptorSet::Ptr             m_texture_ds;
+    vk::DescriptorSet::Ptr             m_ray_debug_ds;
     vk::CommandBuffer::Ptr             m_cmd_buffer;
 
 public:
@@ -329,6 +330,7 @@ public:
     inline vk::DescriptorSet::Ptr                    ibo_descriptor_set() { return m_ibo_ds; }
     inline vk::DescriptorSet::Ptr                    instance_descriptor_set() { return m_instance_ds; }
     inline vk::DescriptorSet::Ptr                    texture_descriptor_set() { return m_texture_ds; }
+    inline vk::DescriptorSet::Ptr                    ray_debug_descriptor_set() { return m_ray_debug_ds; }
     inline vk::CommandBuffer::Ptr                    cmd_buffer() { return m_cmd_buffer; }
 };
 

@@ -588,6 +588,7 @@ void RenderState::clear()
     m_ibo_ds              = nullptr;
     m_instance_ds         = nullptr;
     m_texture_ds          = nullptr;
+    m_ray_debug_ds        = nullptr;
     m_scene_state         = SCENE_STATE_READY;
 }
 

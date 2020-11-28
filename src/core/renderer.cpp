@@ -134,6 +134,7 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
 
     render_state.m_write_image_ds = m_output_storage_image_ds[write_index];
     render_state.m_read_image_ds  = m_output_storage_image_ds[read_index];
+    render_state.m_ray_debug_ds   = m_ray_debug_ds;
 
     VkImageSubresourceRange subresource_range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 
@@ -163,6 +164,8 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
 
         if (m_ray_debug_view_added)
         {
+            m_ray_debug_view_added = false;
+
             // If the ray debug view was just added in the current frame, reset the draw cmd data.
             if (m_ray_debug_views.size() == 1)
             {
@@ -279,7 +282,7 @@ void Renderer::render_ray_debug_views(RenderState& render_state)
     vkCmdBindVertexBuffers(render_state.m_cmd_buffer->handle(), 0, 1, &m_ray_debug_vbo->handle(), &offset);
 
     glm::mat4 view_proj = render_state.m_camera->projection_matrix() * render_state.m_camera->view_matrix();
-    vkCmdPushConstants(render_state.m_cmd_buffer->handle(), m_ray_debug_pipeline_layout->handle(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::mat4), &view_proj);
+    vkCmdPushConstants(render_state.m_cmd_buffer->handle(), m_ray_debug_pipeline_layout->handle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &view_proj);
 
     vkCmdDrawIndirect(render_state.m_cmd_buffer->handle(), m_ray_debug_draw_cmd->handle(), 0, 1, sizeof(uint32_t) * 4);
 }
@@ -297,6 +300,13 @@ void Renderer::add_ray_debug_view(const glm::ivec2& pixel_coord, const uint32_t&
 {
     m_ray_debug_views.push_back({ pixel_coord, num_debug_rays, view, projection });
     m_ray_debug_view_added = true;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+const std::vector<RayDebugView>& Renderer::ray_debug_views() 
+{ 
+    return m_ray_debug_views; 
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -355,10 +365,10 @@ void Renderer::create_ray_debug_pipeline()
 
     vk::VertexInputStateDesc vertex_input_state_desc;
 
-    vertex_input_state_desc.add_binding_desc(0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX);
+    vertex_input_state_desc.add_binding_desc(0, sizeof(RayDebugVertex), VK_VERTEX_INPUT_RATE_VERTEX);
 
     vertex_input_state_desc.add_attribute_desc(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
-    vertex_input_state_desc.add_attribute_desc(1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
+    vertex_input_state_desc.add_attribute_desc(1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(RayDebugVertex, color));
 
     pso_desc.set_vertex_input_state(vertex_input_state_desc);
 
@@ -515,7 +525,7 @@ void Renderer::create_descriptor_sets()
     std::vector<VkWriteDescriptorSet>  write_datas;
     std::vector<VkDescriptorImageInfo> image_descriptors;
 
-    write_datas.reserve(4);
+    write_datas;
     image_descriptors.reserve(4);
 
     m_ray_debug_ds = backend->allocate_descriptor_set(backend->ray_debug_descriptor_set_layout());
@@ -616,7 +626,7 @@ void Renderer::create_descriptor_sets()
     ray_debug_draw_args_write_data.dstBinding      = 1;
     ray_debug_draw_args_write_data.dstSet          = m_ray_debug_ds->handle();
 
-    write_datas.push_back(ray_debug_vbo_buffer_write_data);
+    write_datas.push_back(ray_debug_draw_args_write_data);
 
     vkUpdateDescriptorSets(backend->device(), write_datas.size(), &write_datas[0], 0, nullptr);
 }

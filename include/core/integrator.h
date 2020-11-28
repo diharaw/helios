@@ -17,7 +17,7 @@ public:
         glm::mat4  view_inverse;
         glm::mat4  proj_inverse;
         glm::uvec4 num_lights; // x: directional lights, y: point lights, z: spot lights, w: area lights
-        glm::ivec2 ray_debug_pixel_coord;
+        glm::ivec4 ray_debug_pixel_coord;
         float      accumulation;
         uint32_t   num_frames;
     };

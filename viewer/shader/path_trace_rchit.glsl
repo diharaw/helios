@@ -90,7 +90,7 @@ layout(push_constant) uniform PathTraceConsts
     mat4 view_inverse;
     mat4 proj_inverse;
     uvec4 num_lights; // x: directional lights, y: point lights, z: spot lights, w: area lights  
-    ivec2 ray_debug_pixel_coord;
+    ivec4 ray_debug_pixel_coord;
     float accumulation;
     uint num_frames;
 } u_PathTraceConsts;
@@ -312,13 +312,13 @@ void main()
 
     DebugRayVertex v0;
 
-    v0.position = vec4(gl_WorldRayOriginEXT, 0.0f);
-    v0.color = vec4(ray_payload.color, 0.0f);
+    v0.position = vec4(gl_WorldRayOriginEXT, 1.0f);
+    v0.color = vec4(ray_payload.color, 1.0f);
 
     DebugRayVertex v1;
 
-    v1.position = vec4(gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT  * gl_HitTEXT, 0.0f);
-    v1.color = vec4(ray_payload.color, 0.0f);
+    v1.position = vec4(gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT  * gl_HitTEXT, 1.0f);
+    v1.color = vec4(ray_payload.color, 1.0f);
 
     DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 0] = v0;
     DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 1] = v1;

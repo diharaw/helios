@@ -9,17 +9,17 @@ namespace lumen
 class Integrator;
 class ResourceManager;
 
+    struct RayDebugView
+{
+    glm::ivec2 pixel_coord;
+    uint32_t   num_debug_rays;
+    glm::mat4  view;
+    glm::mat4  projection;
+};
+
 class Renderer
 {
 private:
-    struct RayDebugView
-    {
-        glm::ivec2 pixel_coord;
-        uint32_t   num_debug_rays;
-        glm::mat4  view;
-        glm::mat4  projection;
-    };
-
     std::vector<RayDebugView>  m_ray_debug_views;
     std::weak_ptr<vk::Backend> m_backend;
     vk::Buffer::Ptr            m_tlas_instance_buffer_device;
@@ -44,6 +44,7 @@ public:
     void render(RenderState& render_state, std::shared_ptr<Integrator> integrator);
     void on_window_resize();
     void add_ray_debug_view(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection);
+    const std::vector<RayDebugView>& ray_debug_views();
     void clear_ray_debug_views();
 
 private:

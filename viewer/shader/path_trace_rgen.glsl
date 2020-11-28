@@ -90,7 +90,7 @@ layout(push_constant) uniform PathTraceConsts
     mat4 view_inverse;
     mat4 proj_inverse;
     uvec4 num_lights; // x: directional lights, y: point lights, z: spot lights, w: area lights  
-    ivec2 ray_debug_pixel_coord;
+    ivec4 ray_debug_pixel_coord;
     float accumulation;
     uint num_frames;
 } u_PathTraceConsts;
@@ -129,12 +129,16 @@ void main()
 
     // Compute Pixel Coordinates
 #if defined(RAY_DEBUG_VIEW)
-    const vec2 pixel_coord = vec2(u_PathTraceConsts.ray_debug_pixel_coord) + vec2(0.5);
+    const vec2 pixel_coord = vec2(u_PathTraceConsts.ray_debug_pixel_coord.xy) + vec2(0.5);
 #else
     const vec2 pixel_coord = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 #endif
     const vec2 jittered_coord = pixel_coord + vec2(next_float(ray_payload.rng), next_float(ray_payload.rng)); 
-    const vec2 tex_coord      = jittered_coord / vec2(gl_LaunchSizeEXT.xy);
+#if defined(RAY_DEBUG_VIEW)
+    const vec2 tex_coord = jittered_coord / vec2(u_PathTraceConsts.ray_debug_pixel_coord.zw);
+#else
+    const vec2 tex_coord = jittered_coord / vec2(gl_LaunchSizeEXT.xy);
+#endif
     vec2 tex_coord_neg_to_pos = tex_coord * 2.0 - 1.0;
 
     // Compute Ray Origin and Direction
