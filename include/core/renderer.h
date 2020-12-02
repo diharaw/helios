@@ -9,7 +9,7 @@ namespace lumen
 class Integrator;
 class ResourceManager;
 
-    struct RayDebugView
+struct RayDebugView
 {
     glm::ivec2 pixel_coord;
     uint32_t   num_debug_rays;
@@ -41,11 +41,11 @@ public:
     Renderer(vk::Backend::Ptr backend);
     ~Renderer();
 
-    void render(RenderState& render_state, std::shared_ptr<Integrator> integrator);
-    void on_window_resize();
-    void add_ray_debug_view(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection);
+    void                             render(RenderState& render_state, std::shared_ptr<Integrator> integrator);
+    void                             on_window_resize();
+    void                             add_ray_debug_view(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection);
     const std::vector<RayDebugView>& ray_debug_views();
-    void clear_ray_debug_views();
+    void                             clear_ray_debug_views();
 
 private:
     void tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr read_image);

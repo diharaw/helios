@@ -138,15 +138,9 @@ protected:
 
     void mouse_released(int code) override
     {
-        if (m_ray_debug_mode)
-        {
-        }
-        else
-        {
-            // Disable mouse look.
-            if (code == GLFW_MOUSE_BUTTON_RIGHT)
-                m_mouse_look = false;
-        }
+        // Disable mouse look.
+        if (code == GLFW_MOUSE_BUTTON_RIGHT)
+            m_mouse_look = false;
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------

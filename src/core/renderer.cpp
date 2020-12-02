@@ -304,9 +304,9 @@ void Renderer::add_ray_debug_view(const glm::ivec2& pixel_coord, const uint32_t&
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-const std::vector<RayDebugView>& Renderer::ray_debug_views() 
-{ 
-    return m_ray_debug_views; 
+const std::vector<RayDebugView>& Renderer::ray_debug_views()
+{
+    return m_ray_debug_views;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

@@ -23,9 +23,9 @@ struct MaterialData
 
 struct LightData
 {
-    glm::vec4 light_data0; // x: light type, yzw: color
-    glm::vec4 light_data1; // xyz: direction, w: intensity
-    glm::vec4 light_data2; // x: range, y: cone angle
+    glm::vec4 light_data0; // x: light type, yzw: color    | x: mesh_id, y: material_id, z: base_index,
+    glm::vec4 light_data1; // xyz: direction, w: intensity | x: index_count, y: vertex_count
+    glm::vec4 light_data2; // x: range, y: cone angle      |
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -577,19 +577,23 @@ void RenderState::clear()
     m_directional_lights.clear();
     m_spot_lights.clear();
     m_point_lights.clear();
-    m_camera              = nullptr;
-    m_ibl_environment_map = nullptr;
-    m_read_image_ds       = nullptr;
-    m_write_image_ds      = nullptr;
-    m_scene_ds            = nullptr;
-    m_cmd_buffer          = nullptr;
-    m_scene               = nullptr;
-    m_vbo_ds              = nullptr;
-    m_ibo_ds              = nullptr;
-    m_instance_ds         = nullptr;
-    m_texture_ds          = nullptr;
-    m_ray_debug_ds        = nullptr;
-    m_scene_state         = SCENE_STATE_READY;
+    m_camera                 = nullptr;
+    m_ibl_environment_map    = nullptr;
+    m_read_image_ds          = nullptr;
+    m_write_image_ds         = nullptr;
+    m_scene_ds               = nullptr;
+    m_cmd_buffer             = nullptr;
+    m_scene                  = nullptr;
+    m_vbo_ds                 = nullptr;
+    m_ibo_ds                 = nullptr;
+    m_instance_ds            = nullptr;
+    m_texture_ds             = nullptr;
+    m_ray_debug_ds           = nullptr;
+    m_num_directional_lights = 0;
+    m_num_spot_lights        = 0;
+    m_num_point_lights       = 0;
+    m_num_area_lights        = 0;
+    m_scene_state            = SCENE_STATE_READY;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -719,6 +723,10 @@ void Scene::create_gpu_resources(RenderState& render_state)
 {
     if (render_state.m_scene_state != SCENE_STATE_READY)
     {
+        // Copy lights
+        uint32_t   gpu_light_counter = 0;
+        LightData* light_buffer      = (LightData*)m_light_data_buffer->mapped_ptr();
+
         if (render_state.m_scene_state == SCENE_STATE_HIERARCHY_UPDATED)
         {
             auto backend = m_backend.lock();
@@ -768,7 +776,8 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                     for (uint32_t i = 0; i < submeshes.size(); i++)
                     {
-                        auto material = materials[submeshes[i].mat_idx];
+                        const SubMesh& submesh  = submeshes[i];
+                        auto           material = materials[submesh.mat_idx];
 
                         if (mesh_node->material_override())
                             material = mesh_node->material_override();
@@ -897,6 +906,16 @@ void Scene::create_gpu_resources(RenderState& render_state)
                                 material_data.emissive = material->emissive_value();
 
                             global_material_indices[material->id()] = gpu_material_counter - 1;
+                        }
+
+                        if (material->is_emissive())
+                        {
+                            render_state.m_num_area_lights++;
+
+                            LightData& light_data = light_buffer[gpu_light_counter++];
+
+                            light_data.light_data0 = glm::vec4(float(mesh_node_idx), float(global_material_indices[material->id()]), float(submesh.base_index), 0.0f);
+                            light_data.light_data1 = glm::vec4(float(submesh.index_count), float(submesh.vertex_count), 0.0f, 0.0f);
                         }
                     }
                 }
@@ -1028,10 +1047,6 @@ void Scene::create_gpu_resources(RenderState& render_state)
             vkUpdateDescriptorSets(backend->device(), image_descriptors.size() > 0 ? 7 : 6, write_data, 0, nullptr);
         }
 
-        // Copy lights
-        uint32_t   gpu_light_counter = 0;
-        LightData* light_buffer      = (LightData*)m_light_data_buffer->mapped_ptr();
-
         for (int i = 0; i < render_state.m_directional_lights.size(); i++)
         {
             auto light = render_state.m_directional_lights[i];
@@ -1063,6 +1078,10 @@ void Scene::create_gpu_resources(RenderState& render_state)
             light_data.light_data1 = glm::vec4(light->forward(), light->intensity());
             light_data.light_data2 = glm::vec4(light->range(), light->cone_angle(), 0.0f, 0.0f);
         }
+
+        render_state.m_num_directional_lights = render_state.m_directional_lights.size();
+        render_state.m_num_spot_lights        = render_state.m_spot_lights.size();
+        render_state.m_num_point_lights       = render_state.m_point_lights.size();
     }
 }
 

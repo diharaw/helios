@@ -37,7 +37,7 @@ void PathIntegrator::execute(RenderState& render_state)
     push_constants.ray_debug_pixel_coord = glm::uvec4(0);
     push_constants.view_inverse          = glm::inverse(render_state.camera()->view_matrix());
     push_constants.proj_inverse          = glm::inverse(render_state.camera()->projection_matrix());
-    push_constants.num_lights            = glm::uvec4(render_state.directional_lights().size(), render_state.point_lights().size(), render_state.spot_lights().size(), 0);
+    push_constants.num_lights            = glm::uvec4(render_state.num_area_lights(), render_state.num_directional_lights(), render_state.num_point_lights(), render_state.num_spot_lights());
     push_constants.num_frames            = render_state.num_accumulated_frames();
     push_constants.accumulation          = float(push_constants.num_frames) / float(push_constants.num_frames + 1);
 
