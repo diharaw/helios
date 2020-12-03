@@ -17,7 +17,7 @@
 
 //#define ENABLE_GPU_ASSISTED_VALIDATION
 
-namespace lumen
+namespace helios
 {
 namespace vk
 {
@@ -107,7 +107,7 @@ struct ThreadLocalCommandBuffers
     {
         if (allocated_buffers >= MAX_THREAD_LOCAL_COMMAND_BUFFERS)
         {
-            LUMEN_LOG_FATAL("(Vulkan) Max thread local command buffer count reached!");
+            HELIOS_LOG_FATAL("(Vulkan) Max thread local command buffer count reached!");
             throw std::runtime_error("(Vulkan) Max thread local command buffer count reached!");
         }
 
@@ -116,7 +116,7 @@ struct ThreadLocalCommandBuffers
         if (begin)
         {
             VkCommandBufferBeginInfo begin_info;
-            LUMEN_ZERO_MEMORY(begin_info);
+            HELIOS_ZERO_MEMORY(begin_info);
 
             begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -146,11 +146,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBit
         message_type_str = "Performance";
 
     if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT || messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
-        LUMEN_LOG_INFO("Vulkan - " + message_type_str + " : " + std::string(pCallbackData->pMessage));
+        HELIOS_LOG_INFO("Vulkan - " + message_type_str + " : " + std::string(pCallbackData->pMessage));
     if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-        LUMEN_LOG_WARNING("Vulkan -" + message_type_str + " : " + std::string(pCallbackData->pMessage));
+        HELIOS_LOG_WARNING("Vulkan -" + message_type_str + " : " + std::string(pCallbackData->pMessage));
     if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
-        LUMEN_LOG_ERROR("Vulkan - " + message_type_str + " : " + std::string(pCallbackData->pMessage));
+        HELIOS_LOG_ERROR("Vulkan - " + message_type_str + " : " + std::string(pCallbackData->pMessage));
 
     return VK_FALSE;
 }
@@ -201,7 +201,7 @@ Image::Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t he
         m_mip_levels = static_cast<uint32_t>(std::floor(std::log2(std::max(m_width, m_height)))) + 1;
 
     VkImageCreateInfo image_info;
-    LUMEN_ZERO_MEMORY(image_info);
+    HELIOS_ZERO_MEMORY(image_info);
 
     image_info.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     image_info.imageType     = m_type;
@@ -219,14 +219,14 @@ Image::Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t he
 
     VmaAllocationInfo       alloc_info;
     VmaAllocationCreateInfo alloc_create_info;
-    LUMEN_ZERO_MEMORY(alloc_create_info);
+    HELIOS_ZERO_MEMORY(alloc_create_info);
 
     alloc_create_info.usage = memory_usage;
     alloc_create_info.flags = 0;
 
     if (vmaCreateImage(m_vma_allocator, &image_info, &alloc_create_info, &m_vk_image, &m_vma_allocation, &alloc_info) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Image.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Image.");
         throw std::runtime_error("(Vulkan) Failed to create Image.");
     }
 
@@ -237,7 +237,7 @@ Image::Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t he
         CommandBuffer::Ptr cmd_buf = backend->allocate_graphics_command_buffer(true);
 
         VkImageSubresourceRange subresource_range;
-        LUMEN_ZERO_MEMORY(subresource_range);
+        HELIOS_ZERO_MEMORY(subresource_range);
 
         subresource_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
         subresource_range.baseMipLevel   = 0;
@@ -277,7 +277,7 @@ Image::~Image()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -294,7 +294,7 @@ void Image::upload_data(int array_index, int mip_level, void* data, size_t size,
     Buffer::Ptr staging = Buffer::create(backend, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size, VMA_MEMORY_USAGE_CPU_ONLY, VMA_ALLOCATION_CREATE_MAPPED_BIT, data);
 
     VkBufferImageCopy buffer_copy_region;
-    LUMEN_ZERO_MEMORY(buffer_copy_region);
+    HELIOS_ZERO_MEMORY(buffer_copy_region);
 
     buffer_copy_region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
     buffer_copy_region.imageSubresource.mipLevel       = mip_level;
@@ -306,7 +306,7 @@ void Image::upload_data(int array_index, int mip_level, void* data, size_t size,
     buffer_copy_region.bufferOffset                    = 0;
 
     VkImageSubresourceRange subresource_range;
-    LUMEN_ZERO_MEMORY(subresource_range);
+    HELIOS_ZERO_MEMORY(subresource_range);
 
     subresource_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
     subresource_range.baseMipLevel   = mip_level;
@@ -359,7 +359,7 @@ void Image::generate_mipmaps(VkImageLayout src_layout, VkImageLayout dst_layout)
     CommandBuffer::Ptr cmd_buf = backend->allocate_graphics_command_buffer(true);
 
     VkImageSubresourceRange subresource_range;
-    LUMEN_ZERO_MEMORY(subresource_range);
+    HELIOS_ZERO_MEMORY(subresource_range);
 
     subresource_range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     subresource_range.levelCount = 1;
@@ -446,7 +446,7 @@ ImageView::ImageView(Backend::Ptr backend, Image::Ptr image, VkImageViewType vie
     Object(backend)
 {
     VkImageViewCreateInfo info;
-    LUMEN_ZERO_MEMORY(info);
+    HELIOS_ZERO_MEMORY(info);
 
     info.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     info.image                           = image->handle();
@@ -460,7 +460,7 @@ ImageView::ImageView(Backend::Ptr backend, Image::Ptr image, VkImageViewType vie
 
     if (vkCreateImageView(backend->device(), &info, nullptr, &m_vk_image_view) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Image View.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Image View.");
         throw std::runtime_error("(Vulkan) Failed to create Image View.");
     }
 }
@@ -471,7 +471,7 @@ ImageView::~ImageView()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -493,7 +493,7 @@ RenderPass::RenderPass(Backend::Ptr backend, std::vector<VkAttachmentDescription
     Object(backend)
 {
     VkRenderPassCreateInfo render_pass_info;
-    LUMEN_ZERO_MEMORY(render_pass_info);
+    HELIOS_ZERO_MEMORY(render_pass_info);
 
     render_pass_info.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     render_pass_info.attachmentCount = attachment_descs.size();
@@ -505,7 +505,7 @@ RenderPass::RenderPass(Backend::Ptr backend, std::vector<VkAttachmentDescription
 
     if (vkCreateRenderPass(backend->device(), &render_pass_info, nullptr, &m_vk_render_pass) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Render Pass.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Render Pass.");
         throw std::runtime_error("(Vulkan) Failed to create Render Pass.");
     }
 }
@@ -516,7 +516,7 @@ RenderPass::~RenderPass()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -543,7 +543,7 @@ Framebuffer::Framebuffer(Backend::Ptr backend, RenderPass::Ptr render_pass, std:
         attachments[i] = views[i]->handle();
 
     VkFramebufferCreateInfo frameBuffer_create_info;
-    LUMEN_ZERO_MEMORY(frameBuffer_create_info);
+    HELIOS_ZERO_MEMORY(frameBuffer_create_info);
 
     frameBuffer_create_info.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     frameBuffer_create_info.pNext           = NULL;
@@ -556,7 +556,7 @@ Framebuffer::Framebuffer(Backend::Ptr backend, RenderPass::Ptr render_pass, std:
 
     if (vkCreateFramebuffer(backend->device(), &frameBuffer_create_info, nullptr, &m_vk_framebuffer) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Framebuffer.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Framebuffer.");
         throw std::runtime_error("(Vulkan) Failed to create Framebuffer.");
     }
 }
@@ -567,7 +567,7 @@ Framebuffer::~Framebuffer()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -591,7 +591,7 @@ Buffer::Buffer(Backend::Ptr backend, VkBufferUsageFlags usage, size_t size, VmaM
     m_vma_allocator = backend->allocator();
 
     VkBufferCreateInfo buffer_info;
-    LUMEN_ZERO_MEMORY(buffer_info);
+    HELIOS_ZERO_MEMORY(buffer_info);
 
     buffer_info.sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     buffer_info.size                  = size;
@@ -630,7 +630,7 @@ Buffer::Buffer(Backend::Ptr backend, VkBufferUsageFlags usage, size_t size, VmaM
     VmaAllocationInfo vma_alloc_info;
 
     VmaAllocationCreateInfo alloc_create_info;
-    LUMEN_ZERO_MEMORY(alloc_create_info);
+    HELIOS_ZERO_MEMORY(alloc_create_info);
 
     alloc_create_info.usage          = memory_usage;
     alloc_create_info.flags          = create_flags;
@@ -641,7 +641,7 @@ Buffer::Buffer(Backend::Ptr backend, VkBufferUsageFlags usage, size_t size, VmaM
 
     if (vmaCreateBuffer(m_vma_allocator, &buffer_info, &alloc_create_info, &m_vk_buffer, &m_vma_allocation, &vma_alloc_info) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Buffer.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Buffer.");
         throw std::runtime_error("(Vulkan) Failed to create Buffer.");
     }
 
@@ -654,7 +654,7 @@ Buffer::Buffer(Backend::Ptr backend, VkBufferUsageFlags usage, size_t size, VmaM
         upload_data(data, size, 0);
 
     VkBufferDeviceAddressInfoKHR address_info;
-    LUMEN_ZERO_MEMORY(address_info);
+    HELIOS_ZERO_MEMORY(address_info);
 
     address_info.sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR;
     address_info.buffer = m_vk_buffer;
@@ -684,14 +684,14 @@ void Buffer::upload_data(void* data, size_t size, size_t offset)
         CommandBuffer::Ptr cmd_buf = backend->allocate_graphics_command_buffer();
 
         VkCommandBufferBeginInfo begin_info;
-        LUMEN_ZERO_MEMORY(begin_info);
+        HELIOS_ZERO_MEMORY(begin_info);
 
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
         vkBeginCommandBuffer(cmd_buf->handle(), &begin_info);
 
         VkBufferCopy copy_region;
-        LUMEN_ZERO_MEMORY(copy_region);
+        HELIOS_ZERO_MEMORY(copy_region);
 
         copy_region.dstOffset = offset;
         copy_region.size      = size;
@@ -713,7 +713,7 @@ void Buffer::upload_data(void* data, size_t size, size_t offset)
         if ((m_vk_memory_property & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
         {
             VkMappedMemoryRange mapped_range;
-            LUMEN_ZERO_MEMORY(mapped_range);
+            HELIOS_ZERO_MEMORY(mapped_range);
 
             mapped_range.sType  = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
             mapped_range.memory = m_vk_device_memory;
@@ -738,7 +738,7 @@ CommandPool::CommandPool(Backend::Ptr backend, uint32_t queue_family_index) :
     Object(backend)
 {
     VkCommandPoolCreateInfo pool_info;
-    LUMEN_ZERO_MEMORY(pool_info);
+    HELIOS_ZERO_MEMORY(pool_info);
 
     pool_info.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     pool_info.flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -746,7 +746,7 @@ CommandPool::CommandPool(Backend::Ptr backend, uint32_t queue_family_index) :
 
     if (vkCreateCommandPool(backend->device(), &pool_info, nullptr, &m_vk_pool) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Command Pool.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Command Pool.");
         throw std::runtime_error("(Vulkan) Failed to create Command Pool.");
     }
 }
@@ -757,7 +757,7 @@ CommandPool::~CommandPool()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -774,7 +774,7 @@ void CommandPool::reset()
 
     if (vkResetCommandPool(backend->device(), m_vk_pool, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to reset Command Pool.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to reset Command Pool.");
         throw std::runtime_error("(Vulkan) Failed to reset Command Pool.");
     }
 }
@@ -787,7 +787,7 @@ CommandBuffer::CommandBuffer(Backend::Ptr backend, CommandPool::Ptr pool) :
     m_vk_pool = pool;
 
     VkCommandBufferAllocateInfo alloc_info;
-    LUMEN_ZERO_MEMORY(alloc_info);
+    HELIOS_ZERO_MEMORY(alloc_info);
 
     alloc_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     alloc_info.commandPool        = pool->handle();
@@ -796,7 +796,7 @@ CommandBuffer::CommandBuffer(Backend::Ptr backend, CommandPool::Ptr pool) :
 
     if (vkAllocateCommandBuffers(backend->device(), &alloc_info, &m_vk_command_buffer) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to allocate Command Buffer.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to allocate Command Buffer.");
         throw std::runtime_error("(Vulkan) Failed to allocate Command Buffer.");
     }
 }
@@ -814,7 +814,7 @@ CommandBuffer::~CommandBuffer()
 {
     if (m_vk_backend.expired() || m_vk_pool.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -864,7 +864,7 @@ ShaderModule::ShaderModule(Backend::Ptr backend, std::vector<char> spirv) :
     Object(backend)
 {
     VkShaderModuleCreateInfo create_info;
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     create_info.codeSize = spirv.size();
@@ -872,7 +872,7 @@ ShaderModule::ShaderModule(Backend::Ptr backend, std::vector<char> spirv) :
 
     if (vkCreateShaderModule(backend->device(), &create_info, nullptr, &m_vk_module) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create shader module.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create shader module.");
         throw std::runtime_error("(Vulkan) Failed to create shader module.");
     }
 }
@@ -883,7 +883,7 @@ ShaderModule::~ShaderModule()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -896,7 +896,7 @@ ShaderModule::~ShaderModule()
 
 VertexInputStateDesc::VertexInputStateDesc()
 {
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType                        = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     create_info.pVertexAttributeDescriptions = &attribute_desc[0];
@@ -923,7 +923,7 @@ VertexInputStateDesc& VertexInputStateDesc::add_attribute_desc(uint32_t location
 
 InputAssemblyStateDesc::InputAssemblyStateDesc()
 {
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 }
@@ -956,7 +956,7 @@ InputAssemblyStateDesc& InputAssemblyStateDesc::set_primitive_restart_enable(boo
 
 TessellationStateDesc::TessellationStateDesc()
 {
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
 }
@@ -981,8 +981,8 @@ TessellationStateDesc& TessellationStateDesc::set_patch_control_points(uint32_t 
 
 RasterizationStateDesc::RasterizationStateDesc()
 {
-    LUMEN_ZERO_MEMORY(create_info);
-    LUMEN_ZERO_MEMORY(conservative_raster_create_info);
+    HELIOS_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(conservative_raster_create_info);
 
     create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 
@@ -1094,7 +1094,7 @@ RasterizationStateDesc& RasterizationStateDesc::set_extra_primitive_overestimati
 
 MultisampleStateDesc::MultisampleStateDesc()
 {
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 }
@@ -1207,7 +1207,7 @@ StencilOpStateDesc& StencilOpStateDesc::set_reference(uint32_t value)
 
 DepthStencilStateDesc::DepthStencilStateDesc()
 {
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 }
@@ -1288,7 +1288,7 @@ DepthStencilStateDesc& DepthStencilStateDesc::set_max_depth_bounds(float value)
 
 ColorBlendAttachmentStateDesc::ColorBlendAttachmentStateDesc()
 {
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -1359,7 +1359,7 @@ ColorBlendAttachmentStateDesc& ColorBlendAttachmentStateDesc::set_color_write_ma
 
 ColorBlendStateDesc::ColorBlendStateDesc()
 {
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 }
@@ -1407,14 +1407,14 @@ ColorBlendStateDesc& ColorBlendStateDesc::set_blend_constants(float r, float g, 
 
 ViewportStateDesc::ViewportStateDesc()
 {
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 
     for (int i = 0; i < 32; i++)
     {
-        LUMEN_ZERO_MEMORY(viewports[i]);
-        LUMEN_ZERO_MEMORY(scissors[i]);
+        HELIOS_ZERO_MEMORY(viewports[i]);
+        HELIOS_ZERO_MEMORY(scissors[i]);
     }
 }
 
@@ -1429,7 +1429,7 @@ ViewportStateDesc& ViewportStateDesc::add_viewport(float x,
 {
     if (viewport_count == 32)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Max viewport count reached.");
+        HELIOS_LOG_FATAL("(Vulkan) Max viewport count reached.");
         throw std::runtime_error("(Vulkan) Max viewport count reached.");
     }
 
@@ -1454,7 +1454,7 @@ ViewportStateDesc& ViewportStateDesc::add_scissor(int32_t  x,
 {
     if (scissor_count == 32)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Max scissor count reached.");
+        HELIOS_LOG_FATAL("(Vulkan) Max scissor count reached.");
         throw std::runtime_error("(Vulkan) Max scissor count reached.");
     }
 
@@ -1472,17 +1472,17 @@ ViewportStateDesc& ViewportStateDesc::add_scissor(int32_t  x,
 
 GraphicsPipeline::Desc::Desc()
 {
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 
     for (uint32_t i = 0; i < 6; i++)
     {
-        LUMEN_ZERO_MEMORY(shader_stages[i]);
+        HELIOS_ZERO_MEMORY(shader_stages[i]);
         shader_stages[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     }
 
-    LUMEN_ZERO_MEMORY(dynamic_state);
+    HELIOS_ZERO_MEMORY(dynamic_state);
 
     dynamic_state.sType          = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamic_state.pDynamicStates = nullptr;
@@ -1494,7 +1494,7 @@ GraphicsPipeline::Desc& GraphicsPipeline::Desc::add_dynamic_state(const VkDynami
 {
     if (dynamic_state_count == 32)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Max dynamic state count reached.");
+        HELIOS_LOG_FATAL("(Vulkan) Max dynamic state count reached.");
         throw std::runtime_error("(Vulkan) Max dynamic state count reached.");
     }
 
@@ -1773,7 +1773,7 @@ GraphicsPipeline::GraphicsPipeline(Backend::Ptr backend, Desc desc) :
 
     if (vkCreateGraphicsPipelines(backend->device(), nullptr, 1, &desc.create_info, nullptr, &m_vk_pipeline) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Graphics Pipeline.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Graphics Pipeline.");
         throw std::runtime_error("(Vulkan) Failed to create Graphics Pipeline.");
     }
 }
@@ -1784,7 +1784,7 @@ GraphicsPipeline::~GraphicsPipeline()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -1797,7 +1797,7 @@ GraphicsPipeline::~GraphicsPipeline()
 
 ComputePipeline::Desc::Desc()
 {
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType       = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     create_info.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1853,7 +1853,7 @@ ComputePipeline::ComputePipeline(Backend::Ptr backend, Desc desc) :
 {
     if (vkCreateComputePipelines(backend->device(), nullptr, 1, &desc.create_info, nullptr, &m_vk_pipeline) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Compute Pipeline.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Compute Pipeline.");
         throw std::runtime_error("(Vulkan) Failed to create Compute Pipeline.");
     }
 }
@@ -1864,7 +1864,7 @@ ComputePipeline::~ComputePipeline()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -1889,7 +1889,7 @@ ShaderBindingTable::Desc::Desc()
 ShaderBindingTable::Desc& ShaderBindingTable::Desc::add_ray_gen_group(ShaderModule::Ptr shader, const std::string& entry_point)
 {
     VkPipelineShaderStageCreateInfo stage;
-    LUMEN_ZERO_MEMORY(stage);
+    HELIOS_ZERO_MEMORY(stage);
 
     entry_point_names.push_back(entry_point);
 
@@ -1915,7 +1915,7 @@ ShaderBindingTable::Desc& ShaderBindingTable::Desc::add_hit_group(ShaderModule::
     HitGroupDesc group_desc;
 
     VkPipelineShaderStageCreateInfo closest_hit_stage;
-    LUMEN_ZERO_MEMORY(closest_hit_stage);
+    HELIOS_ZERO_MEMORY(closest_hit_stage);
 
     entry_point_names.push_back(closest_hit_entry_point);
 
@@ -1931,7 +1931,7 @@ ShaderBindingTable::Desc& ShaderBindingTable::Desc::add_hit_group(ShaderModule::
     if (any_hit_shader)
     {
         VkPipelineShaderStageCreateInfo any_hit_stage;
-        LUMEN_ZERO_MEMORY(any_hit_stage);
+        HELIOS_ZERO_MEMORY(any_hit_stage);
 
         entry_point_names.push_back(any_hit_entry_point);
 
@@ -1948,7 +1948,7 @@ ShaderBindingTable::Desc& ShaderBindingTable::Desc::add_hit_group(ShaderModule::
     if (intersection_shader)
     {
         VkPipelineShaderStageCreateInfo intersection_stage;
-        LUMEN_ZERO_MEMORY(intersection_stage);
+        HELIOS_ZERO_MEMORY(intersection_stage);
 
         entry_point_names.push_back(intersection_entry_point);
 
@@ -1972,7 +1972,7 @@ ShaderBindingTable::Desc& ShaderBindingTable::Desc::add_hit_group(ShaderModule::
 ShaderBindingTable::Desc& ShaderBindingTable::Desc::add_miss_group(ShaderModule::Ptr shader, const std::string& entry_point)
 {
     VkPipelineShaderStageCreateInfo stage;
-    LUMEN_ZERO_MEMORY(stage);
+    HELIOS_ZERO_MEMORY(stage);
 
     entry_point_names.push_back(entry_point);
 
@@ -2026,7 +2026,7 @@ ShaderBindingTable::ShaderBindingTable(Backend::Ptr backend, Desc desc) :
     for (auto& stage : desc.ray_gen_stages)
     {
         VkRayTracingShaderGroupCreateInfoKHR group_info;
-        LUMEN_ZERO_MEMORY(group_info);
+        HELIOS_ZERO_MEMORY(group_info);
 
         m_entry_point_names.push_back(std::string(stage.pName));
 
@@ -2048,7 +2048,7 @@ ShaderBindingTable::ShaderBindingTable(Backend::Ptr backend, Desc desc) :
     for (auto& stage : desc.miss_stages)
     {
         VkRayTracingShaderGroupCreateInfoKHR group_info;
-        LUMEN_ZERO_MEMORY(group_info);
+        HELIOS_ZERO_MEMORY(group_info);
 
         group_info.sType              = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         group_info.pNext              = nullptr;
@@ -2070,12 +2070,12 @@ ShaderBindingTable::ShaderBindingTable(Backend::Ptr backend, Desc desc) :
     {
         if (!group.closest_hit_stage)
         {
-            LUMEN_LOG_FATAL("(Vulkan) Hit shader group does not have Closest Hit stage.");
+            HELIOS_LOG_FATAL("(Vulkan) Hit shader group does not have Closest Hit stage.");
             throw std::runtime_error("(Vulkan) Hit shader group does not have Closest Hit stage.");
         }
 
         VkRayTracingShaderGroupCreateInfoKHR group_info;
-        LUMEN_ZERO_MEMORY(group_info);
+        HELIOS_ZERO_MEMORY(group_info);
 
         group_info.sType              = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
         group_info.pNext              = nullptr;
@@ -2122,7 +2122,7 @@ ShaderBindingTable::ShaderBindingTable(Backend::Ptr backend, Desc desc) :
 
 RayTracingPipeline::Desc::Desc()
 {
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType           = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
     create_info.pNext           = nullptr;
@@ -2191,7 +2191,7 @@ RayTracingPipeline::~RayTracingPipeline()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -2214,7 +2214,7 @@ RayTracingPipeline::RayTracingPipeline(Backend::Ptr backend, Desc desc) :
 
     if (vkCreateRayTracingPipelinesKHR(backend->device(), VK_NULL_HANDLE, 1, &desc.create_info, VK_NULL_HANDLE, &m_vk_pipeline) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Ray Tracing Pipeline.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Ray Tracing Pipeline.");
         throw std::runtime_error("(Vulkan) Failed to create Ray Tracing Pipeline.");
     }
 
@@ -2228,7 +2228,7 @@ RayTracingPipeline::RayTracingPipeline(Backend::Ptr backend, Desc desc) :
 
     if (vkGetRayTracingShaderGroupHandlesKHR(backend->device(), m_vk_pipeline, 0, m_sbt->groups().size(), sbt_size, scratch_mem.data()) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to get Shader Group handles.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to get Shader Group handles.");
         throw std::runtime_error("(Vulkan) Failed to get Shader Group handles.");
     }
 
@@ -2248,7 +2248,7 @@ RayTracingPipeline::RayTracingPipeline(Backend::Ptr backend, Desc desc) :
 
 AccelerationStructure::Desc::Desc()
 {
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType         = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
     create_info.pNext         = nullptr;
@@ -2319,7 +2319,7 @@ AccelerationStructure::~AccelerationStructure()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -2338,12 +2338,12 @@ AccelerationStructure::AccelerationStructure(Backend::Ptr backend, Desc desc) :
 
     if (vkCreateAccelerationStructureKHR(backend->device(), &desc.create_info, nullptr, &m_vk_acceleration_structure) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Acceleration Structure.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Acceleration Structure.");
         throw std::runtime_error("(Vulkan) Failed to create Acceleration Structure.");
     }
 
     VkAccelerationStructureMemoryRequirementsInfoKHR memory_requirements_info;
-    LUMEN_ZERO_MEMORY(memory_requirements_info);
+    HELIOS_ZERO_MEMORY(memory_requirements_info);
 
     memory_requirements_info.sType                 = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_KHR;
     memory_requirements_info.pNext                 = nullptr;
@@ -2351,7 +2351,7 @@ AccelerationStructure::AccelerationStructure(Backend::Ptr backend, Desc desc) :
     memory_requirements_info.accelerationStructure = m_vk_acceleration_structure;
 
     VkMemoryRequirements2 memory_requirements;
-    LUMEN_ZERO_MEMORY(memory_requirements);
+    HELIOS_ZERO_MEMORY(memory_requirements);
 
     memory_requirements.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
 
@@ -2359,7 +2359,7 @@ AccelerationStructure::AccelerationStructure(Backend::Ptr backend, Desc desc) :
 
     VmaAllocationInfo       alloc_info;
     VmaAllocationCreateInfo alloc_create_info;
-    LUMEN_ZERO_MEMORY(alloc_create_info);
+    HELIOS_ZERO_MEMORY(alloc_create_info);
 
     alloc_create_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     alloc_create_info.flags = 0;
@@ -2377,12 +2377,12 @@ AccelerationStructure::AccelerationStructure(Backend::Ptr backend, Desc desc) :
 
     if (vkBindAccelerationStructureMemoryKHR(backend->device(), 1, &bind_info) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Acceleration Structure.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Acceleration Structure.");
         throw std::runtime_error("(Vulkan) Failed to create Acceleration Structure.");
     }
 
     VkAccelerationStructureDeviceAddressInfoKHR address_info;
-    LUMEN_ZERO_MEMORY(address_info);
+    HELIOS_ZERO_MEMORY(address_info);
 
     address_info.sType                 = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
     address_info.accelerationStructure = m_vk_acceleration_structure;
@@ -2391,7 +2391,7 @@ AccelerationStructure::AccelerationStructure(Backend::Ptr backend, Desc desc) :
 
     if (m_device_address == 0)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Acceleration Structure.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Acceleration Structure.");
         throw std::runtime_error("(Vulkan) Failed to create Acceleration Structure.");
     }
 }
@@ -2409,7 +2409,7 @@ Sampler::Sampler(Backend::Ptr backend, Desc desc) :
     Object(backend)
 {
     VkSamplerCreateInfo info;
-    LUMEN_ZERO_MEMORY(info);
+    HELIOS_ZERO_MEMORY(info);
 
     info.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     info.flags                   = desc.flags;
@@ -2431,7 +2431,7 @@ Sampler::Sampler(Backend::Ptr backend, Desc desc) :
 
     if (vkCreateSampler(backend->device(), &info, nullptr, &m_vk_sampler) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create sampler.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create sampler.");
         throw std::runtime_error("(Vulkan) Failed to create sampler.");
     }
 }
@@ -2442,7 +2442,7 @@ Sampler::~Sampler()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -2489,7 +2489,7 @@ DescriptorSetLayout::DescriptorSetLayout(Backend::Ptr backend, Desc desc) :
     Object(backend)
 {
     VkDescriptorSetLayoutCreateInfo layout_info;
-    LUMEN_ZERO_MEMORY(layout_info);
+    HELIOS_ZERO_MEMORY(layout_info);
 
     layout_info.pNext        = desc.pnext_ptr;
     layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -2498,7 +2498,7 @@ DescriptorSetLayout::DescriptorSetLayout(Backend::Ptr backend, Desc desc) :
 
     if (vkCreateDescriptorSetLayout(backend->device(), &layout_info, nullptr, &m_vk_ds_layout) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Descriptor Set Layout.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Descriptor Set Layout.");
         throw std::runtime_error("(Vulkan) Failed to create Descriptor Set Layout.");
     }
 }
@@ -2509,7 +2509,7 @@ DescriptorSetLayout::~DescriptorSetLayout()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -2552,7 +2552,7 @@ PipelineLayout::PipelineLayout(Backend::Ptr backend, Desc desc) :
         vk_layouts[i] = desc.layouts[i]->handle();
 
     VkPipelineLayoutCreateInfo info;
-    LUMEN_ZERO_MEMORY(info);
+    HELIOS_ZERO_MEMORY(info);
 
     info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     info.pushConstantRangeCount = desc.push_constant_ranges.size();
@@ -2562,7 +2562,7 @@ PipelineLayout::PipelineLayout(Backend::Ptr backend, Desc desc) :
 
     if (vkCreatePipelineLayout(backend->device(), &info, nullptr, &m_vk_pipeline_layout) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create pipeline layout.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create pipeline layout.");
         throw std::runtime_error("(Vulkan) Failed to create pipeline layout.");
     }
 }
@@ -2573,7 +2573,7 @@ PipelineLayout::~PipelineLayout()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -2621,7 +2621,7 @@ DescriptorPool::DescriptorPool(Backend::Ptr backend, Desc desc) :
     m_vk_create_flags = desc.create_flags;
 
     VkDescriptorPoolCreateInfo pool_info;
-    LUMEN_ZERO_MEMORY(pool_info);
+    HELIOS_ZERO_MEMORY(pool_info);
 
     pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     pool_info.poolSizeCount = static_cast<uint32_t>(desc.pool_sizes.size());
@@ -2631,7 +2631,7 @@ DescriptorPool::DescriptorPool(Backend::Ptr backend, Desc desc) :
 
     if (vkCreateDescriptorPool(backend->device(), &pool_info, nullptr, &m_vk_ds_pool) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create descriptor pool.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create descriptor pool.");
         throw std::runtime_error("(Vulkan) Failed to create descriptor pool.");
     }
 }
@@ -2642,7 +2642,7 @@ DescriptorPool::~DescriptorPool()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -2666,7 +2666,7 @@ DescriptorSet::DescriptorSet(Backend::Ptr backend, DescriptorSetLayout::Ptr layo
     m_vk_pool = pool;
 
     VkDescriptorSetAllocateInfo info;
-    LUMEN_ZERO_MEMORY(info);
+    HELIOS_ZERO_MEMORY(info);
 
     VkDescriptorSetLayout vk_layout = layout->handle();
 
@@ -2680,7 +2680,7 @@ DescriptorSet::DescriptorSet(Backend::Ptr backend, DescriptorSetLayout::Ptr layo
 
     if (vkAllocateDescriptorSets(backend->device(), &info, &m_vk_ds) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to allocate descriptor set.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to allocate descriptor set.");
         throw std::runtime_error("(Vulkan) Failed to allocate descriptor set.");
     }
 }
@@ -2691,7 +2691,7 @@ DescriptorSet::~DescriptorSet()
 {
     if (m_vk_backend.expired() || m_vk_pool.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -2715,7 +2715,7 @@ Fence::~Fence()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -2730,14 +2730,14 @@ Fence::Fence(Backend::Ptr backend) :
     Object(backend)
 {
     VkFenceCreateInfo fence_info;
-    LUMEN_ZERO_MEMORY(fence_info);
+    HELIOS_ZERO_MEMORY(fence_info);
 
     fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     if (vkCreateFence(backend->device(), &fence_info, nullptr, &m_vk_fence) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Fence.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Fence.");
         throw std::runtime_error("(Vulkan) Failed to create Fence.");
     }
 }
@@ -2755,7 +2755,7 @@ Semaphore::~Semaphore()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -2770,13 +2770,13 @@ Semaphore::Semaphore(Backend::Ptr backend) :
     Object(backend)
 {
     VkSemaphoreCreateInfo semaphore_info;
-    LUMEN_ZERO_MEMORY(semaphore_info);
+    HELIOS_ZERO_MEMORY(semaphore_info);
 
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
     if (vkCreateSemaphore(backend->device(), &semaphore_info, nullptr, &m_vk_semaphore) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Semaphore.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Semaphore.");
         throw std::runtime_error("(Vulkan) Failed to create Semaphore.");
     }
 }
@@ -2808,7 +2808,7 @@ QueryPool::~QueryPool()
 {
     if (m_vk_backend.expired())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Destructing after Device.");
+        HELIOS_LOG_FATAL("(Vulkan) Destructing after Device.");
         throw std::runtime_error("(Vulkan) Destructing after Device.");
     }
 
@@ -2823,7 +2823,7 @@ QueryPool::QueryPool(Backend::Ptr backend, VkQueryType query_type, uint32_t quer
     Object(backend)
 {
     VkQueryPoolCreateInfo query_pool_info;
-    LUMEN_ZERO_MEMORY(query_pool_info);
+    HELIOS_ZERO_MEMORY(query_pool_info);
 
     query_pool_info.sType              = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
     query_pool_info.queryType          = query_type;
@@ -2832,7 +2832,7 @@ QueryPool::QueryPool(Backend::Ptr backend, VkQueryType query_type, uint32_t quer
 
     if (vkCreateQueryPool(backend->device(), &query_pool_info, nullptr, &m_vk_query_pool) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Query Pool.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Query Pool.");
         throw std::runtime_error("(Vulkan) Failed to create Query Pool.");
     }
 }
@@ -2911,7 +2911,7 @@ void BatchUploader::upload_buffer_data(Buffer::Ptr buffer, void* data, const siz
         auto staging_buffer = insert_data(data, size);
 
         VkBufferCopy copy_region;
-        LUMEN_ZERO_MEMORY(copy_region);
+        HELIOS_ZERO_MEMORY(copy_region);
 
         copy_region.dstOffset = offset;
         copy_region.size      = size;
@@ -2947,7 +2947,7 @@ void BatchUploader::upload_image_data(Image::Ptr image, void* data, const std::v
             for (int i = 0; i < image->mip_levels(); i++)
             {
                 VkBufferImageCopy buffer_copy_region;
-                LUMEN_ZERO_MEMORY(buffer_copy_region);
+                HELIOS_ZERO_MEMORY(buffer_copy_region);
 
                 buffer_copy_region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
                 buffer_copy_region.imageSubresource.mipLevel       = i;
@@ -2968,7 +2968,7 @@ void BatchUploader::upload_image_data(Image::Ptr image, void* data, const std::v
         }
 
         VkImageSubresourceRange subresource_range;
-        LUMEN_ZERO_MEMORY(subresource_range);
+        HELIOS_ZERO_MEMORY(subresource_range);
 
         subresource_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
         subresource_range.baseMipLevel   = 0;
@@ -3015,7 +3015,7 @@ void BatchUploader::build_blas(AccelerationStructure::Ptr acceleration_structure
         m_blas_build_requests.push_back({ acceleration_structure, geometries, build_offsets });
     else
     {
-        LUMEN_LOG_FATAL("(Vulkan) Building a BLAS requires one or more Geometry and Build Offset structures.");
+        HELIOS_LOG_FATAL("(Vulkan) Building a BLAS requires one or more Geometry and Build Offset structures.");
         throw std::runtime_error("(Vulkan) Building a BLAS requires one or more Geometry and Build Offset structures.");
     }
 }
@@ -3062,7 +3062,7 @@ void BatchUploader::submit()
                 memory_requirements_info.accelerationStructure = m_blas_build_requests[i].acceleration_structure->handle();
 
                 VkMemoryRequirements2 mem_req_blas;
-                LUMEN_ZERO_MEMORY(mem_req_blas);
+                HELIOS_ZERO_MEMORY(mem_req_blas);
 
                 mem_req_blas.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
 
@@ -3079,7 +3079,7 @@ void BatchUploader::submit()
                 const VkAccelerationStructureBuildOffsetInfoKHR* ptr_build_offset = &m_blas_build_requests[i].build_offsets[0];
 
                 VkAccelerationStructureBuildGeometryInfoKHR build_info;
-                LUMEN_ZERO_MEMORY(build_info);
+                HELIOS_ZERO_MEMORY(build_info);
 
                 build_info.sType                     = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
                 build_info.type                      = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
@@ -3135,12 +3135,12 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
     m_ray_tracing_enabled = require_ray_tracing;
 
     VkApplicationInfo appInfo;
-    LUMEN_ZERO_MEMORY(appInfo);
+    HELIOS_ZERO_MEMORY(appInfo);
 
     appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName   = "Lumen";
+    appInfo.pApplicationName   = "Helios";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName        = "Lumen";
+    appInfo.pEngineName        = "Helios";
     appInfo.engineVersion      = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion         = VK_API_VERSION_1_2;
 
@@ -3149,7 +3149,7 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
     extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
 
     VkInstanceCreateInfo create_info;
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pApplicationInfo        = &appInfo;
@@ -3163,13 +3163,13 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
         VkValidationFeatureEnableEXT enabled_features[] = { VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT };
 
         VkValidationFeaturesEXT validation_features;
-        LUMEN_ZERO_MEMORY(validation_features);
+        HELIOS_ZERO_MEMORY(validation_features);
 
         validation_features.sType                         = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
         validation_features.enabledValidationFeatureCount = 1;
         validation_features.pEnabledValidationFeatures    = enabled_features;
 
-        LUMEN_ZERO_MEMORY(debug_create_info);
+        HELIOS_ZERO_MEMORY(debug_create_info);
         create_info.enabledLayerCount   = static_cast<uint32_t>(kValidationLayers.size());
         create_info.ppEnabledLayerNames = kValidationLayers.data();
 
@@ -3191,16 +3191,16 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
 
     if (vkCreateInstance(&create_info, nullptr, &m_vk_instance) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Vulkan instance.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Vulkan instance.");
         throw std::runtime_error("(Vulkan) Failed to create Vulkan instance.");
     }
 
     if (enable_validation_layers && create_debug_utils_messenger(m_vk_instance, &debug_create_info, nullptr, &m_vk_debug_messenger) != VK_SUCCESS)
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Vulkan debug messenger.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Vulkan debug messenger.");
 
     if (!create_surface(window))
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Vulkan surface.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Vulkan surface.");
         throw std::runtime_error("(Vulkan) Failed to create Vulkan surface.");
     }
 
@@ -3220,13 +3220,13 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
 
     if (!find_physical_device(device_extensions))
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to find a suitable GPU.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to find a suitable GPU.");
         throw std::runtime_error("(Vulkan) Failed to find a suitable GPU.");
     }
 
     if (!create_logical_device(device_extensions))
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create logical device.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create logical device.");
         throw std::runtime_error("(Vulkan) Failed to create logical device.");
     }
 
@@ -3238,7 +3238,7 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
 
     if (vmaCreateAllocator(&allocator_info, &m_vma_allocator) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create Allocator.");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create Allocator.");
         throw std::runtime_error("(Vulkan) Failed to create Allocator.");
     }
 
@@ -3370,7 +3370,7 @@ void Backend::initialize()
     };
 
     VkDescriptorSetLayoutBindingFlagsCreateInfoEXT set_layout_binding_flags;
-    LUMEN_ZERO_MEMORY(set_layout_binding_flags);
+    HELIOS_ZERO_MEMORY(set_layout_binding_flags);
 
     set_layout_binding_flags.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
     set_layout_binding_flags.bindingCount  = 1;
@@ -3664,7 +3664,7 @@ void Backend::submit(VkQueue                                            queue,
         vk_wait_stages[i] = wait_stages[i];
 
     VkSubmitInfo submit_info;
-    LUMEN_ZERO_MEMORY(submit_info);
+    HELIOS_ZERO_MEMORY(submit_info);
 
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -3682,7 +3682,7 @@ void Backend::submit(VkQueue                                            queue,
 
     if (vkQueueSubmit(queue, 1, &submit_info, m_in_flight_fences[m_current_frame]->handle()) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to submit command buffer!");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to submit command buffer!");
         throw std::runtime_error("(Vulkan) Failed to submit command buffer!");
     }
 }
@@ -3697,7 +3697,7 @@ void Backend::flush(VkQueue queue, const std::vector<std::shared_ptr<CommandBuff
         vk_cmd_bufs[i] = cmd_bufs[i]->handle();
 
     VkSubmitInfo submit_info;
-    LUMEN_ZERO_MEMORY(submit_info);
+    HELIOS_ZERO_MEMORY(submit_info);
 
     submit_info.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.commandBufferCount = 1;
@@ -3705,7 +3705,7 @@ void Backend::flush(VkQueue queue, const std::vector<std::shared_ptr<CommandBuff
 
     // Create fence to ensure that the command buffer has finished executing
     VkFenceCreateInfo fence_info;
-    LUMEN_ZERO_MEMORY(fence_info);
+    HELIOS_ZERO_MEMORY(fence_info);
 
     fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 
@@ -3743,7 +3743,7 @@ void Backend::acquire_next_swap_chain_image(const std::shared_ptr<Semaphore>& se
     }
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to acquire swap chain image!");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to acquire swap chain image!");
         throw std::runtime_error("(Vulkan) Failed to acquire swap chain image!");
     }
 }
@@ -3758,7 +3758,7 @@ void Backend::present(const std::vector<std::shared_ptr<Semaphore>>& semaphores)
         signal_semaphores[i] = semaphores[i]->handle();
 
     VkPresentInfoKHR present_info;
-    LUMEN_ZERO_MEMORY(present_info);
+    HELIOS_ZERO_MEMORY(present_info);
 
     present_info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.waitSemaphoreCount = semaphores.size();
@@ -3771,7 +3771,7 @@ void Backend::present(const std::vector<std::shared_ptr<Semaphore>>& semaphores)
 
     if (vkQueuePresentKHR(m_vk_presentation_queue, &present_info) != VK_SUCCESS)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to submit draw command buffer!");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to submit draw command buffer!");
         throw std::runtime_error("failed to present swap chain image!");
     }
 
@@ -4033,7 +4033,7 @@ bool Backend::check_validation_layer_support(std::vector<const char*> layers)
 
         if (!layer_found)
         {
-            LUMEN_LOG_FATAL("(Vulkan) Validation Layer not available: " + std::string(layer_name));
+            HELIOS_LOG_FATAL("(Vulkan) Validation Layer not available: " + std::string(layer_name));
             return false;
         }
     }
@@ -4094,7 +4094,7 @@ bool Backend::find_physical_device(std::vector<const char*> extensions)
 
     if (device_count == 0)
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to find GPUs with Vulkan support!");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to find GPUs with Vulkan support!");
         throw std::runtime_error("(Vulkan) Failed to find GPUs with Vulkan support!");
     }
 
@@ -4161,10 +4161,10 @@ bool Backend::is_device_suitable(VkPhysicalDevice device, VkPhysicalDeviceType t
 
         if (details.format.size() > 0 && details.present_modes.size() > 0 && extensions_supported)
         {
-            LUMEN_LOG_INFO("(Vulkan) Vendor : " + std::string(get_vendor_name(m_device_properties.vendorID)));
-            LUMEN_LOG_INFO("(Vulkan) Name   : " + std::string(m_device_properties.deviceName));
-            LUMEN_LOG_INFO("(Vulkan) Type   : " + std::string(kDeviceTypes[m_device_properties.deviceType]));
-            LUMEN_LOG_INFO("(Vulkan) Driver : " + std::to_string(m_device_properties.driverVersion));
+            HELIOS_LOG_INFO("(Vulkan) Vendor : " + std::string(get_vendor_name(m_device_properties.vendorID)));
+            HELIOS_LOG_INFO("(Vulkan) Name   : " + std::string(m_device_properties.deviceName));
+            HELIOS_LOG_INFO("(Vulkan) Type   : " + std::string(kDeviceTypes[m_device_properties.deviceType]));
+            HELIOS_LOG_INFO("(Vulkan) Driver : " + std::to_string(m_device_properties.driverVersion));
 
             if (requires_ray_tracing)
             {
@@ -4177,7 +4177,7 @@ bool Backend::is_device_suitable(VkPhysicalDevice device, VkPhysicalDeviceType t
                 properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
                 properties.pNext = &m_ray_tracing_properties;
 
-                LUMEN_ZERO_MEMORY(properties.properties);
+                HELIOS_ZERO_MEMORY(properties.properties);
 
                 vkGetPhysicalDeviceProperties2(device, &properties);
             }
@@ -4196,7 +4196,7 @@ bool Backend::find_queues(VkPhysicalDevice device, QueueInfos& infos)
     uint32_t family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &family_count, nullptr);
 
-    LUMEN_LOG_INFO("(Vulkan) Number of Queue families: " + std::to_string(family_count));
+    HELIOS_LOG_INFO("(Vulkan) Number of Queue families: " + std::to_string(family_count));
 
     VkQueueFamilyProperties families[32];
     vkGetPhysicalDeviceQueueFamilyProperties(device, &family_count, &families[0]);
@@ -4205,12 +4205,12 @@ bool Backend::find_queues(VkPhysicalDevice device, QueueInfos& infos)
     {
         VkQueueFlags bits = families[i].queueFlags;
 
-        LUMEN_LOG_INFO("(Vulkan) Family " + std::to_string(i));
-        LUMEN_LOG_INFO("(Vulkan) Supported Bits: ");
-        LUMEN_LOG_INFO("(Vulkan) VK_QUEUE_GRAPHICS_BIT: " + std::to_string((families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) > 0));
-        LUMEN_LOG_INFO("(Vulkan) VK_QUEUE_COMPUTE_BIT: " + std::to_string((families[i].queueFlags & VK_QUEUE_COMPUTE_BIT) > 0));
-        LUMEN_LOG_INFO("(Vulkan) VK_QUEUE_TRANSFER_BIT: " + std::to_string((families[i].queueFlags & VK_QUEUE_TRANSFER_BIT) > 0));
-        LUMEN_LOG_INFO("(Vulkan) Number of Queues: " + std::to_string(families[i].queueCount));
+        HELIOS_LOG_INFO("(Vulkan) Family " + std::to_string(i));
+        HELIOS_LOG_INFO("(Vulkan) Supported Bits: ");
+        HELIOS_LOG_INFO("(Vulkan) VK_QUEUE_GRAPHICS_BIT: " + std::to_string((families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) > 0));
+        HELIOS_LOG_INFO("(Vulkan) VK_QUEUE_COMPUTE_BIT: " + std::to_string((families[i].queueFlags & VK_QUEUE_COMPUTE_BIT) > 0));
+        HELIOS_LOG_INFO("(Vulkan) VK_QUEUE_TRANSFER_BIT: " + std::to_string((families[i].queueFlags & VK_QUEUE_TRANSFER_BIT) > 0));
+        HELIOS_LOG_INFO("(Vulkan) Number of Queues: " + std::to_string(families[i].queueCount));
 
         VkBool32 present_support = false;
         vkGetPhysicalDeviceSurfaceSupportKHR(device, i, m_vk_surface, &present_support);
@@ -4285,46 +4285,46 @@ bool Backend::find_queues(VkPhysicalDevice device, QueueInfos& infos)
 
     if (infos.presentation_queue_index == -1)
     {
-        LUMEN_LOG_INFO("(Vulkan) No Presentation Queue Found");
+        HELIOS_LOG_INFO("(Vulkan) No Presentation Queue Found");
         return false;
     }
 
     if (infos.graphics_queue_quality == 0)
 
     {
-        LUMEN_LOG_INFO("(Vulkan) No Graphics Queue Found");
+        HELIOS_LOG_INFO("(Vulkan) No Graphics Queue Found");
         return false;
     }
 
     if (infos.compute_queue_quality == 0 || infos.transfer_queue_quality == 0)
     {
-        LUMEN_LOG_INFO("(Vulkan) No Queues supporting Compute or Transfer found");
+        HELIOS_LOG_INFO("(Vulkan) No Queues supporting Compute or Transfer found");
         return false;
     }
 
     VkDeviceQueueCreateInfo presentation_queue_info;
-    LUMEN_ZERO_MEMORY(presentation_queue_info);
+    HELIOS_ZERO_MEMORY(presentation_queue_info);
 
     presentation_queue_info.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     presentation_queue_info.queueFamilyIndex = infos.presentation_queue_index;
     presentation_queue_info.queueCount       = 1;
 
     VkDeviceQueueCreateInfo graphics_queue_info;
-    LUMEN_ZERO_MEMORY(graphics_queue_info);
+    HELIOS_ZERO_MEMORY(graphics_queue_info);
 
     graphics_queue_info.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     graphics_queue_info.queueFamilyIndex = infos.graphics_queue_index;
     graphics_queue_info.queueCount       = 1;
 
     VkDeviceQueueCreateInfo compute_queue_info;
-    LUMEN_ZERO_MEMORY(compute_queue_info);
+    HELIOS_ZERO_MEMORY(compute_queue_info);
 
     compute_queue_info.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     compute_queue_info.queueFamilyIndex = infos.compute_queue_index;
     compute_queue_info.queueCount       = 1;
 
     VkDeviceQueueCreateInfo transfer_queue_info;
-    LUMEN_ZERO_MEMORY(transfer_queue_info);
+    HELIOS_ZERO_MEMORY(transfer_queue_info);
 
     transfer_queue_info.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     transfer_queue_info.queueFamilyIndex = infos.transfer_queue_index;
@@ -4396,7 +4396,7 @@ bool Backend::create_logical_device(std::vector<const char*> extensions)
 {
     // Ray Tracing Features
     VkPhysicalDeviceRayTracingFeaturesKHR device_ray_tracing_features;
-    LUMEN_ZERO_MEMORY(device_ray_tracing_features);
+    HELIOS_ZERO_MEMORY(device_ray_tracing_features);
 
     device_ray_tracing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_FEATURES_KHR;
     device_ray_tracing_features.pNext = nullptr;
@@ -4405,8 +4405,8 @@ bool Backend::create_logical_device(std::vector<const char*> extensions)
     VkPhysicalDeviceVulkan11Features features11;
     VkPhysicalDeviceVulkan12Features features12;
 
-    LUMEN_ZERO_MEMORY(features11);
-    LUMEN_ZERO_MEMORY(features12);
+    HELIOS_ZERO_MEMORY(features11);
+    HELIOS_ZERO_MEMORY(features12);
 
     features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
     features11.pNext = &features12;
@@ -4416,7 +4416,7 @@ bool Backend::create_logical_device(std::vector<const char*> extensions)
 
     // Physical Device Features 2
     VkPhysicalDeviceFeatures2 physical_device_features_2;
-    LUMEN_ZERO_MEMORY(physical_device_features_2);
+    HELIOS_ZERO_MEMORY(physical_device_features_2);
 
     physical_device_features_2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     physical_device_features_2.pNext = &features11;
@@ -4426,7 +4426,7 @@ bool Backend::create_logical_device(std::vector<const char*> extensions)
     physical_device_features_2.features.robustBufferAccess = VK_FALSE;
 
     VkDeviceCreateInfo device_info;
-    LUMEN_ZERO_MEMORY(device_info);
+    HELIOS_ZERO_MEMORY(device_info);
 
     device_info.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     device_info.pQueueCreateInfos       = &m_selected_queues.infos[0];
@@ -4497,7 +4497,7 @@ bool Backend::create_swapchain()
         image_count = m_swapchain_details.capabilities.maxImageCount;
 
     VkSwapchainCreateInfoKHR create_info;
-    LUMEN_ZERO_MEMORY(create_info);
+    HELIOS_ZERO_MEMORY(create_info);
 
     create_info.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     create_info.surface          = m_vk_surface;
@@ -4604,7 +4604,7 @@ void Backend::recreate_swapchain()
 
     if (!create_swapchain())
     {
-        LUMEN_LOG_FATAL("(Vulkan) Failed to create swap chain!");
+        HELIOS_LOG_FATAL("(Vulkan) Failed to create swap chain!");
         throw std::runtime_error("(Vulkan) Failed to create swap chain!");
     }
 }
@@ -4744,7 +4744,7 @@ void set_image_layout(VkCommandBuffer         cmdbuffer,
 {
     // Create an image barrier object
     VkImageMemoryBarrier image_memory_barrier;
-    LUMEN_ZERO_MEMORY(image_memory_barrier);
+    HELIOS_ZERO_MEMORY(image_memory_barrier);
 
     image_memory_barrier.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     image_memory_barrier.oldLayout        = oldImageLayout;
@@ -4898,4 +4898,4 @@ uint32_t get_memory_type(VkPhysicalDevice device, uint32_t typeBits, VkMemoryPro
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 } // namespace vk
-} // namespace lumen
+} // namespace helios

@@ -3,7 +3,7 @@
 #include <core/vk.h>
 #include <memory>
 
-namespace lumen
+namespace helios
 {
 class Texture : public vk::Object
 {
@@ -55,4 +55,4 @@ public:
 private:
     TextureCube(vk::Backend::Ptr backend, vk::Image::Ptr image, vk::ImageView::Ptr image_view);
 };
-} // namespace lumen
+} // namespace helios

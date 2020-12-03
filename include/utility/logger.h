@@ -3,12 +3,12 @@
 #include <string>
 
 // Macros for quick access. File and line are added through the respective macros.
-#define LUMEN_LOG_INFO(x) lumen::logger::log(x, std::string(__FILE__), __LINE__, lumen::logger::LEVEL_INFO)
-#define LUMEN_LOG_WARNING(x) lumen::logger::log(x, std::string(__FILE__), __LINE__, lumen::logger::LEVEL_WARNING)
-#define LUMEN_LOG_ERROR(x) lumen::logger::log(x, std::string(__FILE__), __LINE__, lumen::logger::LEVEL_ERR)
-#define LUMEN_LOG_FATAL(x) lumen::logger::log(x, std::string(__FILE__), __LINE__, lumen::logger::LEVEL_FATAL)
+#define HELIOS_LOG_INFO(x) helios::logger::log(x, std::string(__FILE__), __LINE__, helios::logger::LEVEL_INFO)
+#define HELIOS_LOG_WARNING(x) helios::logger::log(x, std::string(__FILE__), __LINE__, helios::logger::LEVEL_WARNING)
+#define HELIOS_LOG_ERROR(x) helios::logger::log(x, std::string(__FILE__), __LINE__, helios::logger::LEVEL_ERR)
+#define HELIOS_LOG_FATAL(x) helios::logger::log(x, std::string(__FILE__), __LINE__, helios::logger::LEVEL_FATAL)
 
-namespace lumen
+namespace helios
 {
 namespace logger
 {
@@ -62,4 +62,4 @@ extern void log_fatal(std::string text);
 // Explicitly flush all streams.
 extern void flush();
 } // namespace logger
-} // namespace lumen
+} // namespace helios

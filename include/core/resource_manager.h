@@ -8,7 +8,7 @@
 #include <core/vk.h>
 #include <common/scene.h>
 
-namespace lumen
+namespace helios
 {
 class ResourceManager
 {
@@ -44,4 +44,4 @@ private:
     void                      populate_scene_node(Node::Ptr node, std::shared_ptr<ast::SceneNode> ast_node, vk::BatchUploader& uploader);
     void                      populate_transform_node(TransformNode::Ptr node, std::shared_ptr<ast::TransformNode> ast_node);
 };
-} // namespace lumen
+} // namespace helios

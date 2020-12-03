@@ -15,11 +15,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 find_program(CLANG_FORMAT_EXE NAMES "clang-format" DOC "Path to clang-format executable")
 
-file(GLOB_RECURSE LUMEN_HEADERS ${PROJECT_SOURCE_DIR}/include/*.h)
+file(GLOB_RECURSE HELIOS_HEADERS ${PROJECT_SOURCE_DIR}/include/*.h)
 
-file(GLOB_RECURSE LUMEN_SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
+file(GLOB_RECURSE HELIOS_SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
-list(APPEND LUMEN_HEADERS ${PROJECT_SOURCE_DIR}/external/imgui/imconfig.h
+list(APPEND HELIOS_HEADERS ${PROJECT_SOURCE_DIR}/external/imgui/imconfig.h
                           ${PROJECT_SOURCE_DIR}/external/imgui/imgui.h
                           ${PROJECT_SOURCE_DIR}/external/imgui/imgui_internal.h
                           ${PROJECT_SOURCE_DIR}/external/imgui/imstb_rectpack.h
@@ -27,31 +27,31 @@ list(APPEND LUMEN_HEADERS ${PROJECT_SOURCE_DIR}/external/imgui/imconfig.h
                           ${PROJECT_SOURCE_DIR}/external/imgui/imstb_truetype.h                    
                           ${PROJECT_SOURCE_DIR}/external/imgui/examples/imgui_impl_vulkan.h)
 
-list(APPEND LUMEN_SOURCES ${PROJECT_SOURCE_DIR}/external/imgui/imgui.cpp
+list(APPEND HELIOS_SOURCES ${PROJECT_SOURCE_DIR}/external/imgui/imgui.cpp
                           ${PROJECT_SOURCE_DIR}/external/imgui/imgui_demo.cpp
                           ${PROJECT_SOURCE_DIR}/external/imgui/imgui_draw.cpp
                           ${PROJECT_SOURCE_DIR}/external/imgui/imgui_widgets.cpp
                           ${PROJECT_SOURCE_DIR}/external/imgui/examples/imgui_impl_vulkan.cpp
                           ${PROJECT_SOURCE_DIR}/external/imgui/examples/imgui_impl_glfw.cpp)
 
-set(LUMEN_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/src/shader/triangle.vert
+set(HELIOS_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/src/shader/triangle.vert
                          ${PROJECT_SOURCE_DIR}/src/shader/tone_map.frag
                          ${PROJECT_SOURCE_DIR}/src/shader/debug_ray.vert
                          ${PROJECT_SOURCE_DIR}/src/shader/debug_ray.frag)
 
 if (APPLE)
-    add_library(Lumen MACOSX_BUNDLE ${LUMEN_HEADERS} ${LUMEN_SOURCES})
-    set(MACOSX_BUNDLE_BUNDLE_NAME "com.dihara.lumen") 
+    add_library(Helios MACOSX_BUNDLE ${HELIOS_HEADERS} ${HELIOS_SOURCES})
+    set(MACOSX_BUNDLE_BUNDLE_NAME "com.dihara.helios") 
 else()
-    add_library(Lumen ${LUMEN_HEADERS} ${LUMEN_SOURCES}) 
+    add_library(Helios ${HELIOS_HEADERS} ${HELIOS_SOURCES}) 
 endif()
 
-target_link_libraries(Lumen AssetCoreLoader)
-target_link_libraries(Lumen AssetCoreCommon)
-target_link_libraries(Lumen glfw)
-target_link_libraries(Lumen ${Vulkan_LIBRARY})
+target_link_libraries(Helios AssetCoreLoader)
+target_link_libraries(Helios AssetCoreCommon)
+target_link_libraries(Helios glfw)
+target_link_libraries(Helios ${Vulkan_LIBRARY})
 
-foreach(GLSL ${LUMEN_SHADER_SOURCES})
+foreach(GLSL ${HELIOS_SHADER_SOURCES})
     get_filename_component(FILE_NAME ${GLSL} NAME)
     set(SPIRV "${CMAKE_SOURCE_DIR}/bin/$(Configuration)/shader/${FILE_NAME}.spv")
     add_custom_command(
@@ -62,10 +62,10 @@ foreach(GLSL ${LUMEN_SHADER_SOURCES})
     list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(GLSL)
 
-add_custom_target(Lumen_Shaders DEPENDS ${SPIRV_BINARY_FILES})
+add_custom_target(Helios_Shaders DEPENDS ${SPIRV_BINARY_FILES})
 
-add_dependencies(Lumen Lumen_Shaders)
+add_dependencies(Helios Helios_Shaders)
 
 if(CLANG_FORMAT_EXE)
-    add_custom_target(Lumen-Code-Format COMMAND ${CLANG_FORMAT_EXE} -i -style=file ${LUMEN_HEADERS} ${LUMEN_SOURCES})
+    add_custom_target(Helios-Code-Format COMMAND ${CLANG_FORMAT_EXE} -i -style=file ${HELIOS_HEADERS} ${HELIOS_SOURCES})
 endif()

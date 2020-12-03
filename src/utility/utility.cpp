@@ -20,7 +20,7 @@
 #    include <mach-o/dyld.h>
 #endif
 
-namespace lumen
+namespace helios
 {
 namespace utility
 {
@@ -146,4 +146,4 @@ std::string file_name_from_path(std::string filepath)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 } // namespace utility
-} // namespace lumen
+} // namespace helios

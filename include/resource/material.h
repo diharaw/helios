@@ -5,7 +5,7 @@
 #include <vector>
 #include <core/vk.h>
 
-namespace lumen
+namespace helios
 {
 class Texture2D;
 
@@ -93,4 +93,4 @@ private:
              float                                   roughness_value = 0.0f,
              bool                                    alpha_test      = false);
 };
-} // namespace lumen
+} // namespace helios

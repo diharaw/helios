@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace lumen
+namespace helios
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -618,7 +618,7 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
 {
     // Create TLAS
     VkAccelerationStructureCreateGeometryTypeInfoKHR tlas_geometry_type_info;
-    LUMEN_ZERO_MEMORY(tlas_geometry_type_info);
+    HELIOS_ZERO_MEMORY(tlas_geometry_type_info);
 
     tlas_geometry_type_info.sType             = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_GEOMETRY_TYPE_INFO_KHR;
     tlas_geometry_type_info.geometryType      = VK_GEOMETRY_TYPE_INSTANCES_KHR;
@@ -646,7 +646,7 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) 
     memory_requirements_info.accelerationStructure = m_tlas.tlas->handle();
 
     VkMemoryRequirements2 mem_req_blas;
-    LUMEN_ZERO_MEMORY(mem_req_blas);
+    HELIOS_ZERO_MEMORY(mem_req_blas);
 
     mem_req_blas.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
 
@@ -980,13 +980,13 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
             VkWriteDescriptorSet write_data[7];
 
-            LUMEN_ZERO_MEMORY(write_data[0]);
-            LUMEN_ZERO_MEMORY(write_data[1]);
-            LUMEN_ZERO_MEMORY(write_data[2]);
-            LUMEN_ZERO_MEMORY(write_data[3]);
-            LUMEN_ZERO_MEMORY(write_data[4]);
-            LUMEN_ZERO_MEMORY(write_data[5]);
-            LUMEN_ZERO_MEMORY(write_data[6]);
+            HELIOS_ZERO_MEMORY(write_data[0]);
+            HELIOS_ZERO_MEMORY(write_data[1]);
+            HELIOS_ZERO_MEMORY(write_data[2]);
+            HELIOS_ZERO_MEMORY(write_data[3]);
+            HELIOS_ZERO_MEMORY(write_data[4]);
+            HELIOS_ZERO_MEMORY(write_data[5]);
+            HELIOS_ZERO_MEMORY(write_data[6]);
 
             write_data[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[0].descriptorCount = 1;
@@ -1113,4 +1113,4 @@ Node::Ptr Scene::find_node(const std::string& name)
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
-} // namespace lumen
+} // namespace helios

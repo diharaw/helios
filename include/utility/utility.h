@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <stdio.h>
 
-namespace lumen
+namespace helios
 {
 namespace utility
 {
@@ -32,4 +32,4 @@ extern std::string current_working_directory();
 // Changes the current working directory.
 extern void change_current_working_directory(std::string path);
 } // namespace utility
-} // namespace lumen
+} // namespace helios

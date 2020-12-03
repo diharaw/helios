@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 
-namespace lumen
+namespace helios
 {
 struct Vertex
 {
@@ -76,4 +76,4 @@ private:
          std::vector<std::shared_ptr<Material>> materials,
          vk::BatchUploader&                     uploader);
 };
-} // namespace lumen
+} // namespace helios

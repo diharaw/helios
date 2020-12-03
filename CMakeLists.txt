@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 
-project("Lumen")
+project("Helios")
 
 IF(APPLE)
 	set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LANGUAGE_STANDARD "c++17")
@@ -19,13 +19,13 @@ set_target_properties(glfw PROPERTIES FOLDER external)
 
 find_package(Vulkan REQUIRED)
 
-set(LUMEN_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/include")
+set(HELIOS_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/include")
 set(GLFW_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/external/glfw/include")
 set(GLM_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/external/AssetCore/external/glm/glm")
 set(IMGUI_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/external/imgui")
 set(VMA_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/external/VulkanMemoryAllocator/src")
 
-include_directories("${LUMEN_INCLUDE_DIRS}"
+include_directories("${HELIOS_INCLUDE_DIRS}"
 					"${ASSET_CORE_INCLUDES}"
                     "${GLFW_INCLUDE_DIRS}"
                     "${GLM_INCLUDE_DIRS}"

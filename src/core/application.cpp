@@ -5,7 +5,7 @@
 #include <examples/imgui_impl_vulkan.h>
 #include <iostream>
 
-namespace lumen
+namespace helios
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -14,7 +14,7 @@ void imgui_vulkan_error_check(VkResult err)
     if (err == 0)
         return;
 
-    LUMEN_LOG_ERROR("(Vulkan) Error " + std::to_string(err));
+    HELIOS_LOG_ERROR("(Vulkan) Error " + std::to_string(err));
 
     if (err < 0)
         abort();
@@ -75,11 +75,11 @@ bool Application::init_base(int argc, const char* argv[])
     bool maximized = settings.maximized;
     m_width        = settings.width;
     m_height       = settings.height;
-    m_title        = "Lumen (c) 2020";
+    m_title        = "Helios (c) 2020";
 
     if (glfwInit() != GLFW_TRUE)
     {
-        LUMEN_LOG_FATAL("Failed to initialize GLFW");
+        HELIOS_LOG_FATAL("Failed to initialize GLFW");
         return false;
     }
 
@@ -92,7 +92,7 @@ bool Application::init_base(int argc, const char* argv[])
 
     if (!m_window)
     {
-        LUMEN_LOG_FATAL("Failed to create GLFW window!");
+        HELIOS_LOG_FATAL("Failed to create GLFW window!");
         return false;
     }
 
@@ -104,7 +104,7 @@ bool Application::init_base(int argc, const char* argv[])
     glfwSetWindowSizeCallback(m_window, window_size_callback_glfw);
     glfwSetWindowUserPointer(m_window, this);
 
-    LUMEN_LOG_INFO("Successfully initialized platform!");
+    HELIOS_LOG_INFO("Successfully initialized platform!");
 
     m_vk_backend = vk::Backend::create(m_window,
 #if defined(_DEBUG)
@@ -148,7 +148,7 @@ bool Application::init_base(int argc, const char* argv[])
     vk::CommandBuffer::Ptr cmd_buf = m_vk_backend->allocate_graphics_command_buffer();
 
     VkCommandBufferBeginInfo begin_info;
-    LUMEN_ZERO_MEMORY(begin_info);
+    HELIOS_ZERO_MEMORY(begin_info);
 
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -503,4 +503,4 @@ void Application::window_size_callback_glfw(GLFWwindow* window, int width, int h
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
-} // namespace lumen
+} // namespace helios

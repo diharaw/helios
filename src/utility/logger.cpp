@@ -15,7 +15,7 @@
     "**************************************************************************" \
     "******************************\n"
 
-namespace lumen
+namespace helios
 {
 namespace logger
 {
@@ -303,4 +303,4 @@ void flush()
     }
 }
 } // namespace logger
-} // namespace lumen
+} // namespace helios

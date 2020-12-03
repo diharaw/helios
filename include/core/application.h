@@ -11,7 +11,7 @@
 #include <core/resource_manager.h>
 
 // Main method macro. Use this at the bottom of any cpp file.
-#define LUMEN_DECLARE_MAIN(class_name)     \
+#define HELIOS_DECLARE_MAIN(class_name)     \
     int main(int argc, const char* argv[]) \
     {                                      \
         class_name app;                    \
@@ -22,7 +22,7 @@
 #define MAX_KEYS 1024
 #define MAX_MOUSE_BUTTONS 5
 
-namespace lumen
+namespace helios
 {
 struct Settings
 {
@@ -114,4 +114,4 @@ protected:
     std::vector<vk::Semaphore::Ptr>     m_image_available_semaphores;
     std::vector<vk::Semaphore::Ptr>     m_render_finished_semaphores;
 };
-} // namespace lumen
+} // namespace helios

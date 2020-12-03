@@ -12,7 +12,7 @@ struct VmaAllocator_T;
 struct VmaAllocation_T;
 enum VmaMemoryUsage;
 
-namespace lumen
+namespace helios
 {
 namespace vk
 {
@@ -1024,4 +1024,4 @@ extern uint32_t get_memory_type(VkPhysicalDevice device, uint32_t typeBits, VkMe
 } // namespace utilities
 
 } // namespace vk
-} // namespace lumen
+} // namespace helios

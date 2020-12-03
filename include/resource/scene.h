@@ -7,7 +7,7 @@
 #include <memory>
 #include <vector>
 
-namespace lumen
+namespace helios
 {
 #define MAX_SCENE_MESH_INSTANCE_COUNT 1024
 #define MAX_SCENE_LIGHT_COUNT 100000
@@ -381,4 +381,4 @@ private:
     std::weak_ptr<vk::Backend> m_backend;
     std::string                m_name;
 };
-} // namespace lumen
+} // namespace helios

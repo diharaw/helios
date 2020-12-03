@@ -2,7 +2,7 @@
 
 #include <resource/scene.h>
 
-namespace lumen
+namespace helios
 {
 #define MAX_DEBUG_RAY_DRAW_COUNT 1024
 
@@ -57,4 +57,4 @@ private:
     void create_buffers();
     void create_descriptor_sets();
 };
-} // namespace lumen
+} // namespace helios

@@ -6,7 +6,7 @@
 #include <examples/imgui_impl_vulkan.h>
 #include <resource/scene.h>
 
-namespace lumen
+namespace helios
 {
 struct RayDebugVertex
 {
@@ -63,7 +63,7 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
         auto& tlas_data = render_state.m_scene->acceleration_structure_data();
 
         VkBufferCopy copy_region;
-        LUMEN_ZERO_MEMORY(copy_region);
+        HELIOS_ZERO_MEMORY(copy_region);
 
         copy_region.dstOffset = 0;
         copy_region.size      = sizeof(VkAccelerationStructureInstanceKHR) * render_state.m_meshes.size();
@@ -81,7 +81,7 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
         }
 
         VkAccelerationStructureGeometryKHR geometry;
-        LUMEN_ZERO_MEMORY(geometry);
+        HELIOS_ZERO_MEMORY(geometry);
 
         geometry.sType                                 = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         geometry.geometryType                          = VK_GEOMETRY_TYPE_INSTANCES_KHR;
@@ -92,7 +92,7 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
         VkAccelerationStructureGeometryKHR* ptr_geometry = &geometry;
 
         VkAccelerationStructureBuildGeometryInfoKHR build_info;
-        LUMEN_ZERO_MEMORY(build_info);
+        HELIOS_ZERO_MEMORY(build_info);
 
         build_info.sType                     = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
         build_info.type                      = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
@@ -538,7 +538,7 @@ void Renderer::create_descriptor_sets()
         {
             VkDescriptorImageInfo image_info;
 
-            LUMEN_ZERO_MEMORY(image_info);
+            HELIOS_ZERO_MEMORY(image_info);
 
             image_info.sampler     = nullptr;
             image_info.imageView   = m_output_image_views[i]->handle();
@@ -548,7 +548,7 @@ void Renderer::create_descriptor_sets()
 
             VkWriteDescriptorSet write_data;
 
-            LUMEN_ZERO_MEMORY(write_data);
+            HELIOS_ZERO_MEMORY(write_data);
 
             write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data.descriptorCount = 1;
@@ -563,7 +563,7 @@ void Renderer::create_descriptor_sets()
         {
             VkDescriptorImageInfo image_info;
 
-            LUMEN_ZERO_MEMORY(image_info);
+            HELIOS_ZERO_MEMORY(image_info);
 
             image_info.sampler     = backend->bilinear_sampler()->handle();
             image_info.imageView   = m_output_image_views[i]->handle();
@@ -573,7 +573,7 @@ void Renderer::create_descriptor_sets()
 
             VkWriteDescriptorSet write_data;
 
-            LUMEN_ZERO_MEMORY(write_data);
+            HELIOS_ZERO_MEMORY(write_data);
 
             write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data.descriptorCount = 1;
@@ -588,7 +588,7 @@ void Renderer::create_descriptor_sets()
 
     VkDescriptorBufferInfo ray_debug_vbo_buffer_info;
 
-    LUMEN_ZERO_MEMORY(ray_debug_vbo_buffer_info);
+    HELIOS_ZERO_MEMORY(ray_debug_vbo_buffer_info);
 
     ray_debug_vbo_buffer_info.buffer = m_ray_debug_vbo->handle();
     ray_debug_vbo_buffer_info.offset = 0;
@@ -596,7 +596,7 @@ void Renderer::create_descriptor_sets()
 
     VkWriteDescriptorSet ray_debug_vbo_buffer_write_data;
 
-    LUMEN_ZERO_MEMORY(ray_debug_vbo_buffer_write_data);
+    HELIOS_ZERO_MEMORY(ray_debug_vbo_buffer_write_data);
 
     ray_debug_vbo_buffer_write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     ray_debug_vbo_buffer_write_data.descriptorCount = 1;
@@ -609,7 +609,7 @@ void Renderer::create_descriptor_sets()
 
     VkDescriptorBufferInfo ray_debug_draw_args_buffer_info;
 
-    LUMEN_ZERO_MEMORY(ray_debug_draw_args_buffer_info);
+    HELIOS_ZERO_MEMORY(ray_debug_draw_args_buffer_info);
 
     ray_debug_draw_args_buffer_info.buffer = m_ray_debug_draw_cmd->handle();
     ray_debug_draw_args_buffer_info.offset = 0;
@@ -617,7 +617,7 @@ void Renderer::create_descriptor_sets()
 
     VkWriteDescriptorSet ray_debug_draw_args_write_data;
 
-    LUMEN_ZERO_MEMORY(ray_debug_draw_args_write_data);
+    HELIOS_ZERO_MEMORY(ray_debug_draw_args_write_data);
 
     ray_debug_draw_args_write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     ray_debug_draw_args_write_data.descriptorCount = 1;
@@ -632,4 +632,4 @@ void Renderer::create_descriptor_sets()
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
-} // namespace lumen
+} // namespace helios

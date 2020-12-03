@@ -3,7 +3,7 @@
 #include <vk_mem_alloc.h>
 #include <utility/macros.h>
 
-namespace lumen
+namespace helios
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -64,7 +64,7 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
         Material::Ptr material = materials[submeshes[i].mat_idx];
 
         VkAccelerationStructureGeometryKHR geometry;
-        LUMEN_ZERO_MEMORY(geometry);
+        HELIOS_ZERO_MEMORY(geometry);
 
         VkGeometryFlagsKHR geometry_flags = 0;
 
@@ -86,7 +86,7 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
         geometries.push_back(geometry);
 
         VkAccelerationStructureCreateGeometryTypeInfoKHR geometry_type_info;
-        LUMEN_ZERO_MEMORY(geometry_type_info);
+        HELIOS_ZERO_MEMORY(geometry_type_info);
 
         geometry_type_info.sType             = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_GEOMETRY_TYPE_INFO_KHR;
         geometry_type_info.vertexFormat      = VK_FORMAT_R32G32B32_SFLOAT;
@@ -98,7 +98,7 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
         geometry_type_infos.push_back(geometry_type_info);
 
         VkAccelerationStructureBuildOffsetInfoKHR build_offset;
-        LUMEN_ZERO_MEMORY(build_offset);
+        HELIOS_ZERO_MEMORY(build_offset);
 
         build_offset.primitiveCount  = submeshes[i].index_count / 3;
         build_offset.primitiveOffset = submeshes[i].base_index * sizeof(uint32_t);
@@ -128,4 +128,4 @@ Mesh::~Mesh()
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
-} // namespace lumen
+} // namespace helios

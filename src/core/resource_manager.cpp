@@ -4,7 +4,7 @@
 #include <loader/loader.h>
 #include <vk_mem_alloc.h>
 
-namespace lumen
+namespace helios
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -243,7 +243,7 @@ Texture2D::Ptr ResourceManager::load_texture_2d_internal(const std::string& path
         }
         else
         {
-            LUMEN_LOG_ERROR("Failed to load Texture: " + path);
+            HELIOS_LOG_ERROR("Failed to load Texture: " + path);
             return nullptr;
         }
     }
@@ -277,7 +277,7 @@ TextureCube::Ptr ResourceManager::load_texture_cube_internal(const std::string& 
         }
         else
         {
-            LUMEN_LOG_ERROR("Failed to load Texture: " + path);
+            HELIOS_LOG_ERROR("Failed to load Texture: " + path);
             return nullptr;
         }
     }
@@ -410,7 +410,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
         }
         else
         {
-            LUMEN_LOG_ERROR("Failed to load Material: " + path);
+            HELIOS_LOG_ERROR("Failed to load Material: " + path);
             return nullptr;
         }
     }
@@ -477,7 +477,7 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
         }
         else
         {
-            LUMEN_LOG_ERROR("Failed to load Mesh: " + path);
+            HELIOS_LOG_ERROR("Failed to load Mesh: " + path);
             return nullptr;
         }
     }
@@ -518,7 +518,7 @@ MeshNode::Ptr ResourceManager::create_mesh_node(std::shared_ptr<ast::MeshNode> a
         if (mesh)
             mesh_node->set_mesh(mesh);
         else
-            LUMEN_LOG_ERROR("Failed to load mesh: " + ast_node->mesh);
+            HELIOS_LOG_ERROR("Failed to load mesh: " + ast_node->mesh);
 
         Material::Ptr material_override = nullptr;
 
@@ -527,7 +527,7 @@ MeshNode::Ptr ResourceManager::create_mesh_node(std::shared_ptr<ast::MeshNode> a
             material_override = load_material_internal(ast_node->material_override, false, uploader);
 
             if (!material_override)
-                LUMEN_LOG_ERROR("Failed to load material override: " + ast_node->material_override);
+                HELIOS_LOG_ERROR("Failed to load material override: " + ast_node->material_override);
 
             mesh_node->set_material_override(material_override);
         }
@@ -618,7 +618,7 @@ IBLNode::Ptr ResourceManager::create_ibl_node(std::shared_ptr<ast::IBLNode> ast_
         if (texture_cube)
             ibl_node->set_image(texture_cube);
         else
-            LUMEN_LOG_ERROR("Failed to load cubemap: " + ast_node->image);
+            HELIOS_LOG_ERROR("Failed to load cubemap: " + ast_node->image);
     }
 
     populate_scene_node(ibl_node, ast_node, uploader);
@@ -649,4 +649,4 @@ void ResourceManager::populate_transform_node(TransformNode::Ptr node, std::shar
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
-} // namespace lumen
+} // namespace helios

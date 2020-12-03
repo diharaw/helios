@@ -2,7 +2,7 @@
 
 #include <core/integrator.h>
 
-namespace lumen
+namespace helios
 {
 class PathIntegrator : public Integrator
 {
@@ -29,4 +29,4 @@ private:
     vk::PipelineLayout::Ptr     m_ray_debug_pipeline_layout;
     vk::ShaderBindingTable::Ptr m_ray_debug_sbt;
 };
-} // namespace lumen
+} // namespace helios

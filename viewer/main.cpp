@@ -18,7 +18,7 @@ void PopDisabled()
 }
 } // namespace ImGui
 
-namespace lumen
+namespace helios
 {
 class Viewer : public Application
 {
@@ -45,7 +45,7 @@ protected:
         vk::CommandBuffer::Ptr cmd_buf = m_vk_backend->allocate_graphics_command_buffer();
 
         VkCommandBufferBeginInfo begin_info;
-        LUMEN_ZERO_MEMORY(begin_info);
+        HELIOS_ZERO_MEMORY(begin_info);
 
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -290,6 +290,6 @@ private:
     float               m_camera_speed       = 0.02f;
     int32_t             m_num_debug_rays     = 32;
 };
-} // namespace lumen
+} // namespace helios
 
-LUMEN_DECLARE_MAIN(lumen::Viewer)
+HELIOS_DECLARE_MAIN(helios::Viewer)

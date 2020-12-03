@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 find_program(CLANG_FORMAT_EXE NAMES "clang-format" DOC "Path to clang-format executable")
 
-set(LUMEN_VIEWER_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rchit
+set(HELIOS_VIEWER_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rchit
                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rgen
                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rmiss
                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rchit
@@ -21,15 +21,15 @@ set(LUMEN_VIEWER_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.r
                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rmiss)
 
 if (APPLE)
-    add_executable(LumenViewer MACOSX_BUNDLE "main.cpp")
-    set(MACOSX_BUNDLE_BUNDLE_NAME "com.dihara.lumen") 
+    add_executable(HeliosViewer MACOSX_BUNDLE "main.cpp")
+    set(MACOSX_BUNDLE_BUNDLE_NAME "com.dihara.helios") 
 else()
-    add_executable(LumenViewer "main.cpp") 
+    add_executable(HeliosViewer "main.cpp") 
 endif()
 
-target_link_libraries(LumenViewer Lumen)
+target_link_libraries(HeliosViewer Helios)
 
-foreach(GLSL ${LUMEN_VIEWER_SHADER_SOURCES})
+foreach(GLSL ${HELIOS_VIEWER_SHADER_SOURCES})
     get_filename_component(FILE_NAME ${GLSL} NAME)
     set(SPIRV "${CMAKE_SOURCE_DIR}/bin/$(Configuration)/shader/${FILE_NAME}.spv")
     add_custom_command(
@@ -40,10 +40,10 @@ foreach(GLSL ${LUMEN_VIEWER_SHADER_SOURCES})
     list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(GLSL)
 
-add_custom_target(LumenViewer_Shaders DEPENDS ${SPIRV_BINARY_FILES})
+add_custom_target(HeliosViewer_Shaders DEPENDS ${SPIRV_BINARY_FILES})
 
-add_dependencies(LumenViewer LumenViewer_Shaders)
+add_dependencies(HeliosViewer HeliosViewer_Shaders)
 
 if (WIN32)
-    set_property(TARGET LumenViewer PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/$(Configuration)")
+    set_property(TARGET HeliosViewer PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/$(Configuration)")
 endif()

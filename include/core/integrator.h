@@ -3,7 +3,7 @@
 #include <core/vk.h>
 #include <resource/scene.h>
 
-namespace lumen
+namespace helios
 {
 class Renderer;
 
@@ -34,4 +34,4 @@ protected:
     virtual void execute(RenderState& render_state) = 0;
     virtual void gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state);
 };
-} // namespace lumen
+} // namespace helios
