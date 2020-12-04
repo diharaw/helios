@@ -81,7 +81,8 @@ struct Instance
     uint mesh_idx;
     uint mat_idx;
     uint primitive_offset;
-    mat4 transform;
+    mat4 model_matrix;
+    mat4 normal_matrix;
 };
 
 #endif

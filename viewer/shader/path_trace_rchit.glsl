@@ -42,7 +42,7 @@ layout (set = 2, binding = 0) readonly buffer IndexBuffer
 layout (set = 3, binding = 0) readonly buffer InstanceBuffer 
 {
     uint mesh_index;
-    mat4 model;
+    mat4 model_matrix;
     uvec2 primitive_offsets_material_indices[];
 } InstanceArray[];
 
@@ -122,14 +122,15 @@ Instance fetch_instance()
 {
     uint mesh_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].mesh_index;
     uvec2 primitive_offset_mat_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].primitive_offsets_material_indices[gl_GeometryIndexEXT];
-    mat4 transform = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].model;
+    mat4 model_matrix = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].model_matrix;
 
     Instance instance;
 
     instance.mesh_idx = mesh_idx;
     instance.mat_idx = primitive_offset_mat_idx.y;
     instance.primitive_offset = primitive_offset_mat_idx.x;
-    instance.transform = transform;
+    instance.model_matrix = model_matrix;
+    instance.normal_matrix = model_matrix;
 
     return instance;
 }
@@ -159,8 +160,8 @@ Triangle fetch_triangle(in Instance instance)
 
 Vertex interpolated_vertex(in Instance instance, in Triangle tri)
 {;
-    mat4 model_mat = instance.transform;
-    mat3 normal_mat = mat3(model_mat);
+    mat4 model_mat = instance.model_matrix;
+    mat3 normal_mat = mat3(instance.normal_matrix);
 
     const vec3 barycentrics = vec3(1.0 - hit_attribs.x - hit_attribs.y, hit_attribs.x, hit_attribs.y);
 

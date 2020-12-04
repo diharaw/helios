@@ -153,16 +153,16 @@ void main()
 
     // Trace Ray
     traceRayEXT(u_TopLevelAS, 
-            ray_flags, 
-            cull_mask, 
-            PATH_TRACE_RAY_GEN_SHADER_IDX, 
-            PATH_TRACE_CLOSEST_HIT_SHADER_IDX, 
-            PATH_TRACE_MISS_SHADER_IDX, 
-            origin.xyz, 
-            tmin, 
-            direction.xyz, 
-            tmax, 
-            0);
+                ray_flags, 
+                cull_mask, 
+                PATH_TRACE_RAY_GEN_SHADER_IDX, 
+                PATH_TRACE_CLOSEST_HIT_SHADER_IDX, 
+                PATH_TRACE_MISS_SHADER_IDX, 
+                origin.xyz, 
+                tmin, 
+                direction.xyz, 
+                tmax, 
+                0);
 
 #if !defined(RAY_DEBUG_VIEW)
     // Blend current frames' result with the previous frame

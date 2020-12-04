@@ -100,6 +100,7 @@ public:
     glm::vec3 left();
     glm::vec3 position();
     glm::mat4 model_matrix();
+    glm::mat4 normal_matrix();
     void      set_orientation(const glm::quat& q);
     void      set_orientation_from_euler_yxz(const glm::vec3& e);
     void      set_orientation_from_euler_xyz(const glm::vec3& e);

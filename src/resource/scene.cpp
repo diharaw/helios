@@ -34,7 +34,7 @@ struct InstanceData
 {
     uint32_t   mesh_index;
     float      padding[3];
-    glm::mat4  model;
+    glm::mat4  model_matrix;
     glm::uvec2 primitive_offsets_material_indices;
 };
 
@@ -198,6 +198,13 @@ glm::vec3 TransformNode::position()
 glm::mat4 TransformNode::model_matrix()
 {
     return m_model_matrix;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+glm::mat4 TransformNode::normal_matrix()
+{
+    return m_model_matrix_without_scale;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -931,7 +938,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
                 // Copy geometry instance data
                 VkAccelerationStructureInstanceKHR& rt_instance = geometry_instance_buffer[mesh_node_idx];
 
-                glm::mat3x4 transform = glm::mat3x4(mesh_node->model_matrix());
+                glm::mat3x4 transform = glm::mat3x4(glm::transpose(mesh_node->model_matrix()));
 
                 memcpy(&rt_instance.transform, &transform, sizeof(rt_instance.transform));
 
@@ -946,8 +953,8 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                 // Set mesh data index
                 instance_data->mesh_index = global_mesh_indices[mesh->id()];
-                instance_data->model      = mesh_node->model_matrix();
-
+                instance_data->model_matrix = mesh_node->model_matrix();
+     
                 glm::uvec2* primitive_offsets_material_indices = &instance_data->primitive_offsets_material_indices;
 
                 // Set submesh materials

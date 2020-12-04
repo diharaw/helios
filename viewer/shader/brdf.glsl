@@ -106,17 +106,17 @@ vec3 sample_uber(in SurfaceProperties p, in vec3 Wo, in RNG rng, out vec3 Wi, ou
 
     bool is_specular = false;
 
-    if (rand_value.x < 0.5)
-    {
-        Wh = sample_ggx(p.normal, alpha, rand_value.yz);
-        Wi = reflect(-Wo, Wh);
+    // if (rand_value.x < 0.5)
+    // {
+    //     Wh = sample_ggx(p.normal, alpha, rand_value.yz);
+    //     Wi = reflect(-Wo, Wh);
         
-        float NdotL = max(dot(p.normal, Wi), 0.0);
-        float NdotV = max(dot(p.normal, Wo), 0.0);
+    //     float NdotL = max(dot(p.normal, Wi), 0.0);
+    //     float NdotV = max(dot(p.normal, Wo), 0.0);
 
-        if (NdotL > 0.0f && NdotV > 0.0f)
-            is_specular = true;
-    }
+    //     if (NdotL > 0.0f && NdotV > 0.0f)
+    //         is_specular = true;
+    // }
     
     if (!is_specular)
     {

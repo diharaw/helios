@@ -28,7 +28,7 @@ protected:
     bool init(int argc, const char* argv[]) override
     {
         m_path_integrator = std::shared_ptr<PathIntegrator>(new PathIntegrator(m_vk_backend));
-        m_scene           = m_resource_manager->load_scene("scene/pica_pica_no_ibl.json");
+        m_scene           = m_resource_manager->load_scene("scene/cornell_box_no_ibl.json");
 
         return true;
     }
