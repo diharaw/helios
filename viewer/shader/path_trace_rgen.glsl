@@ -10,12 +10,17 @@ layout (set = 0, binding = 0, std430) readonly buffer MaterialBuffer
     Material data[];
 } Materials;
 
-layout (set = 0, binding = 1, std430) readonly buffer LightBuffer 
+layout (set = 0, binding = 1, std430) readonly buffer InstanceBuffer 
+{
+    Instance data[];
+} Instances;
+
+layout (set = 0, binding = 2, std430) readonly buffer LightBuffer 
 {
     Light data[];
 } Lights;
 
-layout (set = 0, binding = 2) uniform accelerationStructureEXT u_TopLevelAS;
+layout (set = 0, binding = 3) uniform accelerationStructureEXT u_TopLevelAS;
 
 // ------------------------------------------------------------------------
 // Set 1 ------------------------------------------------------------------
@@ -23,8 +28,8 @@ layout (set = 0, binding = 2) uniform accelerationStructureEXT u_TopLevelAS;
 
 layout (set = 1, binding = 0, std430) readonly buffer VertexBuffer 
 {
-    Vertex vertices[];
-} VertexArray[];
+    Vertex data[];
+} Vertices[];
 
 // ------------------------------------------------------------------------
 // Set 2 ------------------------------------------------------------------
@@ -32,19 +37,17 @@ layout (set = 1, binding = 0, std430) readonly buffer VertexBuffer
 
 layout (set = 2, binding = 0) readonly buffer IndexBuffer 
 {
-    uint indices[];
-} IndexArray[];
+    uint data[];
+} Indices[];
 
 // ------------------------------------------------------------------------
 // Set 3 ------------------------------------------------------------------
 // ------------------------------------------------------------------------
 
-layout (set = 3, binding = 0) readonly buffer InstanceBuffer 
+layout (set = 3, binding = 0) readonly buffer SubmeshInfoBuffer 
 {
-    uint mesh_index;
-    mat4 model;
-    uvec2 primitive_offsets_material_indices[];
-} InstanceArray[];
+    uvec2 data[];
+} SubmeshInfo[];
 
 // ------------------------------------------------------------------------
 // Set 4 ------------------------------------------------------------------

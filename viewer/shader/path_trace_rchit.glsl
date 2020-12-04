@@ -10,12 +10,17 @@ layout (set = 0, binding = 0, std430) readonly buffer MaterialBuffer
     Material data[];
 } Materials;
 
-layout (set = 0, binding = 1, std430) readonly buffer LightBuffer 
+layout (set = 0, binding = 1, std430) readonly buffer InstanceBuffer 
+{
+    Instance data[];
+} Instances;
+
+layout (set = 0, binding = 2, std430) readonly buffer LightBuffer 
 {
     Light data[];
 } Lights;
 
-layout (set = 0, binding = 2) uniform accelerationStructureEXT u_TopLevelAS;
+layout (set = 0, binding = 3) uniform accelerationStructureEXT u_TopLevelAS;
 
 // ------------------------------------------------------------------------
 // Set 1 ------------------------------------------------------------------
@@ -23,8 +28,8 @@ layout (set = 0, binding = 2) uniform accelerationStructureEXT u_TopLevelAS;
 
 layout (set = 1, binding = 0, std430) readonly buffer VertexBuffer 
 {
-    Vertex vertices[];
-} VertexArray[];
+    Vertex data[];
+} Vertices[];
 
 // ------------------------------------------------------------------------
 // Set 2 ------------------------------------------------------------------
@@ -32,19 +37,17 @@ layout (set = 1, binding = 0, std430) readonly buffer VertexBuffer
 
 layout (set = 2, binding = 0) readonly buffer IndexBuffer 
 {
-    uint indices[];
-} IndexArray[];
+    uint data[];
+} Indices[];
 
 // ------------------------------------------------------------------------
 // Set 3 ------------------------------------------------------------------
 // ------------------------------------------------------------------------
 
-layout (set = 3, binding = 0) readonly buffer InstanceBuffer 
+layout (set = 3, binding = 0) readonly buffer SubmeshInfoBuffer 
 {
-    uint mesh_index;
-    mat4 model_matrix;
-    uvec2 primitive_offsets_material_indices[];
-} InstanceArray[];
+    uvec2 data[];
+} SubmeshInfo[];
 
 // ------------------------------------------------------------------------
 // Set 4 ------------------------------------------------------------------
@@ -113,52 +116,47 @@ hitAttributeEXT vec2 hit_attribs;
 
 Vertex get_vertex(uint mesh_idx, uint vertex_idx)
 {
-    return VertexArray[nonuniformEXT(mesh_idx)].vertices[vertex_idx];
+    return Vertices[nonuniformEXT(mesh_idx)].data[vertex_idx];
 }
 
 // ------------------------------------------------------------------------
 
-Instance fetch_instance()
+HitInfo fetch_hit_info()
 {
-    uint mesh_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].mesh_index;
-    uvec2 primitive_offset_mat_idx = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].primitive_offsets_material_indices[gl_GeometryIndexEXT];
-    mat4 model_matrix = InstanceArray[nonuniformEXT(gl_InstanceCustomIndexEXT)].model_matrix;
+    uvec2 primitive_offset_mat_idx = SubmeshInfo[nonuniformEXT(gl_InstanceCustomIndexEXT)].data[gl_GeometryIndexEXT];
 
-    Instance instance;
+    HitInfo hit_info;
 
-    instance.mesh_idx = mesh_idx;
-    instance.mat_idx = primitive_offset_mat_idx.y;
-    instance.primitive_offset = primitive_offset_mat_idx.x;
-    instance.model_matrix = model_matrix;
-    instance.normal_matrix = model_matrix;
+    hit_info.mat_idx = primitive_offset_mat_idx.y;
+    hit_info.primitive_offset = primitive_offset_mat_idx.x;
 
-    return instance;
+    return hit_info;
 }
 
 // ------------------------------------------------------------------------
 
-Triangle fetch_triangle(in Instance instance)
+Triangle fetch_triangle(in Instance instance, in HitInfo hit_info)
 {
     Triangle tri;
 
-    uint primitive_id = gl_PrimitiveID + instance.primitive_offset;
+    uint primitive_id = gl_PrimitiveID + hit_info.primitive_offset;
 
-    uvec3 idx = uvec3(IndexArray[nonuniformEXT(instance.mesh_idx)].indices[3 * primitive_id], 
-                      IndexArray[nonuniformEXT(instance.mesh_idx)].indices[3 * primitive_id + 1],
-                      IndexArray[nonuniformEXT(instance.mesh_idx)].indices[3 * primitive_id + 2]);
+    uvec3 idx = uvec3(Indices[nonuniformEXT(instance.mesh_idx)].data[3 * primitive_id], 
+                      Indices[nonuniformEXT(instance.mesh_idx)].data[3 * primitive_id + 1],
+                      Indices[nonuniformEXT(instance.mesh_idx)].data[3 * primitive_id + 2]);
 
     tri.v0 = get_vertex(instance.mesh_idx, idx.x);
     tri.v1 = get_vertex(instance.mesh_idx, idx.y);
     tri.v2 = get_vertex(instance.mesh_idx, idx.z);
 
-    tri.mat_idx = instance.mat_idx;
+    tri.mat_idx = hit_info.mat_idx;
 
     return tri;
 }
 
 // ------------------------------------------------------------------------
 
-Vertex interpolated_vertex(in Instance instance, in Triangle tri)
+Vertex interpolated_vertex(in Instance instance, in HitInfo hit_info, in Triangle tri)
 {;
     mat4 model_mat = instance.model_matrix;
     mat3 normal_mat = mat3(instance.normal_matrix);
@@ -246,11 +244,12 @@ void fetch_emissive(in Material material, inout SurfaceProperties p)
 
 void populate_surface_properties(out SurfaceProperties p)
 {
-    const Instance instance = fetch_instance();
-    const Triangle triangle = fetch_triangle(instance);
+    const Instance instance = Instances.data[gl_InstanceCustomIndexEXT];
+    const HitInfo hit_info = fetch_hit_info();
+    const Triangle triangle = fetch_triangle(instance, hit_info);
     const Material material = Materials.data[triangle.mat_idx];
 
-    p.vertex = interpolated_vertex(instance, triangle);
+    p.vertex = interpolated_vertex(instance, hit_info, triangle);
 
     fetch_albedo(material, p);
     fetch_normal(material, p);

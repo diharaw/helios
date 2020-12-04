@@ -47,7 +47,7 @@ void PathIntegrator::execute(RenderState& render_state)
         render_state.scene_descriptor_set()->handle(),
         render_state.vbo_descriptor_set()->handle(),
         render_state.ibo_descriptor_set()->handle(),
-        render_state.instance_descriptor_set()->handle(),
+        render_state.material_indices_descriptor_set()->handle(),
         render_state.texture_descriptor_set()->handle(),
         render_state.read_image_descriptor_set()->handle(),
         render_state.write_image_descriptor_set()->handle()
@@ -94,7 +94,7 @@ void PathIntegrator::gather_debug_rays(const glm::ivec2& pixel_coord, const uint
         render_state.scene_descriptor_set()->handle(),
         render_state.vbo_descriptor_set()->handle(),
         render_state.ibo_descriptor_set()->handle(),
-        render_state.instance_descriptor_set()->handle(),
+        render_state.material_indices_descriptor_set()->handle(),
         render_state.texture_descriptor_set()->handle(),
         render_state.ray_debug_descriptor_set()->handle()
     };

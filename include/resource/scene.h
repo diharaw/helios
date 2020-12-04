@@ -119,7 +119,7 @@ public:
 private:
     std::shared_ptr<Mesh>     m_mesh;
     std::shared_ptr<Material> m_material_override;
-    vk::Buffer::Ptr           m_instance_data_buffer;
+    vk::Buffer::Ptr           m_material_indices_buffer;
 
 public:
     MeshNode(const std::string& name);
@@ -131,7 +131,7 @@ public:
     void                             set_material_override(std::shared_ptr<Material> material_override);
     inline std::shared_ptr<Mesh>     mesh() { return m_mesh; }
     inline std::shared_ptr<Material> material_override() { return m_material_override; }
-    inline vk::Buffer::Ptr           instance_data_buffer() { return m_instance_data_buffer; }
+    inline vk::Buffer::Ptr           material_indices_buffer() { return m_material_indices_buffer; }
 
 private:
     void create_instance_data_buffer();
@@ -305,7 +305,7 @@ private:
     vk::DescriptorSet::Ptr             m_scene_ds;
     vk::DescriptorSet::Ptr             m_vbo_ds;
     vk::DescriptorSet::Ptr             m_ibo_ds;
-    vk::DescriptorSet::Ptr             m_instance_ds;
+    vk::DescriptorSet::Ptr             m_material_indices_ds;
     vk::DescriptorSet::Ptr             m_texture_ds;
     vk::DescriptorSet::Ptr             m_ray_debug_ds;
     vk::CommandBuffer::Ptr             m_cmd_buffer;
@@ -337,7 +337,7 @@ public:
     inline vk::DescriptorSet::Ptr                    scene_descriptor_set() { return m_scene_ds; }
     inline vk::DescriptorSet::Ptr                    vbo_descriptor_set() { return m_vbo_ds; }
     inline vk::DescriptorSet::Ptr                    ibo_descriptor_set() { return m_ibo_ds; }
-    inline vk::DescriptorSet::Ptr                    instance_descriptor_set() { return m_instance_ds; }
+    inline vk::DescriptorSet::Ptr                    material_indices_descriptor_set() { return m_material_indices_ds; }
     inline vk::DescriptorSet::Ptr                    texture_descriptor_set() { return m_texture_ds; }
     inline vk::DescriptorSet::Ptr                    ray_debug_descriptor_set() { return m_ray_debug_ds; }
     inline vk::CommandBuffer::Ptr                    cmd_buffer() { return m_cmd_buffer; }
@@ -374,10 +374,11 @@ private:
     vk::DescriptorSet::Ptr     m_scene_descriptor_set;
     vk::DescriptorSet::Ptr     m_vbo_descriptor_set;
     vk::DescriptorSet::Ptr     m_ibo_descriptor_set;
-    vk::DescriptorSet::Ptr     m_instance_descriptor_set;
+    vk::DescriptorSet::Ptr     m_material_indices_descriptor_set;
     vk::DescriptorSet::Ptr     m_textures_descriptor_set;
     vk::Buffer::Ptr            m_light_data_buffer;
     vk::Buffer::Ptr            m_material_data_buffer;
+    vk::Buffer::Ptr            m_instance_data_buffer;
     size_t                     m_camera_buffer_aligned_size;
     std::weak_ptr<vk::Backend> m_backend;
     std::string                m_name;
