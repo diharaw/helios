@@ -1,6 +1,12 @@
 #include "common.glsl"
 
 // ------------------------------------------------------------------------
+// Set 0 ------------------------------------------------------------------
+// ------------------------------------------------------------------------
+
+layout (set = 0, binding = 4) uniform samplerCube s_EnvironmentMap;
+
+// ------------------------------------------------------------------------
 // Set 5 ------------------------------------------------------------------
 // ------------------------------------------------------------------------
 
@@ -51,7 +57,7 @@ void main()
         DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 1] = v1;
     }
 #else
-    ray_payload.color = vec3(0.77f, 0.77f, 0.9f) * ray_payload.attenuation;
+    ray_payload.color = texture(s_EnvironmentMap, gl_WorldRayDirectionEXT).rgb * ray_payload.attenuation;
     ray_payload.hit_distance = 0.0f;
 #endif
 }

@@ -134,6 +134,7 @@ public:
     inline std::shared_ptr<Sampler>                bilinear_sampler() { return m_bilinear_sampler; }
     inline std::shared_ptr<Sampler>                trilinear_sampler() { return m_trilinear_sampler; }
     inline std::shared_ptr<Sampler>                nearest_sampler() { return m_nearest_sampler; }
+    inline std::shared_ptr<ImageView>              default_cubemap() { return m_default_cubemap_image_view; }
 
 private:
     Backend(GLFWwindow* window, bool enable_validation_layers, bool require_ray_tracing, std::vector<const char*> additional_device_extensions);
@@ -196,6 +197,8 @@ private:
     std::shared_ptr<Sampler>                                 m_bilinear_sampler;
     std::shared_ptr<Sampler>                                 m_trilinear_sampler;
     std::shared_ptr<Sampler>                                 m_nearest_sampler;
+    std::shared_ptr<Image>                                   m_default_cubemap_image; 
+    std::shared_ptr<ImageView>                               m_default_cubemap_image_view;                          
     uint32_t                                                 m_image_index   = 0;
     uint32_t                                                 m_current_frame = 0;
     std::vector<std::shared_ptr<Fence>>                      m_in_flight_fences;
@@ -222,7 +225,7 @@ class Image : public Object
 public:
     using Ptr = std::shared_ptr<Image>;
 
-    static Image::Ptr create(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout = VK_IMAGE_LAYOUT_UNDEFINED, size_t size = 0, void* data = nullptr);
+    static Image::Ptr create(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout = VK_IMAGE_LAYOUT_UNDEFINED, size_t size = 0, void* data = nullptr, VkImageCreateFlags flags = 0);
     static Image::Ptr create_from_swapchain(Backend::Ptr backend, VkImage image, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count);
 
     ~Image();
@@ -243,7 +246,7 @@ public:
     inline VkSampleCountFlags sample_count() { return m_sample_count; }
 
 private:
-    Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data);
+    Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data, VkImageCreateFlags flags = 0);
     Image(Backend::Ptr backend, VkImage image, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count);
 
 private:
@@ -257,6 +260,7 @@ private:
     VmaMemoryUsage        m_memory_usage;
     VkSampleCountFlagBits m_sample_count;
     VkImageType           m_type;
+    VkImageCreateFlags    m_flags            = 0;
     VkImage               m_vk_image         = nullptr;
     VkDeviceMemory        m_vk_device_memory = nullptr;
     VmaAllocator_T*       m_vma_allocator    = nullptr;

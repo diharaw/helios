@@ -178,9 +178,9 @@ Object::Object(Backend::Ptr backend) :
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Image::Ptr Image::create(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data)
+Image::Ptr Image::create(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data, VkImageCreateFlags flags)
 {
-    return std::shared_ptr<Image>(new Image(backend, type, width, height, depth, mip_levels, array_size, format, memory_usage, usage, sample_count, initial_layout, size, data));
+    return std::shared_ptr<Image>(new Image(backend, type, width, height, depth, mip_levels, array_size, format, memory_usage, usage, sample_count, initial_layout, size, data, flags));
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -192,8 +192,8 @@ Image::Ptr Image::create_from_swapchain(Backend::Ptr backend, VkImage image, VkI
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Image::Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data) :
-    Object(backend), m_type(type), m_width(width), m_height(height), m_depth(depth), m_mip_levels(mip_levels), m_array_size(array_size), m_format(format), m_memory_usage(memory_usage), m_sample_count(sample_count), m_usage(usage)
+Image::Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data, VkImageCreateFlags flags) :
+    Object(backend), m_type(type), m_width(width), m_height(height), m_depth(depth), m_mip_levels(mip_levels), m_array_size(array_size), m_format(format), m_memory_usage(memory_usage), m_sample_count(sample_count), m_usage(usage), m_flags(flags)
 {
     m_vma_allocator = backend->allocator();
 
@@ -216,6 +216,7 @@ Image::Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t he
     image_info.usage         = m_usage;
     image_info.samples       = m_sample_count;
     image_info.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+    image_info.flags         = flags;
 
     VmaAllocationInfo       alloc_info;
     VmaAllocationCreateInfo alloc_create_info;
@@ -3256,6 +3257,8 @@ Backend::~Backend()
         m_deletion_queue.pop_front();
     }
 
+    m_default_cubemap_image_view.reset();
+    m_default_cubemap_image.reset();
     m_bilinear_sampler.reset();
     m_trilinear_sampler.reset();
     m_nearest_sampler.reset();
@@ -3364,6 +3367,8 @@ void Backend::initialize()
     scene_ds_layout_desc.add_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
     // Acceleration Structures
     scene_ds_layout_desc.add_binding(3, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+    // Environment Map
+    scene_ds_layout_desc.add_binding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR);
 
     m_scene_descriptor_set_layout = DescriptorSetLayout::create(shared_from_this(), scene_ds_layout_desc);
 
@@ -3431,16 +3436,38 @@ void Backend::initialize()
     sampler_desc.border_color      = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
     sampler_desc.unnormalized_coordinates;
 
-    m_bilinear_sampler = vk::Sampler::create(shared_from_this(), sampler_desc);
+    m_bilinear_sampler = Sampler::create(shared_from_this(), sampler_desc);
 
     sampler_desc.mipmap_mode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
-    m_trilinear_sampler = vk::Sampler::create(shared_from_this(), sampler_desc);
+    m_trilinear_sampler = Sampler::create(shared_from_this(), sampler_desc);
 
     sampler_desc.mag_filter = VK_FILTER_NEAREST;
     sampler_desc.min_filter = VK_FILTER_NEAREST;
 
-    m_nearest_sampler = vk::Sampler::create(shared_from_this(), sampler_desc);
+    m_nearest_sampler = Sampler::create(shared_from_this(), sampler_desc);
+
+    m_default_cubemap_image      = Image::create(shared_from_this(), VK_IMAGE_TYPE_2D, 2, 2, 1, 1, 6, VK_FORMAT_R32G32B32A32_SFLOAT, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, 0, nullptr, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
+    m_default_cubemap_image_view = ImageView::create(shared_from_this(), m_default_cubemap_image, VK_IMAGE_VIEW_TYPE_CUBE, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6);
+
+    std::vector<glm::vec4> cubemap_data(2 * 2 * 6);
+    std::vector<size_t>    cubemap_sizes(6);
+
+    int idx = 0;
+
+    for (int layer = 0; layer < 6; layer++)
+    {
+        cubemap_sizes[layer] = sizeof(glm::vec4) * 4;
+
+        for (int i = 0; i < 4; i++)
+            cubemap_data[idx++] = glm::vec4(0.0f);
+    }
+
+    BatchUploader uploader(shared_from_this());
+
+    uploader.upload_image_data(m_default_cubemap_image, cubemap_data.data(), cubemap_sizes);
+
+    uploader.submit();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

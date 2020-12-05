@@ -22,6 +22,8 @@ layout (set = 0, binding = 2, std430) readonly buffer LightBuffer
 
 layout (set = 0, binding = 3) uniform accelerationStructureEXT u_TopLevelAS;
 
+layout (set = 0, binding = 4) uniform samplerCube s_EnvironmentMap;
+
 // ------------------------------------------------------------------------
 // Set 1 ------------------------------------------------------------------
 // ------------------------------------------------------------------------
