@@ -3,9 +3,17 @@
 
 #include "random.glsl"
 
-#define PATH_TRACE_RAY_GEN_SHADER_IDX 0
 #define PATH_TRACE_CLOSEST_HIT_SHADER_IDX 0
 #define PATH_TRACE_MISS_SHADER_IDX 0
+
+#define VISIBILITY_CLOSEST_HIT_SHADER_IDX 1
+#define VISIBILITY_MISS_SHADER_IDX 1
+
+#define LIGHT_DIRECTIONAL 0
+#define LIGHT_SPOT 1
+#define LIGHT_POINT 2
+#define LIGHT_ENVIRONMENT_MAP 3
+#define LIGHT_AREA 4
 
 #define M_PI 3.14159265359
 #define EPSILON 0.0001f
@@ -17,11 +25,13 @@
 
 struct PathTracePayload
 {
-    vec3 color;
-    vec3 attenuation;
-    float hit_distance;
+    vec3 L;
+    vec3 T;
     uint depth;
     RNG rng;
+#if defined(RAY_DEBUG_VIEW)
+    vec3 debug_color;
+#endif
 };
 
 struct Vertex
@@ -88,4 +98,20 @@ struct Instance
     mat4 normal_matrix;
     uint mesh_idx;
 };
+
+
+// ------------------------------------------------------------------------
+// Functions --------------------------------------------------------------
+// ------------------------------------------------------------------------
+
+bool is_nan(vec3 c)
+{
+    return isnan(c.x) || isnan(c.y) || isnan(c.z);
+}
+
+bool is_black(vec3 c)
+{
+    return c.x == 0.0f && c.y == 0.0f && c.z == 0.0f;
+}
+
 #endif

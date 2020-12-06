@@ -94,26 +94,17 @@ layout(push_constant) uniform PathTraceConsts
 {
     mat4 view_inverse;
     mat4 proj_inverse;
-    uvec4 num_lights; // x: directional lights, y: point lights, z: spot lights, w: area lights  
     ivec4 ray_debug_pixel_coord;
     float accumulation;
+    uint num_lights;
     uint num_frames;
 } u_PathTraceConsts;
 
 // ------------------------------------------------------------------------
-// Payload ----------------------------------------------------------------
+// Output Payload ---------------------------------------------------------
 // ------------------------------------------------------------------------
 
-layout(location = 0) rayPayloadEXT PathTracePayload ray_payload;
-
-// ------------------------------------------------------------------------
-// Functions --------------------------------------------------------------
-// ------------------------------------------------------------------------
-
-bool is_nan(vec3 c)
-{
-    return isnan(c.x) || isnan(c.y) || isnan(c.z);
-}
+layout(location = 0) rayPayloadEXT PathTracePayload p_PathTracePayload;
 
 // ------------------------------------------------------------------------
 // Main -------------------------------------------------------------------
@@ -122,14 +113,13 @@ bool is_nan(vec3 c)
 void main()
 {
     // Init Payload
-    ray_payload.color = vec3(0.0f);
-    ray_payload.attenuation = vec3(1.0);
-    ray_payload.hit_distance = 0.0f;
-    ray_payload.depth = 0;
-    ray_payload.rng = rng_init(gl_LaunchIDEXT.xy, u_PathTraceConsts.num_frames);
+    p_PathTracePayload.L = vec3(0.0f);
+    p_PathTracePayload.T = vec3(1.0);
+    p_PathTracePayload.depth = 0;
+    p_PathTracePayload.rng = rng_init(gl_LaunchIDEXT.xy, u_PathTraceConsts.num_frames);
 
 #if defined(RAY_DEBUG_VIEW)
-    ray_payload.color = vec3(next_float(ray_payload.rng) * 0.5f + 0.5f, next_float(ray_payload.rng) * 0.5f + 0.5f, next_float(ray_payload.rng) * 0.5f + 0.5f);
+    p_PathTracePayload.debug_color = vec3(next_float(p_PathTracePayload.rng) * 0.5f + 0.5f, next_float(p_PathTracePayload.rng) * 0.5f + 0.5f, next_float(p_PathTracePayload.rng) * 0.5f + 0.5f);
 #endif
 
     // Compute Pixel Coordinates
@@ -138,7 +128,7 @@ void main()
 #else
     const vec2 pixel_coord = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 #endif
-    const vec2 jittered_coord = pixel_coord + vec2(next_float(ray_payload.rng), next_float(ray_payload.rng)); 
+    const vec2 jittered_coord = pixel_coord + vec2(next_float(p_PathTracePayload.rng), next_float(p_PathTracePayload.rng)); 
 #if defined(RAY_DEBUG_VIEW)
     const vec2 tex_coord = jittered_coord / vec2(u_PathTraceConsts.ray_debug_pixel_coord.zw);
 #else
@@ -160,8 +150,8 @@ void main()
     traceRayEXT(u_TopLevelAS, 
                 ray_flags, 
                 cull_mask, 
-                PATH_TRACE_RAY_GEN_SHADER_IDX, 
                 PATH_TRACE_CLOSEST_HIT_SHADER_IDX, 
+                1, 
                 PATH_TRACE_MISS_SHADER_IDX, 
                 origin.xyz, 
                 tmin, 
@@ -171,7 +161,7 @@ void main()
 
 #if !defined(RAY_DEBUG_VIEW)
     // Blend current frames' result with the previous frame
-    vec3 clamped_color = min(ray_payload.color, RADIANCE_CLAMP_COLOR);
+    vec3 clamped_color = min(p_PathTracePayload.L, RADIANCE_CLAMP_COLOR);
 
     if (u_PathTraceConsts.num_frames == 0)
     {
@@ -186,7 +176,7 @@ void main()
     {
         vec3 prev_color = imageLoad(i_PreviousColor, ivec2(gl_LaunchIDEXT.xy)).rgb;
 
-        //vec3 accumulated_color = mix(ray_payload.color, prev_color, u_PathTraceConsts.accumulation); 
+        //vec3 accumulated_color = mix(p_PathTracePayload.color, prev_color, u_PathTraceConsts.accumulation); 
         vec3 accumulated_color = prev_color + (clamped_color - prev_color) / float(u_PathTraceConsts.num_frames);
 
         vec3 final_color = accumulated_color;

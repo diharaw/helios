@@ -37,7 +37,7 @@ void PathIntegrator::execute(RenderState& render_state)
     push_constants.ray_debug_pixel_coord = glm::uvec4(0);
     push_constants.view_inverse          = glm::inverse(render_state.camera()->view_matrix());
     push_constants.proj_inverse          = glm::inverse(render_state.camera()->projection_matrix());
-    push_constants.num_lights            = glm::uvec4(render_state.num_area_lights(), render_state.num_directional_lights(), render_state.num_point_lights(), render_state.num_spot_lights());
+    push_constants.num_lights            = render_state.num_lights();
     push_constants.num_frames            = render_state.num_accumulated_frames();
     push_constants.accumulation          = float(push_constants.num_frames) / float(push_constants.num_frames + 1);
 
@@ -84,7 +84,7 @@ void PathIntegrator::gather_debug_rays(const glm::ivec2& pixel_coord, const uint
     push_constants.ray_debug_pixel_coord = glm::ivec4(pixel_coord.x, extents.height - pixel_coord.y, extents.width, extents.height);
     push_constants.view_inverse          = glm::inverse(view);
     push_constants.proj_inverse          = glm::inverse(projection);
-    push_constants.num_lights            = glm::uvec4(render_state.directional_lights().size(), render_state.point_lights().size(), render_state.spot_lights().size(), 0);
+    push_constants.num_lights            = render_state.num_lights();
     push_constants.num_frames            = render_state.num_accumulated_frames();
     push_constants.accumulation          = float(push_constants.num_frames) / float(push_constants.num_frames + 1);
 
@@ -125,12 +125,16 @@ void PathIntegrator::create_pipeline()
     vk::ShaderModule::Ptr rgen  = vk::ShaderModule::create_from_file(backend, "shader/path_trace.rgen.spv");
     vk::ShaderModule::Ptr rchit = vk::ShaderModule::create_from_file(backend, "shader/path_trace.rchit.spv");
     vk::ShaderModule::Ptr rmiss = vk::ShaderModule::create_from_file(backend, "shader/path_trace.rmiss.spv");
+    vk::ShaderModule::Ptr rchit_visibility = vk::ShaderModule::create_from_file(backend, "shader/path_trace_debug.rchit.spv");
+    vk::ShaderModule::Ptr rmiss_visibility = vk::ShaderModule::create_from_file(backend, "shader/path_trace_debug.rmiss.spv");
 
     vk::ShaderBindingTable::Desc sbt_desc;
 
     sbt_desc.add_ray_gen_group(rgen, "main");
     sbt_desc.add_hit_group(rchit, "main");
+    sbt_desc.add_hit_group(rchit_visibility, "main");
     sbt_desc.add_miss_group(rmiss, "main");
+    sbt_desc.add_miss_group(rmiss_visibility, "main");
 
     m_path_trace_sbt = vk::ShaderBindingTable::create(backend, sbt_desc);
 
@@ -175,12 +179,16 @@ void PathIntegrator::create_ray_debug_pipeline()
     vk::ShaderModule::Ptr rgen  = vk::ShaderModule::create_from_file(backend, "shader/path_trace_debug.rgen.spv");
     vk::ShaderModule::Ptr rchit = vk::ShaderModule::create_from_file(backend, "shader/path_trace_debug.rchit.spv");
     vk::ShaderModule::Ptr rmiss = vk::ShaderModule::create_from_file(backend, "shader/path_trace_debug.rmiss.spv");
+    vk::ShaderModule::Ptr rchit_visibility = vk::ShaderModule::create_from_file(backend, "shader/path_trace_debug.rchit.spv");
+    vk::ShaderModule::Ptr rmiss_visibility = vk::ShaderModule::create_from_file(backend, "shader/path_trace_debug.rmiss.spv");
 
     vk::ShaderBindingTable::Desc sbt_desc;
 
     sbt_desc.add_ray_gen_group(rgen, "main");
     sbt_desc.add_hit_group(rchit, "main");
+    sbt_desc.add_hit_group(rchit_visibility, "main");
     sbt_desc.add_miss_group(rmiss, "main");
+    sbt_desc.add_miss_group(rmiss_visibility, "main");
 
     m_ray_debug_sbt = vk::ShaderBindingTable::create(backend, sbt_desc);
 

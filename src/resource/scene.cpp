@@ -10,6 +10,17 @@ namespace helios
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+enum LightType
+{
+    LIGHT_DIRECTIONAL,
+    LIGHT_SPOT,
+    LIGHT_POINT,
+    LIGHT_ENVIRONMENT_MAP,
+    LIGHT_AREA
+};
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 struct MaterialData
 {
     glm::ivec4 texture_indices0 = glm::ivec4(-1); // x: albedo, y: normals, z: roughness, w: metallic
@@ -23,7 +34,7 @@ struct MaterialData
 
 struct LightData
 {
-    glm::vec4 light_data0; // x: light type, yzw: color    | x: mesh_id, y: material_id, z: base_index,
+    glm::vec4 light_data0; // x: light type, yzw: color    | x: light_type, y: mesh_id, z: material_id, w: base_index
     glm::vec4 light_data1; // xyz: direction, w: intensity | x: index_count, y: vertex_count
     glm::vec4 light_data2; // x: range, y: cone angle      |
 };
@@ -596,10 +607,7 @@ void RenderState::clear()
     m_material_indices_ds    = nullptr;
     m_texture_ds             = nullptr;
     m_ray_debug_ds           = nullptr;
-    m_num_directional_lights = 0;
-    m_num_spot_lights        = 0;
-    m_num_point_lights       = 0;
-    m_num_area_lights        = 0;
+    m_num_lights             = 0;
     m_scene_state            = SCENE_STATE_READY;
 }
 
@@ -921,11 +929,11 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                         if (material->is_emissive())
                         {
-                            render_state.m_num_area_lights++;
+                            render_state.m_num_lights++;
 
                             LightData& light_data = light_buffer[gpu_light_counter++];
 
-                            light_data.light_data0 = glm::vec4(float(mesh_node_idx), float(global_material_indices[material->id()]), float(submesh.base_index), 0.0f);
+                            light_data.light_data0 = glm::vec4(float(LIGHT_AREA), float(mesh_node_idx), float(global_material_indices[material->id()]), float(submesh.base_index));
                             light_data.light_data1 = glm::vec4(float(submesh.index_count), float(submesh.vertex_count), 0.0f, 0.0f);
                         }
                     }
@@ -1092,13 +1100,20 @@ void Scene::create_gpu_resources(RenderState& render_state)
             vkUpdateDescriptorSets(backend->device(), image_descriptors.size() > 0 ? 9 : 8, write_data, 0, nullptr);
         }
 
+        if (render_state.ibl_environment_map() && render_state.ibl_environment_map()->image())
+        {
+            LightData& light_data = light_buffer[gpu_light_counter++];
+
+            light_data.light_data0 = glm::vec4(float(LIGHT_ENVIRONMENT_MAP), 0.0f, 0.0f, 0.0f);
+        }
+
         for (int i = 0; i < render_state.m_directional_lights.size(); i++)
         {
             auto light = render_state.m_directional_lights[i];
 
             LightData& light_data = light_buffer[gpu_light_counter++];
 
-            light_data.light_data0 = glm::vec4(0.0f, light->color());
+            light_data.light_data0 = glm::vec4(float(LIGHT_DIRECTIONAL), light->color());
             light_data.light_data1 = glm::vec4(light->forward(), light->intensity());
         }
 
@@ -1108,8 +1123,8 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
             LightData& light_data = light_buffer[gpu_light_counter++];
 
-            light_data.light_data0 = glm::vec4(1.0f, light->color());
-            light_data.light_data1 = glm::vec4(0.0f, 0.0f, 0.0f, light->intensity());
+            light_data.light_data0 = glm::vec4(float(LIGHT_POINT), light->color());
+            light_data.light_data1 = glm::vec4(light->position(), light->intensity());
             light_data.light_data2 = glm::vec4(light->range(), 0.0f, 0.0f, 0.0f);
         }
 
@@ -1119,14 +1134,14 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
             LightData& light_data = light_buffer[gpu_light_counter++];
 
-            light_data.light_data0 = glm::vec4(2.0f, light->color());
+            light_data.light_data0 = glm::vec4(float(LIGHT_SPOT), light->color());
             light_data.light_data1 = glm::vec4(light->forward(), light->intensity());
             light_data.light_data2 = glm::vec4(light->range(), light->cone_angle(), 0.0f, 0.0f);
         }
 
-        render_state.m_num_directional_lights = render_state.m_directional_lights.size();
-        render_state.m_num_spot_lights        = render_state.m_spot_lights.size();
-        render_state.m_num_point_lights       = render_state.m_point_lights.size();
+        render_state.m_num_lights += render_state.m_directional_lights.size();
+        render_state.m_num_lights += render_state.m_spot_lights.size();
+        render_state.m_num_lights += render_state.m_point_lights.size();
     }
 }
 

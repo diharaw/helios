@@ -18,7 +18,9 @@ set(HELIOS_VIEWER_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.
                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rmiss
                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rchit
                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rgen
-                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rmiss)
+                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rmiss
+                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_shadow.rchit
+                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_shadow.rmiss)
 
 if (APPLE)
     add_executable(HeliosViewer MACOSX_BUNDLE "main.cpp")

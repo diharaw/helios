@@ -296,10 +296,7 @@ private:
     uint32_t                           m_num_accumulated_frames = 0;
     uint32_t                           m_viewport_width         = 0;
     uint32_t                           m_viewport_height        = 0;
-    uint32_t                           m_num_directional_lights = 0;
-    uint32_t                           m_num_spot_lights        = 0;
-    uint32_t                           m_num_point_lights       = 0;
-    uint32_t                           m_num_area_lights        = 0;
+    uint32_t                           m_num_lights        = 0;
     vk::DescriptorSet::Ptr             m_read_image_ds;
     vk::DescriptorSet::Ptr             m_write_image_ds;
     vk::DescriptorSet::Ptr             m_scene_ds;
@@ -328,10 +325,7 @@ public:
     inline uint32_t                                  num_accumulated_frames() { return m_num_accumulated_frames; }
     inline uint32_t                                  viewport_width() { return m_viewport_width; }
     inline uint32_t                                  viewport_height() { return m_viewport_height; }
-    inline uint32_t                                  num_directional_lights() { return m_num_directional_lights; }
-    inline uint32_t                                  num_spot_lights() { return m_num_spot_lights; }
-    inline uint32_t                                  num_point_lights() { return m_num_point_lights; }
-    inline uint32_t                                  num_area_lights() { return m_num_area_lights; }
+    inline uint32_t                                  num_lights() { return m_num_lights; }
     inline vk::DescriptorSet::Ptr                    read_image_descriptor_set() { return m_read_image_ds; }
     inline vk::DescriptorSet::Ptr                    write_image_descriptor_set() { return m_write_image_ds; }
     inline vk::DescriptorSet::Ptr                    scene_descriptor_set() { return m_scene_ds; }

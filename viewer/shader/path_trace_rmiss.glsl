@@ -26,10 +26,10 @@ layout (set = 5, binding = 1) buffer DebugRayDrawArgs_t
 #endif
 
 // ------------------------------------------------------------------------
-// Payload ----------------------------------------------------------------
+// Input Payload ----------------------------------------------------------
 // ------------------------------------------------------------------------
 
-layout(location = 0) rayPayloadInEXT PathTracePayload ray_payload;
+rayPayloadInEXT PathTracePayload p_PathTracePayload;
 
 // ------------------------------------------------------------------------
 // Main -------------------------------------------------------------------
@@ -39,26 +39,28 @@ void main()
 {
 #if defined(RAY_DEBUG_VIEW)
     // Skip the primary ray
-    if (ray_payload.depth > 0)
+    if (p_PathTracePayload.depth > 0)
     {
         uint debug_ray_vert_idx = atomicAdd(DebugRayDrawArgs.count, 2);
 
         DebugRayVertex v0;
 
         v0.position = vec4(gl_WorldRayOriginEXT, 1.0f);
-        v0.color = vec4(ray_payload.color, 1.0f);
+        v0.color = vec4(p_PathTracePayload.debug_color, 1.0f);
 
         DebugRayVertex v1;
 
         v1.position = vec4(gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT  * gl_RayTmaxEXT, 1.0f);
-        v1.color = vec4(ray_payload.color, 1.0f);
+        v1.color = vec4(p_PathTracePayload.debug_color, 1.0f);
 
         DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 0] = v0;
         DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 1] = v1;
     }
 #else
-    ray_payload.color = texture(s_EnvironmentMap, gl_WorldRayDirectionEXT).rgb * ray_payload.attenuation;
-    ray_payload.hit_distance = 0.0f;
+    if (p_PathTracePayload.depth == 0)
+        p_PathTracePayload.L = texture(s_EnvironmentMap, gl_WorldRayDirectionEXT).rgb;
+    else
+        p_PathTracePayload.L = vec3(0.0f);
 #endif
 }
 
