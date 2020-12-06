@@ -151,7 +151,7 @@ void main()
                 ray_flags, 
                 cull_mask, 
                 PATH_TRACE_CLOSEST_HIT_SHADER_IDX, 
-                1, 
+                0, 
                 PATH_TRACE_MISS_SHADER_IDX, 
                 origin.xyz, 
                 tmin, 

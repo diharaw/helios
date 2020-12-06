@@ -374,6 +374,7 @@ private:
     vk::Buffer::Ptr            m_material_data_buffer;
     vk::Buffer::Ptr            m_instance_data_buffer;
     size_t                     m_camera_buffer_aligned_size;
+    uint32_t                   m_num_area_lights = 0;
     std::weak_ptr<vk::Backend> m_backend;
     std::string                m_name;
 };

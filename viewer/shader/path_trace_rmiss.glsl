@@ -60,7 +60,7 @@ void main()
     if (p_PathTracePayload.depth == 0)
         p_PathTracePayload.L = texture(s_EnvironmentMap, gl_WorldRayDirectionEXT).rgb;
     else
-        p_PathTracePayload.L = vec3(0.0f);
+        p_PathTracePayload.L = vec3(0.0f);//p_PathTracePayload.T * vec3(0.77f, 0.77f, 0.9f);
 #endif
 }
 

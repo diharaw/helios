@@ -732,6 +732,11 @@ void Scene::update(RenderState& render_state)
 
     m_root->update(render_state);
 
+    render_state.m_num_lights = m_num_area_lights + render_state.m_directional_lights.size() + render_state.m_spot_lights.size() + render_state.m_point_lights.size();
+
+    if (render_state.ibl_environment_map() && render_state.ibl_environment_map()->image())
+        render_state.m_num_lights++;    
+
     create_gpu_resources(render_state);
 }
 
@@ -747,6 +752,8 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
         if (render_state.m_scene_state == SCENE_STATE_HIERARCHY_UPDATED)
         {
+            m_num_area_lights = 0;
+
             auto backend = m_backend.lock();
 
             std::unordered_set<uint32_t>           processed_meshes;
@@ -929,7 +936,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                         if (material->is_emissive())
                         {
-                            render_state.m_num_lights++;
+                            m_num_area_lights++;
 
                             LightData& light_data = light_buffer[gpu_light_counter++];
 
@@ -1138,10 +1145,6 @@ void Scene::create_gpu_resources(RenderState& render_state)
             light_data.light_data1 = glm::vec4(light->forward(), light->intensity());
             light_data.light_data2 = glm::vec4(light->range(), light->cone_angle(), 0.0f, 0.0f);
         }
-
-        render_state.m_num_lights += render_state.m_directional_lights.size();
-        render_state.m_num_lights += render_state.m_spot_lights.size();
-        render_state.m_num_lights += render_state.m_point_lights.size();
     }
 }
 

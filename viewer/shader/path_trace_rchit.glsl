@@ -110,7 +110,7 @@ rayPayloadInEXT PathTracePayload p_PathTracePayload;
 // Output Payload ---------------------------------------------------------
 // ------------------------------------------------------------------------
 
-layout(location = 1) rayPayloadInEXT PathTracePayload p_IndirectPayload;
+layout(location = 1) rayPayloadEXT PathTracePayload p_IndirectPayload;
 
 layout(location = 2) rayPayloadEXT bool p_Visibility;
 
@@ -304,7 +304,7 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
     {
         vec2 rand_value = next_vec2(p_PathTracePayload.rng);
         Wi = sample_cosine_lobe(p.normal, rand_value);
-        Li = texture(s_EnvironmentMap, Wi).rgb;
+        Li =  vec3(0.77f, 0.77f, 0.9f); //texture(s_EnvironmentMap, Wi).rgb;
         pdf = 0.0f;
     }
     else if (type == LIGHT_AREA)
@@ -322,13 +322,13 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
                 ray_flags, 
                 cull_mask, 
                 VISIBILITY_CLOSEST_HIT_SHADER_IDX, 
-                1, 
+                0, 
                 VISIBILITY_MISS_SHADER_IDX, 
                 p.vertex.position.xyz, 
                 tmin, 
                 Wi, 
                 tmax, 
-                1);
+                2);
 
     return Li * float(p_Visibility);
 }
@@ -381,6 +381,9 @@ vec3 indirect_lighting(in SurfaceProperties p)
     p_IndirectPayload.T = p_PathTracePayload.T *  (brdf * cos_theta) / pdf;
     p_IndirectPayload.depth = p_PathTracePayload.depth + 1;
     p_IndirectPayload.rng = p_PathTracePayload.rng;
+#if defined(RAY_DEBUG_VIEW)
+    p_IndirectPayload.debug_color = p_PathTracePayload.debug_color;
+#endif
 
     uint  ray_flags = gl_RayFlagsOpaqueEXT;
     uint  cull_mask = 0xFF;
@@ -392,7 +395,7 @@ vec3 indirect_lighting(in SurfaceProperties p)
             ray_flags, 
             cull_mask, 
             PATH_TRACE_CLOSEST_HIT_SHADER_IDX, 
-            1, 
+            0, 
             PATH_TRACE_MISS_SHADER_IDX, 
             p.vertex.position.xyz, 
             tmin, 
@@ -439,6 +442,7 @@ void main()
     else
     {
         p_PathTracePayload.L = direct_lighting(p);
+        //p_PathTracePayload.L = vec3(0.0f); 
 
         if (p_PathTracePayload.depth < MAX_RAY_BOUNCES)
             p_PathTracePayload.L += indirect_lighting(p);
