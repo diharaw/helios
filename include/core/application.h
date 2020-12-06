@@ -11,7 +11,7 @@
 #include <core/resource_manager.h>
 
 // Main method macro. Use this at the bottom of any cpp file.
-#define HELIOS_DECLARE_MAIN(class_name)     \
+#define HELIOS_DECLARE_MAIN(class_name)    \
     int main(int argc, const char* argv[]) \
     {                                      \
         class_name app;                    \

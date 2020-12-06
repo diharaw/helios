@@ -57,10 +57,12 @@ void main()
         DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 1] = v1;
     }
 #else
+    vec3 environment_map_sample = texture(s_EnvironmentMap, gl_WorldRayDirectionEXT).rgb; // vec3(0.77f, 0.77f, 0.9f);
+
     if (p_PathTracePayload.depth == 0)
-        p_PathTracePayload.L = texture(s_EnvironmentMap, gl_WorldRayDirectionEXT).rgb;
+        p_PathTracePayload.L = environment_map_sample;
     else
-        p_PathTracePayload.L = vec3(0.0f);//p_PathTracePayload.T * vec3(0.77f, 0.77f, 0.9f);
+        p_PathTracePayload.L = p_PathTracePayload.T * environment_map_sample;
 #endif
 }
 

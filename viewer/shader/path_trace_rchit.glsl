@@ -304,7 +304,7 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
     {
         vec2 rand_value = next_vec2(p_PathTracePayload.rng);
         Wi = sample_cosine_lobe(p.normal, rand_value);
-        Li =  vec3(0.77f, 0.77f, 0.9f); //texture(s_EnvironmentMap, Wi).rgb;
+        Li = texture(s_EnvironmentMap, Wi).rgb; // vec3(0.77f, 0.77f, 0.9f);
         pdf = 0.0f;
     }
     else if (type == LIGHT_AREA)
@@ -442,7 +442,6 @@ void main()
     else
     {
         p_PathTracePayload.L = direct_lighting(p);
-        //p_PathTracePayload.L = vec3(0.0f); 
 
         if (p_PathTracePayload.depth < MAX_RAY_BOUNCES)
             p_PathTracePayload.L += indirect_lighting(p);

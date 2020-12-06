@@ -197,8 +197,8 @@ private:
     std::shared_ptr<Sampler>                                 m_bilinear_sampler;
     std::shared_ptr<Sampler>                                 m_trilinear_sampler;
     std::shared_ptr<Sampler>                                 m_nearest_sampler;
-    std::shared_ptr<Image>                                   m_default_cubemap_image; 
-    std::shared_ptr<ImageView>                               m_default_cubemap_image_view;                          
+    std::shared_ptr<Image>                                   m_default_cubemap_image;
+    std::shared_ptr<ImageView>                               m_default_cubemap_image_view;
     uint32_t                                                 m_image_index   = 0;
     uint32_t                                                 m_current_frame = 0;
     std::vector<std::shared_ptr<Fence>>                      m_in_flight_fences;

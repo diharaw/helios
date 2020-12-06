@@ -595,20 +595,20 @@ void RenderState::clear()
     m_directional_lights.clear();
     m_spot_lights.clear();
     m_point_lights.clear();
-    m_camera                 = nullptr;
-    m_ibl_environment_map    = nullptr;
-    m_read_image_ds          = nullptr;
-    m_write_image_ds         = nullptr;
-    m_scene_ds               = nullptr;
-    m_cmd_buffer             = nullptr;
-    m_scene                  = nullptr;
-    m_vbo_ds                 = nullptr;
-    m_ibo_ds                 = nullptr;
-    m_material_indices_ds    = nullptr;
-    m_texture_ds             = nullptr;
-    m_ray_debug_ds           = nullptr;
-    m_num_lights             = 0;
-    m_scene_state            = SCENE_STATE_READY;
+    m_camera              = nullptr;
+    m_ibl_environment_map = nullptr;
+    m_read_image_ds       = nullptr;
+    m_write_image_ds      = nullptr;
+    m_scene_ds            = nullptr;
+    m_cmd_buffer          = nullptr;
+    m_scene               = nullptr;
+    m_vbo_ds              = nullptr;
+    m_ibo_ds              = nullptr;
+    m_material_indices_ds = nullptr;
+    m_texture_ds          = nullptr;
+    m_ray_debug_ds        = nullptr;
+    m_num_lights          = 0;
+    m_scene_state         = SCENE_STATE_READY;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -735,7 +735,7 @@ void Scene::update(RenderState& render_state)
     render_state.m_num_lights = m_num_area_lights + render_state.m_directional_lights.size() + render_state.m_spot_lights.size() + render_state.m_point_lights.size();
 
     if (render_state.ibl_environment_map() && render_state.ibl_environment_map()->image())
-        render_state.m_num_lights++;    
+        render_state.m_num_lights++;
 
     create_gpu_resources(render_state);
 }
