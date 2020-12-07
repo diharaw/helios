@@ -54,7 +54,6 @@ struct Triangle
     Vertex v0;
     Vertex v1;
     Vertex v2;
-    uint mat_idx;
 };
 
 struct SurfaceProperties
@@ -90,6 +89,7 @@ struct HitInfo
 {
     uint mat_idx;
     uint primitive_offset;
+    uint primitive_id;
 };
 
 struct Instance
@@ -109,9 +109,30 @@ bool is_nan(vec3 c)
     return isnan(c.x) || isnan(c.y) || isnan(c.z);
 }
 
+// ------------------------------------------------------------------------
+
 bool is_black(vec3 c)
 {
     return c.x == 0.0f && c.y == 0.0f && c.z == 0.0f;
 }
+
+// ------------------------------------------------------------------------
+
+Vertex interpolated_vertex(in Triangle tri, in vec2 hit_attribs)
+{;
+    const vec3 barycentrics = vec3(1.0 - hit_attribs.x - hit_attribs.y, hit_attribs.x, hit_attribs.y);
+
+    Vertex o;
+
+    o.position = vec4(tri.v0.position.xyz * barycentrics.x + tri.v1.position.xyz * barycentrics.y + tri.v2.position.xyz * barycentrics.z, 1.0);
+    o.tex_coord.xy = tri.v0.tex_coord.xy * barycentrics.x + tri.v1.tex_coord.xy * barycentrics.y + tri.v2.tex_coord.xy * barycentrics.z;
+    o.normal.xyz = normalize(tri.v0.normal.xyz * barycentrics.x + tri.v1.normal.xyz * barycentrics.y + tri.v2.normal.xyz * barycentrics.z);
+    o.tangent.xyz = normalize(tri.v0.tangent.xyz * barycentrics.x + tri.v1.tangent.xyz * barycentrics.y + tri.v2.tangent.xyz * barycentrics.z);
+    o.bitangent.xyz = normalize(tri.v0.bitangent.xyz * barycentrics.x + tri.v1.bitangent.xyz * barycentrics.y + tri.v2.bitangent.xyz * barycentrics.z);
+
+    return o;
+}
+
+// ------------------------------------------------------------------------
 
 #endif

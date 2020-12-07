@@ -35,18 +35,4 @@ mat3 make_rotation_matrix(vec3 z)
     return mat3(x, y, z);
 }
 
-vec3 sample_cosine_lobe(in vec3 n, in vec2 r)
-{
-    vec2 rand_sample = max(vec2(0.00001f), r);
-
-    const float phi = 2.0f * M_PI * rand_sample.y;
-
-    const float cos_theta = sqrt(rand_sample.x);
-    const float sin_theta = sqrt(1 - rand_sample.x);
-
-    vec3 t = vec3(sin_theta * cos(phi), sin_theta * sin(phi), cos_theta);
-
-    return normalize(make_rotation_matrix(n) * t);
-}
-
 #endif

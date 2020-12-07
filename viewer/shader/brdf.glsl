@@ -3,6 +3,25 @@
 
 #include "sampling.glsl"
 
+vec3 sample_cosine_lobe(in vec3 n, in vec2 r)
+{
+    vec2 rand_sample = max(vec2(0.00001f), r);
+
+    const float phi = 2.0f * M_PI * rand_sample.y;
+
+    const float cos_theta = sqrt(rand_sample.x);
+    const float sin_theta = sqrt(1 - rand_sample.x);
+
+    vec3 t = vec3(sin_theta * cos(phi), sin_theta * sin(phi), cos_theta);
+
+    return normalize(make_rotation_matrix(n) * t);
+}
+
+float pdf_cosine_lobe(in float ndotl)
+{
+    return ndotl / M_PI;
+}
+
 vec3 sample_lambert(in vec3 n, in vec2 r)
 {
     return sample_cosine_lobe(n, r);
@@ -13,9 +32,27 @@ vec3 evaluate_lambert(in vec3 albedo)
     return albedo / M_PI;
 }
 
-float pdf_lambert(in float ndotl)
+float triangle_area(in Triangle tri)
 {
-    return ndotl / M_PI;
+    return 0.5f * length(cross(tri.v1.position.xyz - tri.v0.position.xyz, tri.v2.position.xyz - tri.v0.position.xyz));
+}
+
+vec2 uniform_sample_triangle(in vec2 u)
+{
+    float su0 = sqrt(u.x);
+    return vec2(1 - su0, u.y * su0);
+}
+
+vec3 barycentric_interpolate(in vec2 b, in vec3 v0, in vec3 v1, in vec3 v2)
+{
+    const vec3 barycentrics = vec3(1.0 - b.x - b.y, b.x, b.y);
+
+    return v0 * barycentrics.x + v1 * barycentrics.y + v2 * barycentrics.z;
+}
+
+float pdf_triangle(in float distance_sqr, in float cos_theta, in float area)
+{
+    return distance_sqr / max(EPSILON, cos_theta * area);
 }
 
 float D_ggx(in float ndoth, in float alpha)
@@ -90,7 +127,7 @@ float pdf_uber(in SurfaceProperties p, in vec3 Wo, in vec3 Wh, in vec3 Wi)
     float NdotH = max(dot(p.normal, Wh), 0.0);
     float VdotH = max(dot(Wi, Wh), 0.0);
 
-    float pd = pdf_lambert(NdotL);
+    float pd = pdf_cosine_lobe(NdotL);
     float ps = pdf_D_ggx(p.roughness * p.roughness, NdotH, VdotH);
 
     return mix(pd, ps, 0.5);

@@ -35,7 +35,7 @@ struct MaterialData
 struct LightData
 {
     glm::vec4 light_data0; // x: light type, yzw: color    | x: light_type, y: mesh_id, z: material_id, w: base_index
-    glm::vec4 light_data1; // xyz: direction, w: intensity | x: index_count, y: vertex_count
+    glm::vec4 light_data1; // xyz: direction, w: intensity | x: index_count, y: vertex_count, z: triangle_count
     glm::vec4 light_data2; // x: range, y: cone angle      |
 };
 
@@ -940,8 +940,8 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                             LightData& light_data = light_buffer[gpu_light_counter++];
 
-                            light_data.light_data0 = glm::vec4(float(LIGHT_AREA), float(mesh_node_idx), float(global_material_indices[material->id()]), float(submesh.base_index));
-                            light_data.light_data1 = glm::vec4(float(submesh.index_count), float(submesh.vertex_count), 0.0f, 0.0f);
+                            light_data.light_data0 = glm::vec4(float(LIGHT_AREA), float(mesh_node_idx), float(global_material_indices[material->id()]), float(submesh.base_index / 3));
+                            light_data.light_data1 = glm::vec4(float(submesh.index_count), float(submesh.vertex_count), float(submesh.index_count/3), 0.0f);
                         }
                     }
                 }

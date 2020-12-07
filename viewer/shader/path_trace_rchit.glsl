@@ -118,7 +118,7 @@ layout(location = 2) rayPayloadEXT bool p_Visibility;
 // Hit Attributes ---------------------------------------------------------
 // ------------------------------------------------------------------------
 
-hitAttributeEXT vec2 hit_attribs;
+hitAttributeEXT vec2 b_HitAttribs;
 
 // ------------------------------------------------------------------------
 // Functions --------------------------------------------------------------
@@ -139,6 +139,7 @@ HitInfo fetch_hit_info()
 
     hit_info.mat_idx = primitive_offset_mat_idx.y;
     hit_info.primitive_offset = primitive_offset_mat_idx.x;
+    hit_info.primitive_id = gl_PrimitiveID;
 
     return hit_info;
 }
@@ -149,7 +150,7 @@ Triangle fetch_triangle(in Instance instance, in HitInfo hit_info)
 {
     Triangle tri;
 
-    uint primitive_id = gl_PrimitiveID + hit_info.primitive_offset;
+    uint primitive_id =  hit_info.primitive_id + hit_info.primitive_offset;
 
     uvec3 idx = uvec3(Indices[nonuniformEXT(instance.mesh_idx)].data[3 * primitive_id], 
                       Indices[nonuniformEXT(instance.mesh_idx)].data[3 * primitive_id + 1],
@@ -159,29 +160,20 @@ Triangle fetch_triangle(in Instance instance, in HitInfo hit_info)
     tri.v1 = get_vertex(instance.mesh_idx, idx.y);
     tri.v2 = get_vertex(instance.mesh_idx, idx.z);
 
-    tri.mat_idx = hit_info.mat_idx;
-
     return tri;
 }
 
 // ------------------------------------------------------------------------
 
-Vertex interpolated_vertex(in Instance instance, in HitInfo hit_info, in Triangle tri)
-{;
+void transform_vertex(in Instance instance, inout Vertex v)
+{
     mat4 model_mat = instance.model_matrix;
     mat3 normal_mat = mat3(instance.normal_matrix);
 
-    const vec3 barycentrics = vec3(1.0 - hit_attribs.x - hit_attribs.y, hit_attribs.x, hit_attribs.y);
-
-    Vertex o;
-
-    o.position = model_mat * vec4(tri.v0.position.xyz * barycentrics.x + tri.v1.position.xyz * barycentrics.y + tri.v2.position.xyz * barycentrics.z, 1.0);
-    o.tex_coord.xy = tri.v0.tex_coord.xy * barycentrics.x + tri.v1.tex_coord.xy * barycentrics.y + tri.v2.tex_coord.xy * barycentrics.z;
-    o.normal.xyz = normal_mat * normalize(tri.v0.normal.xyz * barycentrics.x + tri.v1.normal.xyz * barycentrics.y + tri.v2.normal.xyz * barycentrics.z);
-    o.tangent.xyz = normal_mat * normalize(tri.v0.tangent.xyz * barycentrics.x + tri.v1.tangent.xyz * barycentrics.y + tri.v2.tangent.xyz * barycentrics.z);
-    o.bitangent.xyz = normal_mat * normalize(tri.v0.bitangent.xyz * barycentrics.x + tri.v1.bitangent.xyz * barycentrics.y + tri.v2.bitangent.xyz * barycentrics.z);
-
-    return o;
+    v.position = model_mat * v.position; 
+    v.normal.xyz = normal_mat * v.normal.xyz;
+    v.tangent.xyz = normal_mat * v.tangent.xyz;
+    v.bitangent.xyz = normal_mat * v.bitangent.xyz;
 }
 
 // ------------------------------------------------------------------------
@@ -257,9 +249,11 @@ void populate_surface_properties(out SurfaceProperties p)
     const Instance instance = Instances.data[gl_InstanceCustomIndexEXT];
     const HitInfo hit_info = fetch_hit_info();
     const Triangle triangle = fetch_triangle(instance, hit_info);
-    const Material material = Materials.data[triangle.mat_idx];
+    const Material material = Materials.data[hit_info.mat_idx];
 
-    p.vertex = interpolated_vertex(instance, hit_info, triangle);
+    p.vertex = interpolated_vertex(triangle, b_HitAttribs);
+    
+    transform_vertex(instance, p.vertex);
 
     fetch_albedo(material, p);
     fetch_normal(material, p);
@@ -278,6 +272,11 @@ void populate_surface_properties(out SurfaceProperties p)
 
 vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float pdf)
 {
+    uint  ray_flags = gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT;
+    uint  cull_mask = 0xFF;
+    float tmin      = 0.0001;
+    float tmax      = 10000.0;
+
     vec3 Li = vec3(0.0f);
 
     uint type = uint(light.light_data0.x);
@@ -304,18 +303,72 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
     {
         vec2 rand_value = next_vec2(p_PathTracePayload.rng);
         Wi = sample_cosine_lobe(p.normal, rand_value);
-        Li = texture(s_EnvironmentMap, Wi).rgb; // vec3(0.77f, 0.77f, 0.9f);
-        pdf = 0.0f;
+        Li = texture(s_EnvironmentMap, Wi).rgb;
+        pdf = pdf_cosine_lobe(dot(p.normal, Wi)); 
     }
     else if (type == LIGHT_AREA)
     {
-        // TODO
-    }
+        uint mesh_id = uint(light.light_data0.y);
+        uint num_triangles = uint(light.light_data1.z);
+        uint primitive_id = next_uint(p_PathTracePayload.rng, num_triangles);
 
-    uint  ray_flags = gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT;
-    uint  cull_mask = 0xFF;
-    float tmin      = 0.0001;
-    float tmax      = 10000.0;
+        HitInfo hit_info;
+
+        hit_info.mat_idx = uint(light.light_data0.z);
+        hit_info.primitive_offset = uint(light.light_data0.w);
+        hit_info.primitive_id = primitive_id;
+
+        const Instance instance = Instances.data[mesh_id];
+        const Material material = Materials.data[hit_info.mat_idx];
+        Triangle triangle = fetch_triangle(instance, hit_info);
+
+        vec2 b = uniform_sample_triangle(next_vec2(p_PathTracePayload.rng));
+
+        triangle.v0.position = instance.model_matrix * triangle.v0.position;
+        triangle.v1.position = instance.model_matrix * triangle.v1.position;
+        triangle.v2.position = instance.model_matrix * triangle.v2.position;
+
+        vec3 light_position = barycentric_interpolate(b, triangle.v0.position.xyz, triangle.v1.position.xyz, triangle.v2.position.xyz);
+        vec3 light_normal = normalize(mat3(instance.normal_matrix) * barycentric_interpolate(b, triangle.v0.normal.xyz, triangle.v1.normal.xyz, triangle.v2.normal.xyz));
+        vec3 light_dir = p.vertex.position.xyz - light_position;
+        
+        float dist_sqr = dot(light_dir, light_dir);
+        float area = triangle_area(triangle);
+
+        // early out if triangle area or square of distance to triangle are zero
+        if (area == 0.0f || dist_sqr == 0.0f)
+        {
+            Li = vec3(0.0f);
+            pdf = 0.0f;                
+            return vec3(0.0f);
+        }
+
+        // normalize light_dir
+        float dist = sqrt(dist_sqr);
+        light_dir /= dist;
+
+        // shorten the ray distance to prevent the visibility ray from always being false
+        tmax = max(0.0f, dist - EPSILON);
+        
+        // light_normal
+        //     ^  ^
+        //     | / light_dir
+        //     |/
+        //  =======  <- triangle
+        float cos_theta = dot(light_normal, light_dir);
+
+        // early out if light_dir is perpendicular to the light_normal 
+        if (cos_theta == 0.0f)
+        {
+            Li = vec3(0.0f);
+            pdf = 0.0f;                
+            return vec3(0.0f);
+        }
+
+        Li = material.emissive.rgb;
+        Wi = -light_dir;
+        pdf = pdf_triangle(dist_sqr, cos_theta, area);
+    }
 
     // Trace Ray
     traceRayEXT(u_TopLevelAS, 
@@ -437,15 +490,15 @@ void main()
     }
 #endif
 
-    if (p_PathTracePayload.depth == 0 && !is_black(p.emissive.rgb))
-        p_PathTracePayload.L = p.emissive.rgb;
-    else
-    {
-        p_PathTracePayload.L = direct_lighting(p);
+    p_PathTracePayload.L = vec3(0.0f);
 
-        if (p_PathTracePayload.depth < MAX_RAY_BOUNCES)
-            p_PathTracePayload.L += indirect_lighting(p);
-    }
+    if (p_PathTracePayload.depth == 0 && !is_black(p.emissive.rgb))
+        p_PathTracePayload.L += p.emissive.rgb;
+    
+    p_PathTracePayload.L += direct_lighting(p);
+
+    if (p_PathTracePayload.depth < MAX_RAY_BOUNCES)
+       p_PathTracePayload.L += indirect_lighting(p);
 }
 
 // ------------------------------------------------------------------------
