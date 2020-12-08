@@ -20,6 +20,7 @@ public:
         float      accumulation;
         uint32_t   num_lights;
         uint32_t   num_frames;
+        uint32_t   debug_vis;
     };
 
 protected:

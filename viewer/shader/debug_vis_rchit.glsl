@@ -1,5 +1,10 @@
 #include "common.glsl"
-#include "brdf.glsl"
+
+#define VIEW_BASE_COLOR 0
+#define VIEW_NORMAL     1
+#define VIEW_ROUGHNESS  2
+#define VIEW_METALLIC   3
+#define VIEW_EMISSIVE   4
 
 // ------------------------------------------------------------------------
 // Set 0 ------------------------------------------------------------------
@@ -105,15 +110,7 @@ layout(push_constant) uniform PathTraceConsts
 // Input Payload ----------------------------------------------------------
 // ------------------------------------------------------------------------
 
-rayPayloadInEXT PathTracePayload p_PathTracePayload;
-
-// ------------------------------------------------------------------------
-// Output Payload ---------------------------------------------------------
-// ------------------------------------------------------------------------
-
-layout(location = 1) rayPayloadEXT PathTracePayload p_IndirectPayload;
-
-layout(location = 2) rayPayloadEXT bool p_Visibility;
+rayPayloadInEXT DebugVisPayload p_DebugVisPayload;
 
 // ------------------------------------------------------------------------
 // Hit Attributes ---------------------------------------------------------
@@ -269,196 +266,6 @@ void populate_surface_properties(out SurfaceProperties p)
     p.alpha2 = p.alpha * p.alpha;
 }
 
-// ------------------------------------------------------------------------
-
-vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float pdf)
-{
-    uint  ray_flags = gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT;
-    uint  cull_mask = 0xFF;
-    float tmin      = 0.0001;
-    float tmax      = 10000.0;
-
-    vec3 Li = vec3(0.0f);
-
-    uint type = uint(light.light_data0.x);
-
-    if (type == LIGHT_DIRECTIONAL)
-    {
-        Wi = -light.light_data1.xyz;
-        Li = light.light_data0.yzw * light.light_data1.w;
-        pdf = 0.0f;
-    }
-    else if (type == LIGHT_SPOT)
-    {
-        Wi = -light.light_data1.xyz;
-        Li = light.light_data0.yzw * light.light_data1.w;
-        pdf = 0.0f;
-    }
-    else if (type == LIGHT_POINT)
-    {
-        Wi = normalize(light.light_data1.xyz - p.vertex.position.xyz);
-        Li = light.light_data0.yzw * light.light_data1.w;
-        pdf = 0.0f;
-    }
-    else if (type == LIGHT_ENVIRONMENT_MAP)
-    {
-        vec2 rand_value = next_vec2(p_PathTracePayload.rng);
-        Wi = sample_cosine_lobe(p.normal, rand_value);
-        Li = texture(s_EnvironmentMap, Wi).rgb;
-        pdf = pdf_cosine_lobe(dot(p.normal, Wi)); 
-    }
-    else if (type == LIGHT_AREA)
-    {
-        uint mesh_id = uint(light.light_data0.y);
-        uint num_triangles = uint(light.light_data1.z);
-        uint primitive_id = next_uint(p_PathTracePayload.rng, num_triangles);
-
-        HitInfo hit_info;
-
-        hit_info.mat_idx = uint(light.light_data0.z);
-        hit_info.primitive_offset = uint(light.light_data0.w);
-        hit_info.primitive_id = primitive_id;
-
-        const Instance instance = Instances.data[mesh_id];
-        const Material material = Materials.data[hit_info.mat_idx];
-        Triangle triangle = fetch_triangle(instance, hit_info);
-
-        vec2 b = uniform_sample_triangle(next_vec2(p_PathTracePayload.rng));
-
-        triangle.v0.position = instance.model_matrix * triangle.v0.position;
-        triangle.v1.position = instance.model_matrix * triangle.v1.position;
-        triangle.v2.position = instance.model_matrix * triangle.v2.position;
-
-        vec3 light_position = barycentric_interpolate(b, triangle.v0.position.xyz, triangle.v1.position.xyz, triangle.v2.position.xyz);
-        vec3 light_normal = normalize(mat3(instance.normal_matrix) * barycentric_interpolate(b, triangle.v0.normal.xyz, triangle.v1.normal.xyz, triangle.v2.normal.xyz));
-        vec3 light_dir = p.vertex.position.xyz - light_position;
-        
-        float dist_sqr = dot(light_dir, light_dir);
-        float area = triangle_area(triangle);
-
-        // early out if triangle area or square of distance to triangle are zero
-        if (area == 0.0f || dist_sqr == 0.0f)
-        {
-            Li = vec3(0.0f);
-            pdf = 0.0f;                
-            return vec3(0.0f);
-        }
-
-        // normalize light_dir
-        float dist = sqrt(dist_sqr);
-        light_dir /= dist;
-
-        // shorten the ray distance to prevent the visibility ray from always being false
-        tmax = max(0.0f, dist - EPSILON);
-        
-        // light_normal
-        //     ^  ^
-        //     | / light_dir
-        //     |/
-        //  =======  <- triangle
-        float cos_theta = dot(light_normal, light_dir);
-
-        // early out if light_dir is perpendicular to the light_normal 
-        if (cos_theta == 0.0f)
-        {
-            Li = vec3(0.0f);
-            pdf = 0.0f;                
-            return vec3(0.0f);
-        }
-
-        Li = material.emissive.rgb;
-        Wi = -light_dir;
-        pdf = pdf_triangle(dist_sqr, cos_theta, area);
-    }
-
-    // Trace Ray
-    traceRayEXT(u_TopLevelAS, 
-                ray_flags, 
-                cull_mask, 
-                VISIBILITY_CLOSEST_HIT_SHADER_IDX, 
-                0, 
-                VISIBILITY_MISS_SHADER_IDX, 
-                p.vertex.position.xyz, 
-                tmin, 
-                Wi, 
-                tmax, 
-                2);
-
-    return Li * float(p_Visibility);
-}
-
-// ------------------------------------------------------------------------
-
-vec3 direct_lighting(in SurfaceProperties p)
-{
-    vec3 L = vec3(0.0f);
-
-    uint light_idx = next_uint(p_PathTracePayload.rng, u_PathTraceConsts.num_lights);
-    const Light light = Lights.data[light_idx];
-
-    vec3 Wo = -gl_WorldRayDirectionEXT;
-    vec3 Wi = vec3(0.0f);
-    vec3 Wh = vec3(0.0f);
-    float pdf = 0.0f;
-
-    vec3 Li = sample_light(p, light, Wi, pdf);
-
-    Wh = normalize(Wo + Wi);
-
-    vec3 brdf = evaluate_uber(p, Wo, Wh, Wi);
-    float cos_theta = clamp(dot(p.normal, Wo), 0.0, 1.0);
-
-    if (!is_black(Li))
-    {
-        if (pdf == 0.0f)
-            L = p_PathTracePayload.T * brdf * cos_theta * Li;
-        else
-            L = (p_PathTracePayload.T * brdf * cos_theta * Li) / pdf;
-    }
- 
-    return L * float(u_PathTraceConsts.num_lights);
-}
-
-// ------------------------------------------------------------------------
-
-vec3 indirect_lighting(in SurfaceProperties p)
-{
-    vec3 Wo = -gl_WorldRayDirectionEXT;
-    vec3 Wi;
-    float pdf;
-
-    vec3 brdf = sample_uber(p, Wo, p_PathTracePayload.rng, Wi, pdf);
-
-    float cos_theta = clamp(dot(p.normal, Wo), 0.0, 1.0);
-
-    p_IndirectPayload.L = vec3(0.0f);
-    p_IndirectPayload.T = p_PathTracePayload.T *  (brdf * cos_theta) / pdf;
-    p_IndirectPayload.depth = p_PathTracePayload.depth + 1;
-    p_IndirectPayload.rng = p_PathTracePayload.rng;
-#if defined(RAY_DEBUG_VIEW)
-    p_IndirectPayload.debug_color = p_PathTracePayload.debug_color;
-#endif
-
-    uint  ray_flags = gl_RayFlagsOpaqueEXT;
-    uint  cull_mask = 0xFF;
-    float tmin      = 0.0001;
-    float tmax      = 10000.0;  
-
-    // Trace Ray
-    traceRayEXT(u_TopLevelAS, 
-            ray_flags, 
-            cull_mask, 
-            PATH_TRACE_CLOSEST_HIT_SHADER_IDX, 
-            0, 
-            PATH_TRACE_MISS_SHADER_IDX, 
-            p.vertex.position.xyz, 
-            tmin, 
-            Wi, 
-            tmax, 
-            1);
-
-    return p_IndirectPayload.L;
-}
 
 // ------------------------------------------------------------------------
 // Main -------------------------------------------------------------------
@@ -468,40 +275,58 @@ void main()
 {
     SurfaceProperties p;
 
-    populate_surface_properties(p);
+    const Instance instance = Instances.data[gl_InstanceCustomIndexEXT];
+    const HitInfo hit_info = fetch_hit_info();
+    const Triangle triangle = fetch_triangle(instance, hit_info);
+    const Material material = Materials.data[hit_info.mat_idx];
+
+    p.vertex = interpolated_vertex(triangle, b_HitAttribs);
+    
+    transform_vertex(instance, p.vertex);
 
 #if defined(RAY_DEBUG_VIEW)
     // Skip the primary ray
-    if (p_PathTracePayload.depth > 0)
+    uint debug_ray_vert_idx = atomicAdd(DebugRayDrawArgs.count, 2);
+
+    DebugRayVertex v0;
+
+    v0.position = vec4(gl_WorldRayOriginEXT, 1.0f);
+    v0.color = vec4(p_DebugVisPayload.debug_color, 1.0f);
+
+    DebugRayVertex v1;
+
+    v1.position = vec4(gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT  * gl_HitTEXT, 1.0f);
+    v1.color = vec4(p_DebugVisPayload.debug_color, 1.0f);
+
+    DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 0] = v0;
+    DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 1] = v1;
+#endif
+
+    if (u_PathTraceConsts.debug_vis == VIEW_BASE_COLOR)
     {
-        uint debug_ray_vert_idx = atomicAdd(DebugRayDrawArgs.count, 2);
-
-        DebugRayVertex v0;
-
-        v0.position = vec4(gl_WorldRayOriginEXT, 1.0f);
-        v0.color = vec4(p_PathTracePayload.debug_color, 1.0f);
-
-        DebugRayVertex v1;
-
-        v1.position = vec4(gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT  * gl_HitTEXT, 1.0f);
-        v1.color = vec4(p_PathTracePayload.debug_color, 1.0f);
-
-        DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 0] = v0;
-        DebugRayVertexBuffer.vertices[debug_ray_vert_idx + 1] = v1;
-    }
-#endif
-
-    p_PathTracePayload.L = vec3(0.0f);
-
-    if (p_PathTracePayload.depth == 0 && !is_black(p.emissive.rgb))
-        p_PathTracePayload.L += p.emissive.rgb;
-    
-    p_PathTracePayload.L += direct_lighting(p);
-
-#if !defined(DIRECT_LIGHTING_INTEGRATOR)
-    if (p_PathTracePayload.depth < MAX_RAY_BOUNCES)
-       p_PathTracePayload.L += indirect_lighting(p);
-#endif
+        fetch_albedo(material, p);
+        p_DebugVisPayload.color = p.albedo.rgb;
+    } 
+    if (u_PathTraceConsts.debug_vis == VIEW_NORMAL)
+    {
+        fetch_normal(material, p);
+        p_DebugVisPayload.color = p.normal.rgb;
+    } 
+    if (u_PathTraceConsts.debug_vis == VIEW_ROUGHNESS)
+    {
+        fetch_roughness(material, p);
+        p_DebugVisPayload.color = vec3(p.roughness);
+    } 
+    if (u_PathTraceConsts.debug_vis == VIEW_METALLIC)
+    {
+        fetch_metallic(material, p);
+        p_DebugVisPayload.color = vec3(p.metallic);
+    } 
+    if (u_PathTraceConsts.debug_vis == VIEW_EMISSIVE)
+    {
+        fetch_emissive(material, p);
+        p_DebugVisPayload.color = p.emissive.rgb;
+    } 
 }
 
 // ------------------------------------------------------------------------

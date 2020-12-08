@@ -1,5 +1,7 @@
 #include <core/application.h>
 #include <utility/macros.h>
+#include <integrator/debug.h>
+#include <integrator/direct_lighting.h>
 #include <integrator/path.h>
 #include <imgui_internal.h>
 

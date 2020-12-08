@@ -4,14 +4,26 @@
 
 namespace helios
 {
-class DirectLightingIntegrator : public Integrator
+class DebugIntegrator : public Integrator
 {
 public:
-    using Ptr = std::shared_ptr<DirectLightingIntegrator>;
+    using Ptr = std::shared_ptr<DebugIntegrator>;
+
+    enum View
+    {
+        VIEW_BASE_COLOR = 0,
+        VIEW_NORMAL     = 1,
+        VIEW_ROUGHNESS  = 2,
+        VIEW_METALLIC   = 3,
+        VIEW_EMISSIVE   = 4
+    };
 
 public:
-    DirectLightingIntegrator(vk::Backend::Ptr backend);
-    ~DirectLightingIntegrator();
+    DebugIntegrator(vk::Backend::Ptr backend);
+    ~DebugIntegrator();
+
+    inline View current_view() { return m_current_view; }
+    inline void set_current_view(const View& view) { m_current_view = view; }
 
 protected:
     void execute(RenderState& render_state) override;
@@ -20,6 +32,7 @@ protected:
     void create_ray_debug_pipeline();
 
 private:
+    View                        m_current_view = VIEW_BASE_COLOR;
     vk::DescriptorSet::Ptr      m_ds[2];
     vk::RayTracingPipeline::Ptr m_pipeline;
     vk::PipelineLayout::Ptr     m_pipeline_layout;

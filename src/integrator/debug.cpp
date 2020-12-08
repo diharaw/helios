@@ -1,4 +1,4 @@
-#include <integrator/direct_lighting.h>
+#include <integrator/debug.h>
 #include <core/renderer.h>
 #include <vk_mem_alloc.h>
 
@@ -6,7 +6,7 @@ namespace helios
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-DirectLightingIntegrator::DirectLightingIntegrator(vk::Backend::Ptr backend) :
+DebugIntegrator::DebugIntegrator(vk::Backend::Ptr backend) :
     Integrator(backend)
 {
     create_pipeline();
@@ -15,13 +15,13 @@ DirectLightingIntegrator::DirectLightingIntegrator(vk::Backend::Ptr backend) :
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-DirectLightingIntegrator::~DirectLightingIntegrator()
+DebugIntegrator::~DebugIntegrator()
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void DirectLightingIntegrator::execute(RenderState& render_state)
+void DebugIntegrator::execute(RenderState& render_state)
 {
     auto backend = m_backend.lock();
 
@@ -40,6 +40,7 @@ void DirectLightingIntegrator::execute(RenderState& render_state)
     push_constants.num_lights            = render_state.num_lights();
     push_constants.num_frames            = render_state.num_accumulated_frames();
     push_constants.accumulation          = float(push_constants.num_frames) / float(push_constants.num_frames + 1);
+    push_constants.debug_vis             = uint32_t(m_current_view);
 
     vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_pipeline_layout->handle(), push_constant_stages, 0, sizeof(Integrator::PushConstants), &push_constants);
 
@@ -68,7 +69,7 @@ void DirectLightingIntegrator::execute(RenderState& render_state)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void DirectLightingIntegrator::gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state)
+void DebugIntegrator::gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state)
 {
     auto backend = m_backend.lock();
 
@@ -114,7 +115,7 @@ void DirectLightingIntegrator::gather_debug_rays(const glm::ivec2& pixel_coord, 
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void DirectLightingIntegrator::create_pipeline()
+void DebugIntegrator::create_pipeline()
 {
     auto backend = m_backend.lock();
 
@@ -122,25 +123,21 @@ void DirectLightingIntegrator::create_pipeline()
     // Create shader modules
     // ---------------------------------------------------------------------------
 
-    vk::ShaderModule::Ptr rgen             = vk::ShaderModule::create_from_file(backend, "shader/path_trace.rgen.spv");
-    vk::ShaderModule::Ptr rchit            = vk::ShaderModule::create_from_file(backend, "shader/direct_lighting.rchit.spv");
-    vk::ShaderModule::Ptr rmiss            = vk::ShaderModule::create_from_file(backend, "shader/path_trace.rmiss.spv");
-    vk::ShaderModule::Ptr rchit_visibility = vk::ShaderModule::create_from_file(backend, "shader/path_trace_shadow.rchit.spv");
-    vk::ShaderModule::Ptr rmiss_visibility = vk::ShaderModule::create_from_file(backend, "shader/path_trace_shadow.rmiss.spv");
+    vk::ShaderModule::Ptr rgen  = vk::ShaderModule::create_from_file(backend, "shader/debug_vis.rgen.spv");
+    vk::ShaderModule::Ptr rchit = vk::ShaderModule::create_from_file(backend, "shader/debug_vis.rchit.spv");
+    vk::ShaderModule::Ptr rmiss = vk::ShaderModule::create_from_file(backend, "shader/debug_vis.rmiss.spv");
 
     vk::ShaderBindingTable::Desc sbt_desc;
 
     sbt_desc.add_ray_gen_group(rgen, "main");
-    sbt_desc.add_hit_group(rchit, "main");
-    sbt_desc.add_hit_group(rchit_visibility, "main");
+    sbt_desc.add_hit_group(rchit, "main");;
     sbt_desc.add_miss_group(rmiss, "main");
-    sbt_desc.add_miss_group(rmiss_visibility, "main");
 
     m_sbt = vk::ShaderBindingTable::create(backend, sbt_desc);
 
     vk::RayTracingPipeline::Desc desc;
 
-    desc.set_recursion_depth(8);
+    desc.set_recursion_depth(1);
     desc.set_shader_binding_table(m_sbt);
 
     // ---------------------------------------------------------------------------
@@ -168,7 +165,7 @@ void DirectLightingIntegrator::create_pipeline()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void DirectLightingIntegrator::create_ray_debug_pipeline()
+void DebugIntegrator::create_ray_debug_pipeline()
 {
     auto backend = m_backend.lock();
 
@@ -176,25 +173,21 @@ void DirectLightingIntegrator::create_ray_debug_pipeline()
     // Create shader modules
     // ---------------------------------------------------------------------------
 
-    vk::ShaderModule::Ptr rgen             = vk::ShaderModule::create_from_file(backend, "shader/path_trace_debug.rgen.spv");
-    vk::ShaderModule::Ptr rchit            = vk::ShaderModule::create_from_file(backend, "shader/direct_lighting_debug.rchit.spv");
-    vk::ShaderModule::Ptr rmiss            = vk::ShaderModule::create_from_file(backend, "shader/path_trace_debug.rmiss.spv");
-    vk::ShaderModule::Ptr rchit_visibility = vk::ShaderModule::create_from_file(backend, "shader/path_trace_shadow.rchit.spv");
-    vk::ShaderModule::Ptr rmiss_visibility = vk::ShaderModule::create_from_file(backend, "shader/path_trace_shadow.rmiss.spv");
+    vk::ShaderModule::Ptr rgen  = vk::ShaderModule::create_from_file(backend, "shader/debug_vis_debug.rgen.spv");
+    vk::ShaderModule::Ptr rchit = vk::ShaderModule::create_from_file(backend, "shader/debug_vis_debug.rchit.spv");
+    vk::ShaderModule::Ptr rmiss = vk::ShaderModule::create_from_file(backend, "shader/debug_vis_debug.rmiss.spv");
 
     vk::ShaderBindingTable::Desc sbt_desc;
 
     sbt_desc.add_ray_gen_group(rgen, "main");
     sbt_desc.add_hit_group(rchit, "main");
-    sbt_desc.add_hit_group(rchit_visibility, "main");
     sbt_desc.add_miss_group(rmiss, "main");
-    sbt_desc.add_miss_group(rmiss_visibility, "main");
 
     m_ray_debug_sbt = vk::ShaderBindingTable::create(backend, sbt_desc);
 
     vk::RayTracingPipeline::Desc desc;
 
-    desc.set_recursion_depth(8);
+    desc.set_recursion_depth(1);
     desc.set_shader_binding_table(m_ray_debug_sbt);
 
     // ---------------------------------------------------------------------------

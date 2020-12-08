@@ -34,6 +34,14 @@ struct PathTracePayload
 #endif
 };
 
+struct DebugVisPayload
+{
+    vec3 color;
+#if defined(RAY_DEBUG_VIEW)
+    vec3 debug_color;
+#endif
+};
+
 struct Vertex
 {
     vec4 position;

@@ -14,13 +14,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 find_program(CLANG_FORMAT_EXE NAMES "clang-format" DOC "Path to clang-format executable")
 
 set(HELIOS_VIEWER_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rchit
-                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rgen
-                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rmiss
-                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rchit
-                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rgen
-                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rmiss
-                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_shadow.rchit
-                                ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_shadow.rmiss)
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rgen
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rmiss
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rchit
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rgen
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rmiss
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/debug_vis.rchit
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/debug_vis.rgen
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/debug_vis.rmiss
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/debug_vis_debug.rchit
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/debug_vis_debug.rgen
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/debug_vis_debug.rmiss
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_shadow.rchit
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_shadow.rmiss
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/direct_lighting.rchit
+                                 ${PROJECT_SOURCE_DIR}/viewer/shader/direct_lighting_debug.rchit)
 
 if (APPLE)
     add_executable(HeliosViewer MACOSX_BUNDLE "main.cpp")
