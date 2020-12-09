@@ -433,6 +433,15 @@ vec3 indirect_lighting(in SurfaceProperties p)
 
     p_IndirectPayload.L = vec3(0.0f);
     p_IndirectPayload.T = p_PathTracePayload.T *  (brdf * cos_theta) / pdf;
+
+    // Russian roulette
+    float probability = max(p_IndirectPayload.T.r, max(p_IndirectPayload.T.g, p_IndirectPayload.T.b));
+    if (next_float(p_PathTracePayload.rng) > probability)
+        return vec3(0.0f);
+ 
+    // Add the energy we 'lose' by randomly terminating paths
+    p_IndirectPayload.T *= 1.0f / probability;
+
     p_IndirectPayload.depth = p_PathTracePayload.depth + 1;
     p_IndirectPayload.rng = p_PathTracePayload.rng;
 #if defined(RAY_DEBUG_VIEW)

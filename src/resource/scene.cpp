@@ -841,7 +841,11 @@ void Scene::create_gpu_resources(RenderState& render_state)
                                 }
                             }
                             else
+                            {
                                 material_data.albedo = material->albedo_value();
+                                // Covert from sRGB to Linear
+                                material_data.albedo = glm::vec4(glm::pow(glm::vec3(material_data.albedo[0], material_data.albedo[1], material_data.albedo[2]), glm::vec3(2.2f)), material_data.albedo.a);
+                            }
 
                             if (material->normal_texture())
                             {
@@ -941,7 +945,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
                             LightData& light_data = light_buffer[gpu_light_counter++];
 
                             light_data.light_data0 = glm::vec4(float(LIGHT_AREA), float(mesh_node_idx), float(global_material_indices[material->id()]), float(submesh.base_index / 3));
-                            light_data.light_data1 = glm::vec4(float(submesh.index_count), float(submesh.vertex_count), float(submesh.index_count/3), 0.0f);
+                            light_data.light_data1 = glm::vec4(float(submesh.index_count), float(submesh.vertex_count), float(submesh.index_count / 3), 0.0f);
                         }
                     }
                 }
