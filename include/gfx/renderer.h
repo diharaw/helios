@@ -38,6 +38,7 @@ private:
     bool                       m_output_ping_pong             = false;
     bool                       m_ray_debug_view_added         = false;
     bool                       m_accumulation_reset_requested = false;
+    bool                       m_output_image_recreated       = true;
 
 public:
     Renderer(vk::Backend::Ptr backend);
@@ -60,6 +61,7 @@ private:
     void create_ray_debug_pipeline();
     void create_ray_debug_buffers();
     void create_buffers();
-    void create_descriptor_sets();
+    void create_static_descriptor_sets();
+    void create_dynamic_descriptor_sets();
 };
 } // namespace helios

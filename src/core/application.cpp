@@ -102,6 +102,7 @@ bool Application::init_base(int argc, const char* argv[])
     glfwSetMouseButtonCallback(m_window, mouse_button_callback_glfw);
     glfwSetCharCallback(m_window, char_callback_glfw);
     glfwSetWindowSizeCallback(m_window, window_size_callback_glfw);
+    glfwSetWindowIconifyCallback(m_window, window_iconify_callback_glfw);
     glfwSetWindowUserPointer(m_window, this);
 
     HELIOS_LOG_INFO("Successfully initialized platform!");
@@ -256,9 +257,14 @@ bool Application::init_base(int argc, const char* argv[])
 
 void Application::update_base(double delta)
 {
-    begin_frame();
-    update(delta);
-    end_frame();
+    glfwPollEvents();
+
+    if (!m_window_minimized)
+    {
+        begin_frame();
+        update(delta);
+        end_frame();
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -311,12 +317,19 @@ void Application::begin_frame()
 {
     m_time_start = glfwGetTime();
 
-    glfwPollEvents();
-
     if (m_should_recreate_swap_chain)
     {
         m_vk_backend->recreate_swapchain();
         m_should_recreate_swap_chain = false;
+    }
+
+    if (m_window_resize_in_progress)
+    {
+        if (m_width == m_last_width && m_height == m_last_height)
+        {
+            m_window_resize_in_progress = false;
+            window_resized();
+        }
     }
 
     m_vk_backend->acquire_next_swap_chain_image(m_image_available_semaphores[m_vk_backend->current_frame_idx()]);
@@ -337,6 +350,8 @@ void Application::begin_frame()
 void Application::end_frame()
 {
     m_delta_seconds = glfwGetTime() - m_delta_seconds;
+    m_last_width    = m_width;
+    m_last_height   = m_height;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -359,7 +374,7 @@ Settings Application::intial_settings() { return Settings(); }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Application::window_resized(int width, int height) {}
+void Application::window_resized() {}
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -449,7 +464,14 @@ void Application::window_size_callback(GLFWwindow* window, int width, int height
     m_height = height;
 
     m_should_recreate_swap_chain = true;
-    window_resized(width, height);
+    m_window_resize_in_progress  = true;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Application::window_iconify_callback(GLFWwindow* window, int iconified)
+{
+    m_window_minimized = (bool)iconified;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -500,6 +522,14 @@ void Application::window_size_callback_glfw(GLFWwindow* window, int width, int h
 {
     Application* app = (Application*)glfwGetWindowUserPointer(window);
     app->window_size_callback(window, width, height);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Application::window_iconify_callback_glfw(GLFWwindow* window, int iconified)
+{
+    Application* app = (Application*)glfwGetWindowUserPointer(window);
+    app->window_iconify_callback(window, iconified);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

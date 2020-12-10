@@ -25,7 +25,8 @@ Renderer::Renderer(vk::Backend::Ptr backend) :
     create_buffers();
     create_ray_debug_buffers();
     create_ray_debug_pipeline();
-    create_descriptor_sets();
+    create_static_descriptor_sets();
+    create_dynamic_descriptor_sets();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -144,7 +145,7 @@ void Renderer::render(RenderState& render_state)
     VkImageSubresourceRange subresource_range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 
     // Transition write image to general layout during the first frame
-    if (backend->current_frame_idx() == 0)
+    if (m_output_image_recreated)
     {
         vk::utilities::set_image_layout(
             render_state.m_cmd_buffer->handle(),
@@ -158,7 +159,7 @@ void Renderer::render(RenderState& render_state)
     vk::utilities::set_image_layout(
         render_state.m_cmd_buffer->handle(),
         m_output_images[read_index]->handle(),
-        backend->current_frame_idx() == 0 ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        m_output_image_recreated ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_IMAGE_LAYOUT_GENERAL,
         subresource_range);
 
@@ -259,6 +260,9 @@ void Renderer::render(RenderState& render_state)
     m_output_ping_pong = !m_output_ping_pong;
 
     render_state.clear();
+
+    if (m_output_image_recreated)
+        m_output_image_recreated = false;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -293,7 +297,9 @@ void Renderer::render_ray_debug_views(RenderState& render_state)
 
 void Renderer::on_window_resize()
 {
+    m_output_image_recreated = true;
     create_output_images();
+    create_dynamic_descriptor_sets();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -508,8 +514,8 @@ void Renderer::create_output_images()
 
     for (int i = 0; i < 2; i++)
     {
-        m_output_image_views[i].reset();
-        m_output_images[i].reset();
+        backend->queue_object_deletion(m_output_image_views[i]);
+        backend->queue_object_deletion(m_output_images[i]);
 
         m_output_images[i]      = vk::Image::create(backend, VK_IMAGE_TYPE_2D, extents.width, extents.height, 1, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_SAMPLE_COUNT_1_BIT);
         m_output_image_views[i] = vk::ImageView::create(backend, m_output_images[i], VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -518,7 +524,64 @@ void Renderer::create_output_images()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Renderer::create_descriptor_sets()
+void Renderer::create_static_descriptor_sets()
+{
+    auto backend = m_backend.lock();
+
+    std::vector<VkWriteDescriptorSet> write_datas;
+
+    write_datas;
+
+    m_ray_debug_ds = backend->allocate_descriptor_set(backend->ray_debug_descriptor_set_layout());
+
+    VkDescriptorBufferInfo ray_debug_vbo_buffer_info;
+
+    HELIOS_ZERO_MEMORY(ray_debug_vbo_buffer_info);
+
+    ray_debug_vbo_buffer_info.buffer = m_ray_debug_vbo->handle();
+    ray_debug_vbo_buffer_info.offset = 0;
+    ray_debug_vbo_buffer_info.range  = VK_WHOLE_SIZE;
+
+    VkWriteDescriptorSet ray_debug_vbo_buffer_write_data;
+
+    HELIOS_ZERO_MEMORY(ray_debug_vbo_buffer_write_data);
+
+    ray_debug_vbo_buffer_write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    ray_debug_vbo_buffer_write_data.descriptorCount = 1;
+    ray_debug_vbo_buffer_write_data.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    ray_debug_vbo_buffer_write_data.pBufferInfo     = &ray_debug_vbo_buffer_info;
+    ray_debug_vbo_buffer_write_data.dstBinding      = 0;
+    ray_debug_vbo_buffer_write_data.dstSet          = m_ray_debug_ds->handle();
+
+    write_datas.push_back(ray_debug_vbo_buffer_write_data);
+
+    VkDescriptorBufferInfo ray_debug_draw_args_buffer_info;
+
+    HELIOS_ZERO_MEMORY(ray_debug_draw_args_buffer_info);
+
+    ray_debug_draw_args_buffer_info.buffer = m_ray_debug_draw_cmd->handle();
+    ray_debug_draw_args_buffer_info.offset = 0;
+    ray_debug_draw_args_buffer_info.range  = VK_WHOLE_SIZE;
+
+    VkWriteDescriptorSet ray_debug_draw_args_write_data;
+
+    HELIOS_ZERO_MEMORY(ray_debug_draw_args_write_data);
+
+    ray_debug_draw_args_write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    ray_debug_draw_args_write_data.descriptorCount = 1;
+    ray_debug_draw_args_write_data.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    ray_debug_draw_args_write_data.pBufferInfo     = &ray_debug_draw_args_buffer_info;
+    ray_debug_draw_args_write_data.dstBinding      = 1;
+    ray_debug_draw_args_write_data.dstSet          = m_ray_debug_ds->handle();
+
+    write_datas.push_back(ray_debug_draw_args_write_data);
+
+    vkUpdateDescriptorSets(backend->device(), write_datas.size(), &write_datas[0], 0, nullptr);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_dynamic_descriptor_sets()
 {
     auto backend = m_backend.lock();
 
@@ -530,10 +593,11 @@ void Renderer::create_descriptor_sets()
     write_datas;
     image_descriptors.reserve(4);
 
-    m_ray_debug_ds = backend->allocate_descriptor_set(backend->ray_debug_descriptor_set_layout());
-
     for (int i = 0; i < 2; i++)
     {
+        backend->queue_object_deletion(m_output_storage_image_ds[i]);
+        backend->queue_object_deletion(m_input_combined_sampler_ds[i]);
+
         m_output_storage_image_ds[i]   = backend->allocate_descriptor_set(backend->image_descriptor_set_layout());
         m_input_combined_sampler_ds[i] = backend->allocate_descriptor_set(backend->combined_sampler_descriptor_set_layout());
 
@@ -587,48 +651,6 @@ void Renderer::create_descriptor_sets()
             write_datas.push_back(write_data);
         }
     }
-
-    VkDescriptorBufferInfo ray_debug_vbo_buffer_info;
-
-    HELIOS_ZERO_MEMORY(ray_debug_vbo_buffer_info);
-
-    ray_debug_vbo_buffer_info.buffer = m_ray_debug_vbo->handle();
-    ray_debug_vbo_buffer_info.offset = 0;
-    ray_debug_vbo_buffer_info.range  = VK_WHOLE_SIZE;
-
-    VkWriteDescriptorSet ray_debug_vbo_buffer_write_data;
-
-    HELIOS_ZERO_MEMORY(ray_debug_vbo_buffer_write_data);
-
-    ray_debug_vbo_buffer_write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    ray_debug_vbo_buffer_write_data.descriptorCount = 1;
-    ray_debug_vbo_buffer_write_data.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    ray_debug_vbo_buffer_write_data.pBufferInfo     = &ray_debug_vbo_buffer_info;
-    ray_debug_vbo_buffer_write_data.dstBinding      = 0;
-    ray_debug_vbo_buffer_write_data.dstSet          = m_ray_debug_ds->handle();
-
-    write_datas.push_back(ray_debug_vbo_buffer_write_data);
-
-    VkDescriptorBufferInfo ray_debug_draw_args_buffer_info;
-
-    HELIOS_ZERO_MEMORY(ray_debug_draw_args_buffer_info);
-
-    ray_debug_draw_args_buffer_info.buffer = m_ray_debug_draw_cmd->handle();
-    ray_debug_draw_args_buffer_info.offset = 0;
-    ray_debug_draw_args_buffer_info.range  = VK_WHOLE_SIZE;
-
-    VkWriteDescriptorSet ray_debug_draw_args_write_data;
-
-    HELIOS_ZERO_MEMORY(ray_debug_draw_args_write_data);
-
-    ray_debug_draw_args_write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    ray_debug_draw_args_write_data.descriptorCount = 1;
-    ray_debug_draw_args_write_data.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    ray_debug_draw_args_write_data.pBufferInfo     = &ray_debug_draw_args_buffer_info;
-    ray_debug_draw_args_write_data.dstBinding      = 1;
-    ray_debug_draw_args_write_data.dstSet          = m_ray_debug_ds->handle();
-
-    write_datas.push_back(ray_debug_draw_args_write_data);
 
     vkUpdateDescriptorSets(backend->device(), write_datas.size(), &write_datas[0], 0, nullptr);
 }

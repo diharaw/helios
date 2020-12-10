@@ -49,6 +49,7 @@ public:
     void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
     void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
     void window_size_callback(GLFWwindow* window, int width, int height);
+    void window_iconify_callback(GLFWwindow* window, int iconified);
 
     // GLFW static callback functions. Called from within GLFW's event loop.
     static void key_callback_glfw(GLFWwindow* window, int key, int scancode, int action, int mode);
@@ -57,13 +58,14 @@ public:
     static void mouse_button_callback_glfw(GLFWwindow* window, int button, int action, int mods);
     static void char_callback_glfw(GLFWwindow* window, unsigned int c);
     static void window_size_callback_glfw(GLFWwindow* window, int width, int height);
+    static void window_iconify_callback_glfw(GLFWwindow* window, int iconified);
 
 protected:
     // Intial app settings. Override this to set defaults.
     virtual Settings intial_settings();
 
     // Window event callbacks. Override these!
-    virtual void window_resized(int width, int height);
+    virtual void window_resized();
     virtual void key_pressed(int code);
     virtual void key_released(int code);
     virtual void mouse_scrolled(double xoffset, double yoffset);
@@ -95,6 +97,8 @@ private:
 protected:
     uint32_t                            m_width;
     uint32_t                            m_height;
+    uint32_t                            m_last_width;
+    uint32_t                            m_last_height;
     double                              m_mouse_x;
     double                              m_mouse_y;
     double                              m_last_mouse_x;
@@ -103,6 +107,8 @@ protected:
     double                              m_mouse_delta_y;
     double                              m_time_start;
     double                              m_delta_seconds;
+    bool                                m_window_resize_in_progress = false;
+    bool                                m_window_minimized          = false;
     std::string                         m_title;
     std::array<bool, MAX_KEYS>          m_keys;
     std::array<bool, MAX_MOUSE_BUTTONS> m_mouse_buttons;
