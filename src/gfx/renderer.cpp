@@ -18,7 +18,7 @@ struct RayDebugVertex
 Renderer::Renderer(vk::Backend::Ptr backend) :
     m_backend(backend)
 {
-    m_integrator = std::shared_ptr<Integrator>(new Integrator(backend));
+    m_path_tracer = std::shared_ptr<PathTracer>(new PathTracer(backend));
 
     create_output_images();
     create_tone_map_pipeline();
@@ -48,7 +48,7 @@ Renderer::~Renderer()
     m_tone_map_pipeline_layout.reset();
     m_ray_debug_pipeline.reset();
     m_ray_debug_pipeline_layout.reset();
-    m_integrator.reset();
+    m_path_tracer.reset();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -162,8 +162,8 @@ void Renderer::render(RenderState& render_state)
         VK_IMAGE_LAYOUT_GENERAL,
         subresource_range);
 
-    // Execute integrator
-    m_integrator->execute(render_state);
+    // Begin path trace iteration
+    m_path_tracer->render(render_state);
 
     if (m_ray_debug_view_added)
     {
@@ -185,7 +185,7 @@ void Renderer::render(RenderState& render_state)
         }
 
         const auto& view = m_ray_debug_views.back();
-        m_integrator->gather_debug_rays(view.pixel_coord, view.num_debug_rays, view.view, view.projection, render_state);
+        m_path_tracer->gather_debug_rays(view.pixel_coord, view.num_debug_rays, view.view, view.projection, render_state);
     }
 
     // Transition the output image from general to as shader read-only layout

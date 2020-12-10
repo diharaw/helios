@@ -5,31 +5,19 @@
 
 namespace helios
 {
-class Integrator
+class PathTracer
 {
 public:
-    using Ptr = std::shared_ptr<Integrator>;
-
-    struct PushConstants
-    {
-        glm::mat4  view_inverse;
-        glm::mat4  proj_inverse;
-        glm::ivec4 ray_debug_pixel_coord;
-        float      accumulation;
-        uint32_t   num_lights;
-        uint32_t   num_frames;
-        uint32_t   debug_vis;
-        uint32_t   max_ray_bounces;
-    };
+    using Ptr = std::shared_ptr<PathTracer>;
 
 public:
-    Integrator(vk::Backend::Ptr backend);
-    ~Integrator();
+    PathTracer(vk::Backend::Ptr backend);
+    ~PathTracer();
 
     inline uint32_t max_ray_bounces() { return m_max_ray_bounces; }
     inline void     set_max_ray_bounces(const uint32_t& n) { m_max_ray_bounces = n; }
 
-    void execute(RenderState& render_state);
+    void render(RenderState& render_state);
     void gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state);
 
 private:

@@ -1,11 +1,25 @@
-#include <gfx/integrator.h>
+#include <gfx/path_tracer.h>
 #include <vk_mem_alloc.h>
 
 namespace helios
 {
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Integrator::Integrator(vk::Backend::Ptr backend) :
+struct PushConstants
+{
+    glm::mat4  view_inverse;
+    glm::mat4  proj_inverse;
+    glm::ivec4 ray_debug_pixel_coord;
+    float      accumulation;
+    uint32_t   num_lights;
+    uint32_t   num_frames;
+    uint32_t   debug_vis;
+    uint32_t   max_ray_bounces;
+};
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+PathTracer::PathTracer(vk::Backend::Ptr backend) :
     m_backend(backend)
 {
     create_pipeline();
@@ -14,13 +28,13 @@ Integrator::Integrator(vk::Backend::Ptr backend) :
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Integrator::~Integrator()
+PathTracer::~PathTracer()
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Integrator::execute(RenderState& render_state)
+void PathTracer::render(RenderState& render_state)
 {
     auto backend = m_backend.lock();
 
@@ -40,7 +54,7 @@ void Integrator::execute(RenderState& render_state)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Integrator::gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state)
+void PathTracer::gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state)
 {
     auto backend = m_backend.lock();
 
@@ -60,7 +74,7 @@ void Integrator::gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Integrator::launch_rays(RenderState& render_state, vk::RayTracingPipeline::Ptr pipeline, vk::PipelineLayout::Ptr pipeline_layout, vk::ShaderBindingTable::Ptr sbt, const uint32_t& x, const uint32_t& y, const uint32_t& z, const glm::mat4& view, const glm::mat4& projection, const glm::ivec2& pixel_coord)
+void PathTracer::launch_rays(RenderState& render_state, vk::RayTracingPipeline::Ptr pipeline, vk::PipelineLayout::Ptr pipeline_layout, vk::ShaderBindingTable::Ptr sbt, const uint32_t& x, const uint32_t& y, const uint32_t& z, const glm::mat4& view, const glm::mat4& projection, const glm::ivec2& pixel_coord)
 {
     auto backend = m_backend.lock();
 
@@ -71,7 +85,7 @@ void Integrator::launch_rays(RenderState& render_state, vk::RayTracingPipeline::
 
     int32_t push_constant_stages = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR;
 
-    Integrator::PushConstants push_constants;
+    PushConstants push_constants;
 
     push_constants.ray_debug_pixel_coord = glm::ivec4(pixel_coord.x, extents.height - pixel_coord.y, extents.width, extents.height);
     push_constants.view_inverse          = glm::inverse(view);
@@ -81,7 +95,7 @@ void Integrator::launch_rays(RenderState& render_state, vk::RayTracingPipeline::
     push_constants.accumulation          = float(push_constants.num_frames) / float(push_constants.num_frames + 1);
     push_constants.max_ray_bounces       = m_max_ray_bounces;
 
-    vkCmdPushConstants(render_state.cmd_buffer()->handle(), pipeline_layout->handle(), push_constant_stages, 0, sizeof(Integrator::PushConstants), &push_constants);
+    vkCmdPushConstants(render_state.cmd_buffer()->handle(), pipeline_layout->handle(), push_constant_stages, 0, sizeof(PushConstants), &push_constants);
 
     if (y == 1)
     {
@@ -124,7 +138,7 @@ void Integrator::launch_rays(RenderState& render_state, vk::RayTracingPipeline::
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Integrator::create_pipeline()
+void PathTracer::create_pipeline()
 {
     auto backend = m_backend.lock();
 
@@ -159,7 +173,7 @@ void Integrator::create_pipeline()
 
     vk::PipelineLayout::Desc pl_desc;
 
-    pl_desc.add_push_constant_range(VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 0, sizeof(Integrator::PushConstants));
+    pl_desc.add_push_constant_range(VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 0, sizeof(PushConstants));
 
     pl_desc.add_descriptor_set_layout(backend->scene_descriptor_set_layout());
     pl_desc.add_descriptor_set_layout(backend->buffer_array_descriptor_set_layout());
@@ -178,7 +192,7 @@ void Integrator::create_pipeline()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Integrator::create_ray_debug_pipeline()
+void PathTracer::create_ray_debug_pipeline()
 {
     auto backend = m_backend.lock();
 
@@ -213,7 +227,7 @@ void Integrator::create_ray_debug_pipeline()
 
     vk::PipelineLayout::Desc pl_desc;
 
-    pl_desc.add_push_constant_range(VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 0, sizeof(Integrator::PushConstants));
+    pl_desc.add_push_constant_range(VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 0, sizeof(PushConstants));
 
     pl_desc.add_descriptor_set_layout(backend->scene_descriptor_set_layout());
     pl_desc.add_descriptor_set_layout(backend->buffer_array_descriptor_set_layout());
