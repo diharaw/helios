@@ -1,7 +1,6 @@
-#include <core/renderer.h>
+#include <gfx/renderer.h>
 #include <utility/macros.h>
 #include <vk_mem_alloc.h>
-#include <core/integrator.h>
 #include <imgui.h>
 #include <examples/imgui_impl_vulkan.h>
 #include <resource/scene.h>
@@ -19,6 +18,8 @@ struct RayDebugVertex
 Renderer::Renderer(vk::Backend::Ptr backend) :
     m_backend(backend)
 {
+    m_integrator = std::shared_ptr<Integrator>(new Integrator(backend));
+
     create_output_images();
     create_tone_map_pipeline();
     create_buffers();
@@ -47,14 +48,18 @@ Renderer::~Renderer()
     m_tone_map_pipeline_layout.reset();
     m_ray_debug_pipeline.reset();
     m_ray_debug_pipeline_layout.reset();
+    m_integrator.reset();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> integrator)
+void Renderer::render(RenderState& render_state)
 {
-    if (render_state.scene_state() != SCENE_STATE_READY)
+    if (render_state.scene_state() != SCENE_STATE_READY || m_accumulation_reset_requested)
+    {
         render_state.m_num_accumulated_frames = 0;
+        m_accumulation_reset_requested        = false;
+    }
 
     auto backend = m_backend.lock();
 
@@ -158,32 +163,29 @@ void Renderer::render(RenderState& render_state, std::shared_ptr<Integrator> int
         subresource_range);
 
     // Execute integrator
-    if (integrator)
+    m_integrator->execute(render_state);
+
+    if (m_ray_debug_view_added)
     {
-        integrator->execute(render_state);
+        m_ray_debug_view_added = false;
 
-        if (m_ray_debug_view_added)
+        // If the ray debug view was just added in the current frame, reset the draw cmd data.
+        if (m_ray_debug_views.size() == 1)
         {
-            m_ray_debug_view_added = false;
+            uint32_t draw_args[4] = { 0, 1, 0, 0 };
+            vkCmdUpdateBuffer(render_state.m_cmd_buffer->handle(), m_ray_debug_draw_cmd->handle(), 0, sizeof(uint32_t) * 4, &draw_args[0]);
 
-            // If the ray debug view was just added in the current frame, reset the draw cmd data.
-            if (m_ray_debug_views.size() == 1)
-            {
-                uint32_t draw_args[4] = { 0, 1, 0, 0 };
-                vkCmdUpdateBuffer(render_state.m_cmd_buffer->handle(), m_ray_debug_draw_cmd->handle(), 0, sizeof(uint32_t) * 4, &draw_args[0]);
+            VkMemoryBarrier memory_barrier;
+            memory_barrier.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+            memory_barrier.pNext         = nullptr;
+            memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            memory_barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
 
-                VkMemoryBarrier memory_barrier;
-                memory_barrier.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-                memory_barrier.pNext         = nullptr;
-                memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-                memory_barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-
-                vkCmdPipelineBarrier(render_state.m_cmd_buffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0, 1, &memory_barrier, 0, nullptr, 0, nullptr);
-            }
-
-            const auto& view = m_ray_debug_views.back();
-            integrator->gather_debug_rays(view.pixel_coord, view.num_debug_rays, view.view, view.projection, render_state);
+            vkCmdPipelineBarrier(render_state.m_cmd_buffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0, 1, &memory_barrier, 0, nullptr, 0, nullptr);
         }
+
+        const auto& view = m_ray_debug_views.back();
+        m_integrator->gather_debug_rays(view.pixel_coord, view.num_debug_rays, view.view, view.projection, render_state);
     }
 
     // Transition the output image from general to as shader read-only layout

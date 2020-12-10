@@ -1,8 +1,8 @@
-#include <core/vk.h>
+#include <gfx/vk.h>
 #include <utility/logger.h>
 #include <utility/macros.h>
 #include <fstream>
-#include <core/extensions_vk.h>
+#include <gfx/extensions_vk.h>
 #include <resource/scene.h>
 
 #define VMA_IMPLEMENTATION

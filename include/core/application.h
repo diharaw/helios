@@ -6,8 +6,8 @@
 #include <vector>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
-#include <core/vk.h>
-#include <core/renderer.h>
+#include <gfx/vk.h>
+#include <gfx/renderer.h>
 #include <core/resource_manager.h>
 
 // Main method macro. Use this at the bottom of any cpp file.

@@ -3,7 +3,7 @@
 #include <glm.hpp>
 #include <memory>
 #include <vector>
-#include <core/vk.h>
+#include <gfx/vk.h>
 
 namespace helios
 {

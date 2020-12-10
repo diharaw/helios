@@ -1,8 +1,5 @@
 #include <core/application.h>
 #include <utility/macros.h>
-#include <integrator/debug.h>
-#include <integrator/direct_lighting.h>
-#include <integrator/path.h>
 #include <imgui_internal.h>
 
 namespace ImGui
@@ -29,8 +26,7 @@ protected:
 
     bool init(int argc, const char* argv[]) override
     {
-        m_path_integrator = std::shared_ptr<PathIntegrator>(new PathIntegrator(m_vk_backend));
-        m_scene           = m_resource_manager->load_scene("scene/pica_pica_ibl.json");
+        m_scene = m_resource_manager->load_scene("scene/cornell_box_no_ibl.json");
 
         return true;
     }
@@ -57,7 +53,7 @@ protected:
 
         m_scene->update(m_render_state);
 
-        m_renderer->render(m_render_state, m_path_integrator);
+        m_renderer->render(m_render_state);
 
         vkEndCommandBuffer(cmd_buf->handle());
 
@@ -68,7 +64,6 @@ protected:
 
     void shutdown() override
     {
-        m_path_integrator.reset();
         m_scene.reset();
     }
 
@@ -264,6 +259,15 @@ private:
         }
         if (ImGui::CollapsingHeader("Settings"))
         {
+            int32_t max_ray_bounces = m_renderer->integrator()->max_ray_bounces();
+
+            ImGui::SliderInt("Max Ray Bounces", &max_ray_bounces, 1, 8);
+
+            if (m_renderer->integrator()->max_ray_bounces() != max_ray_bounces)
+            {
+                m_renderer->integrator()->set_max_ray_bounces(max_ray_bounces);
+                m_renderer->reset_accumulation();
+            }
         }
 
         if (m_ray_debug_mode)
@@ -278,19 +282,18 @@ private:
     // -----------------------------------------------------------------------------------------------------------------------------------
 
 private:
-    RenderState         m_render_state;
-    Scene::Ptr          m_scene;
-    PathIntegrator::Ptr m_path_integrator;
-    bool                m_show_gui           = true;
-    bool                m_mouse_look         = false;
-    bool                m_ray_debug_mode     = false;
-    float               m_camera_yaw         = 0.0f;
-    float               m_camera_pitch       = 0.0f;
-    float               m_heading_speed      = 0.0f;
-    float               m_sideways_speed     = 0.0f;
-    float               m_camera_sensitivity = 0.05f;
-    float               m_camera_speed       = 0.05f;
-    int32_t             m_num_debug_rays     = 32;
+    RenderState m_render_state;
+    Scene::Ptr  m_scene;
+    bool        m_show_gui           = true;
+    bool        m_mouse_look         = false;
+    bool        m_ray_debug_mode     = false;
+    float       m_camera_yaw         = 0.0f;
+    float       m_camera_pitch       = 0.0f;
+    float       m_heading_speed      = 0.0f;
+    float       m_sideways_speed     = 0.0f;
+    float       m_camera_sensitivity = 0.05f;
+    float       m_camera_speed       = 0.05f;
+    int32_t     m_num_debug_rays     = 32;
 };
 } // namespace helios
 

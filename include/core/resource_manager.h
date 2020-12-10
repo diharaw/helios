@@ -5,7 +5,7 @@
 #include <resource/material.h>
 #include <resource/mesh.h>
 #include <resource/scene.h>
-#include <core/vk.h>
+#include <gfx/vk.h>
 #include <common/scene.h>
 
 namespace helios

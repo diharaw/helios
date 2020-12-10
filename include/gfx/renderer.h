@@ -1,12 +1,12 @@
 #pragma once
 
 #include <resource/scene.h>
+#include <gfx/integrator.h>
 
 namespace helios
 {
 #define MAX_DEBUG_RAY_DRAW_COUNT 1024
 
-class Integrator;
 class ResourceManager;
 
 struct RayDebugView
@@ -22,6 +22,7 @@ class Renderer
 private:
     std::vector<RayDebugView>  m_ray_debug_views;
     std::weak_ptr<vk::Backend> m_backend;
+    Integrator::Ptr            m_integrator;
     vk::Buffer::Ptr            m_tlas_instance_buffer_device;
     vk::Image::Ptr             m_output_images[2];
     vk::ImageView::Ptr         m_output_image_views[2];
@@ -34,14 +35,18 @@ private:
     vk::PipelineLayout::Ptr    m_ray_debug_pipeline_layout;
     vk::Buffer::Ptr            m_ray_debug_vbo;
     vk::Buffer::Ptr            m_ray_debug_draw_cmd;
-    bool                       m_output_ping_pong     = false;
-    bool                       m_ray_debug_view_added = false;
+    bool                       m_output_ping_pong             = false;
+    bool                       m_ray_debug_view_added         = false;
+    bool                       m_accumulation_reset_requested = false;
 
 public:
     Renderer(vk::Backend::Ptr backend);
     ~Renderer();
 
-    void                             render(RenderState& render_state, std::shared_ptr<Integrator> integrator);
+    inline Integrator::Ptr integrator() { return m_integrator; }
+    inline void            reset_accumulation() { m_accumulation_reset_requested = true; }
+
+    void                             render(RenderState& render_state);
     void                             on_window_resize();
     void                             add_ray_debug_view(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection);
     const std::vector<RayDebugView>& ray_debug_views();

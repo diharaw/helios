@@ -34,10 +34,12 @@ list(APPEND HELIOS_SOURCES ${PROJECT_SOURCE_DIR}/external/imgui/imgui.cpp
                           ${PROJECT_SOURCE_DIR}/external/imgui/examples/imgui_impl_vulkan.cpp
                           ${PROJECT_SOURCE_DIR}/external/imgui/examples/imgui_impl_glfw.cpp)
 
-set(HELIOS_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/src/shader/triangle.vert
-                         ${PROJECT_SOURCE_DIR}/src/shader/tone_map.frag
-                         ${PROJECT_SOURCE_DIR}/src/shader/debug_ray.vert
-                         ${PROJECT_SOURCE_DIR}/src/shader/debug_ray.frag)
+file(GLOB_RECURSE HELIOS_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/src/shader/*.vert 
+                                        ${PROJECT_SOURCE_DIR}/src/shader/*.frag
+                                        ${PROJECT_SOURCE_DIR}/src/shader/*.rgen  
+                                        ${PROJECT_SOURCE_DIR}/src/shader/*.rchit 
+                                        ${PROJECT_SOURCE_DIR}/src/shader/*.rmiss
+                                        ${PROJECT_SOURCE_DIR}/src/shader/*.rahit)
 
 if (APPLE)
     add_library(Helios MACOSX_BUNDLE ${HELIOS_HEADERS} ${HELIOS_SOURCES})

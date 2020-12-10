@@ -13,22 +13,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 find_program(CLANG_FORMAT_EXE NAMES "clang-format" DOC "Path to clang-format executable")
 
-set(HELIOS_VIEWER_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rchit
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rgen
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace.rmiss
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rchit
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rgen
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_debug.rmiss
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/debug_vis.rchit
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/debug_vis.rgen
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/debug_vis.rmiss
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/debug_vis_debug.rchit
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/debug_vis_debug.rgen
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/debug_vis_debug.rmiss
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_shadow.rchit
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/path_trace_shadow.rmiss
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/direct_lighting.rchit
-                                 ${PROJECT_SOURCE_DIR}/viewer/shader/direct_lighting_debug.rchit)
 
 if (APPLE)
     add_executable(HeliosViewer MACOSX_BUNDLE "main.cpp")
@@ -38,21 +22,6 @@ else()
 endif()
 
 target_link_libraries(HeliosViewer Helios)
-
-foreach(GLSL ${HELIOS_VIEWER_SHADER_SOURCES})
-    get_filename_component(FILE_NAME ${GLSL} NAME)
-    set(SPIRV "${CMAKE_SOURCE_DIR}/bin/$(Configuration)/shader/${FILE_NAME}.spv")
-    add_custom_command(
-        OUTPUT ${SPIRV}
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/bin/$(Configuration)/shader"
-        COMMAND ${GLSL_VALIDATOR} --target-env vulkan1.2 -V ${GLSL} -o ${SPIRV}
-        DEPENDS ${GLSL})
-    list(APPEND SPIRV_BINARY_FILES ${SPIRV})
-endforeach(GLSL)
-
-add_custom_target(HeliosViewer_Shaders DEPENDS ${SPIRV_BINARY_FILES})
-
-add_dependencies(HeliosViewer HeliosViewer_Shaders)
 
 if (WIN32)
     set_property(TARGET HeliosViewer PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/$(Configuration)")

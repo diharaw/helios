@@ -99,6 +99,7 @@ layout(push_constant) uniform PathTraceConsts
     uint num_lights;
     uint num_frames;
     uint debug_vis;
+    uint max_ray_bounces; 
 } u_PathTraceConsts;
 
 // ------------------------------------------------------------------------
@@ -434,6 +435,7 @@ vec3 indirect_lighting(in SurfaceProperties p)
     p_IndirectPayload.L = vec3(0.0f);
     p_IndirectPayload.T = p_PathTracePayload.T *  (brdf * cos_theta) / pdf;
 
+#if !defined(RAY_DEBUG_VIEW)
     // Russian roulette
     float probability = max(p_IndirectPayload.T.r, max(p_IndirectPayload.T.g, p_IndirectPayload.T.b));
     if (next_float(p_PathTracePayload.rng) > probability)
@@ -441,6 +443,7 @@ vec3 indirect_lighting(in SurfaceProperties p)
  
     // Add the energy we 'lose' by randomly terminating paths
     p_IndirectPayload.T *= 1.0f / probability;
+#endif
 
     p_IndirectPayload.depth = p_PathTracePayload.depth + 1;
     p_IndirectPayload.rng = p_PathTracePayload.rng;
@@ -508,7 +511,7 @@ void main()
     p_PathTracePayload.L += direct_lighting(p);
 
 #if !defined(DIRECT_LIGHTING_INTEGRATOR)
-    if (p_PathTracePayload.depth < MAX_RAY_BOUNCES)
+    if ((p_PathTracePayload.depth + 1) < u_PathTraceConsts.max_ray_bounces)
        p_PathTracePayload.L += indirect_lighting(p);
 #endif
 }

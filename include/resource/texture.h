@@ -1,6 +1,6 @@
 #pragma once
 
-#include <core/vk.h>
+#include <gfx/vk.h>
 #include <memory>
 
 namespace helios

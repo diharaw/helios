@@ -1,6 +1,6 @@
 #pragma once
 
-#include <core/vk.h>
+#include <gfx/vk.h>
 #include <glm.hpp>
 #include <memory>
 #include <vector>
