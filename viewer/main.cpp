@@ -30,7 +30,7 @@ protected:
     bool init(int argc, const char* argv[]) override
     {
         m_path_integrator = std::shared_ptr<PathIntegrator>(new PathIntegrator(m_vk_backend));
-        m_scene           = m_resource_manager->load_scene("scene/cornell_box_no_ibl.json");
+        m_scene           = m_resource_manager->load_scene("scene/pica_pica_ibl.json");
 
         return true;
     }
@@ -289,7 +289,7 @@ private:
     float               m_heading_speed      = 0.0f;
     float               m_sideways_speed     = 0.0f;
     float               m_camera_sensitivity = 0.05f;
-    float               m_camera_speed       = 0.02f;
+    float               m_camera_speed       = 0.05f;
     int32_t             m_num_debug_rays     = 32;
 };
 } // namespace helios

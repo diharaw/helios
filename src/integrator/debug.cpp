@@ -130,7 +130,8 @@ void DebugIntegrator::create_pipeline()
     vk::ShaderBindingTable::Desc sbt_desc;
 
     sbt_desc.add_ray_gen_group(rgen, "main");
-    sbt_desc.add_hit_group(rchit, "main");;
+    sbt_desc.add_hit_group(rchit, "main");
+    ;
     sbt_desc.add_miss_group(rmiss, "main");
 
     m_sbt = vk::ShaderBindingTable::create(backend, sbt_desc);

@@ -25,23 +25,62 @@ void PathIntegrator::execute(RenderState& render_state)
 {
     auto backend = m_backend.lock();
 
-    auto  extents  = backend->swap_chain_extents();
+    auto extents = backend->swap_chain_extents();
+
+    launch_rays(render_state,
+                m_path_trace_pipeline,
+                m_path_trace_pipeline_layout,
+                m_path_trace_sbt,
+                extents.width,
+                extents.height,
+                1,
+                render_state.camera()->view_matrix(),
+                render_state.camera()->projection_matrix(),
+                glm::uvec4(0));
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void PathIntegrator::gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state)
+{
+    auto backend = m_backend.lock();
+
+    auto extents = backend->swap_chain_extents();
+
+    launch_rays(render_state,
+                m_ray_debug_pipeline,
+                m_ray_debug_pipeline_layout,
+                m_ray_debug_sbt,
+                num_debug_rays,
+                1,
+                1,
+                view,
+                projection,
+                glm::ivec4(pixel_coord.x, extents.height - pixel_coord.y, extents.width, extents.height));
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeline::Ptr pipeline, vk::PipelineLayout::Ptr pipeline_layout, vk::ShaderBindingTable::Ptr sbt, const uint32_t& x, const uint32_t& y, const uint32_t& z, const glm::mat4& view, const glm::mat4& projection, const glm::ivec2& pixel_coord)
+{
+    auto backend = m_backend.lock();
+
     auto& rt_props = backend->ray_tracing_properties();
 
-    vkCmdBindPipeline(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_path_trace_pipeline->handle());
+    vkCmdBindPipeline(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->handle());
 
     int32_t push_constant_stages = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR;
 
     Integrator::PushConstants push_constants;
 
     push_constants.ray_debug_pixel_coord = glm::uvec4(0);
-    push_constants.view_inverse          = glm::inverse(render_state.camera()->view_matrix());
-    push_constants.proj_inverse          = glm::inverse(render_state.camera()->projection_matrix());
+    push_constants.view_inverse          = glm::inverse(view);
+    push_constants.proj_inverse          = glm::inverse(projection);
     push_constants.num_lights            = render_state.num_lights();
     push_constants.num_frames            = render_state.num_accumulated_frames();
     push_constants.accumulation          = float(push_constants.num_frames) / float(push_constants.num_frames + 1);
 
-    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_path_trace_pipeline_layout->handle(), push_constant_stages, 0, sizeof(Integrator::PushConstants), &push_constants);
+    vkCmdPushConstants(render_state.cmd_buffer()->handle(), pipeline_layout->handle(), push_constant_stages, 0, sizeof(Integrator::PushConstants), &push_constants);
 
     VkDescriptorSet descriptor_sets[] = {
         render_state.scene_descriptor_set()->handle(),
@@ -53,63 +92,17 @@ void PathIntegrator::execute(RenderState& render_state)
         render_state.write_image_descriptor_set()->handle()
     };
 
-    vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_path_trace_pipeline_layout->handle(), 0, 7, descriptor_sets, 0, nullptr);
+    vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline_layout->handle(), 0, 7, descriptor_sets, 0, nullptr);
 
     VkDeviceSize prog_size = rt_props.shaderGroupBaseAlignment;
-    VkDeviceSize sbt_size  = prog_size * m_path_trace_pipeline->shader_binding_table()->groups().size();
+    VkDeviceSize sbt_size  = prog_size * pipeline->shader_binding_table()->groups().size();
 
-    const VkStridedBufferRegionKHR raygen_sbt   = { m_path_trace_pipeline->shader_binding_table_buffer()->handle(), 0, prog_size, sbt_size };
-    const VkStridedBufferRegionKHR miss_sbt     = { m_path_trace_pipeline->shader_binding_table_buffer()->handle(), m_path_trace_sbt->miss_group_offset(), prog_size, sbt_size };
-    const VkStridedBufferRegionKHR hit_sbt      = { m_path_trace_pipeline->shader_binding_table_buffer()->handle(), m_path_trace_sbt->hit_group_offset(), prog_size, sbt_size };
+    const VkStridedBufferRegionKHR raygen_sbt   = { pipeline->shader_binding_table_buffer()->handle(), 0, prog_size, sbt_size };
+    const VkStridedBufferRegionKHR miss_sbt     = { pipeline->shader_binding_table_buffer()->handle(), sbt->miss_group_offset(), prog_size, sbt_size };
+    const VkStridedBufferRegionKHR hit_sbt      = { pipeline->shader_binding_table_buffer()->handle(), sbt->hit_group_offset(), prog_size, sbt_size };
     const VkStridedBufferRegionKHR callable_sbt = { VK_NULL_HANDLE, 0, 0, 0 };
 
-    vkCmdTraceRaysKHR(render_state.cmd_buffer()->handle(), &raygen_sbt, &miss_sbt, &hit_sbt, &callable_sbt, extents.width, extents.height, 1);
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-void PathIntegrator::gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state)
-{
-    auto backend = m_backend.lock();
-
-    auto  extents  = backend->swap_chain_extents();
-    auto& rt_props = backend->ray_tracing_properties();
-
-    vkCmdBindPipeline(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_ray_debug_pipeline->handle());
-
-    int32_t push_constant_stages = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR;
-
-    Integrator::PushConstants push_constants;
-
-    push_constants.ray_debug_pixel_coord = glm::ivec4(pixel_coord.x, extents.height - pixel_coord.y, extents.width, extents.height);
-    push_constants.view_inverse          = glm::inverse(view);
-    push_constants.proj_inverse          = glm::inverse(projection);
-    push_constants.num_lights            = render_state.num_lights();
-    push_constants.num_frames            = render_state.num_accumulated_frames();
-    push_constants.accumulation          = float(push_constants.num_frames) / float(push_constants.num_frames + 1);
-
-    vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_ray_debug_pipeline_layout->handle(), push_constant_stages, 0, sizeof(Integrator::PushConstants), &push_constants);
-
-    VkDescriptorSet descriptor_sets[] = {
-        render_state.scene_descriptor_set()->handle(),
-        render_state.vbo_descriptor_set()->handle(),
-        render_state.ibo_descriptor_set()->handle(),
-        render_state.material_indices_descriptor_set()->handle(),
-        render_state.texture_descriptor_set()->handle(),
-        render_state.ray_debug_descriptor_set()->handle()
-    };
-
-    vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_ray_debug_pipeline_layout->handle(), 0, 6, descriptor_sets, 0, nullptr);
-
-    VkDeviceSize prog_size = rt_props.shaderGroupBaseAlignment;
-    VkDeviceSize sbt_size  = prog_size * m_ray_debug_pipeline->shader_binding_table()->groups().size();
-
-    const VkStridedBufferRegionKHR raygen_sbt   = { m_ray_debug_pipeline->shader_binding_table_buffer()->handle(), 0, prog_size, sbt_size };
-    const VkStridedBufferRegionKHR miss_sbt     = { m_ray_debug_pipeline->shader_binding_table_buffer()->handle(), m_ray_debug_sbt->miss_group_offset(), prog_size, sbt_size };
-    const VkStridedBufferRegionKHR hit_sbt      = { m_ray_debug_pipeline->shader_binding_table_buffer()->handle(), m_ray_debug_sbt->hit_group_offset(), prog_size, sbt_size };
-    const VkStridedBufferRegionKHR callable_sbt = { VK_NULL_HANDLE, 0, 0, 0 };
-
-    vkCmdTraceRaysKHR(render_state.cmd_buffer()->handle(), &raygen_sbt, &miss_sbt, &hit_sbt, &callable_sbt, num_debug_rays, 1, 1);
+    vkCmdTraceRaysKHR(render_state.cmd_buffer()->handle(), &raygen_sbt, &miss_sbt, &hit_sbt, &callable_sbt, x, y, z);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
