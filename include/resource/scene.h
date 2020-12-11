@@ -54,6 +54,7 @@ protected:
     std::string                        m_name;
     Node*                              m_parent = nullptr;
     std::vector<std::shared_ptr<Node>> m_children;
+    uint32_t                           m_id = 0;
 
 public:
     Node(const NodeType& type, const std::string& name);
@@ -61,14 +62,17 @@ public:
 
     virtual void update(RenderState& render_state) = 0;
 
-    void               add_child(Node::Ptr child);
-    Node::Ptr          find_child(const std::string& name);
-    void               remove_child(const std::string& name);
-    inline bool        is_enabled() { return m_is_enabled; }
-    inline bool        is_transform_dirty() { return m_is_transform_dirty; }
-    inline void        enable() { m_is_enabled = true; }
-    inline void        disable() { m_is_enabled = false; }
-    inline std::string name() { return m_name; }
+    void                                             add_child(Node::Ptr child);
+    Node::Ptr                                        find_child(const std::string& name);
+    void                                             remove_child(const std::string& name);
+    inline bool                                      is_enabled() { return m_is_enabled; }
+    inline bool                                      is_transform_dirty() { return m_is_transform_dirty; }
+    inline void                                      enable() { m_is_enabled = true; }
+    inline void                                      disable() { m_is_enabled = false; }
+    inline const std::vector<std::shared_ptr<Node>>& children() { return m_children; }
+    inline std::string                               name() { return m_name; }
+    inline Node*                                     parent() { return m_parent; }
+    inline uint32_t                                  id() { return m_id; }
 
 protected:
     virtual void mid_frame_cleanup();

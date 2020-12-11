@@ -49,10 +49,12 @@ struct InstanceData
     float     padding[3];
 };
 
+static uint32_t g_node_counter = 0;
+
 // -----------------------------------------------------------------------------------------------------------------------------------
 
 Node::Node(const NodeType& type, const std::string& name) :
-    m_type(type), m_name(name)
+    m_type(type), m_name(name), m_id(g_node_counter++)
 {
 }
 
@@ -755,6 +757,8 @@ void Scene::create_gpu_resources(RenderState& render_state)
             m_num_area_lights = 0;
 
             auto backend = m_backend.lock();
+
+            backend->wait_idle();
 
             std::unordered_set<uint32_t>           processed_meshes;
             std::unordered_set<uint32_t>           processed_materials;

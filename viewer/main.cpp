@@ -2,6 +2,8 @@
 #include <utility/macros.h>
 #include <imgui_internal.h>
 
+#define NODE_NAME_PAYLOAD "NODE_NAME_PAYLOAD"
+
 namespace ImGui
 {
 void PushDisabled()
@@ -19,6 +21,15 @@ void PopDisabled()
 
 namespace helios
 {
+std::vector<std::string> node_types = {
+    "Mesh",
+    "Directional Light",
+    "Spot Light",
+    "Point Light",
+    "Camera",
+    "IBL"
+};
+
 class Viewer : public Application
 {
 protected:
@@ -26,7 +37,7 @@ protected:
 
     bool init(int argc, const char* argv[]) override
     {
-        m_scene = m_resource_manager->load_scene("scene/cornell_box_no_ibl.json");
+        m_scene = m_resource_manager->load_scene("scene/pica_pica_ibl.json");
 
         return true;
     }
@@ -64,6 +75,7 @@ protected:
 
     void shutdown() override
     {
+        m_selected_node.reset();
         m_scene.reset();
     }
 
@@ -229,6 +241,24 @@ private:
         }
         if (ImGui::CollapsingHeader("Hierarchy"))
         {
+            hierarchy_gui(m_scene->root_node());
+
+            if (m_selected_node && m_node_to_attach_to)
+            {
+                Node* parent = m_selected_node->parent();
+                parent->remove_child(m_selected_node->name());
+
+                m_node_to_attach_to->add_child(m_selected_node);
+                m_node_to_attach_to = nullptr;
+            }
+
+            if (m_should_remove_selected_node)
+            {
+                Node* parent = m_selected_node->parent();
+                parent->remove_child(m_selected_node->name());
+
+                m_should_remove_selected_node = false;
+            }
         }
         if (ImGui::CollapsingHeader("Inspector"))
         {
@@ -288,19 +318,90 @@ private:
 
     // -----------------------------------------------------------------------------------------------------------------------------------
 
+    void hierarchy_gui(Node::Ptr node)
+    {
+        if (node)
+        {
+            ImGui::PushID(node->id());
+            ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ((m_selected_node && node->name() == m_selected_node->name()) ? ImGuiTreeNodeFlags_Selected : 0);
+            bool               tree_open  = ImGui::TreeNodeEx(node->name().c_str(), node_flags);
+            ImGui::PopID();
+
+            ImGui::PushID(node->id());
+            if (ImGui::BeginPopupContextItem())
+            {
+                if (ImGui::BeginMenu("New Node"))
+                {
+                    for (auto type : node_types)
+                    {
+                        if (ImGui::MenuItem(type.c_str()))
+                        {
+
+                        }
+                    }
+
+                    ImGui::EndMenu();
+                }
+                if (node->parent() && ImGui::MenuItem("Remove"))
+                    m_should_remove_selected_node = true;
+
+                ImGui::EndPopup();
+            }
+            ImGui::PopID();
+
+            if (ImGui::IsItemClicked())
+                m_selected_node = node;
+
+            if (ImGui::BeginDragDropTarget() && node->name() != m_selected_node->name())
+            {
+                if (ImGui::AcceptDragDropPayload(NODE_NAME_PAYLOAD))
+                {
+                    m_node_to_attach_to = node.get();
+                }
+
+                ImGui::EndDragDropTarget();
+            }
+
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+            {
+                ImGui::SetDragDropPayload(NODE_NAME_PAYLOAD, m_selected_node->name().c_str(), m_selected_node->name().length());
+
+                ImGui::BeginTooltip();
+                ImGui::Text(m_selected_node->name().c_str());
+                ImGui::EndTooltip();
+                ImGui::EndDragDropSource();
+            }
+
+            if (tree_open)
+            {
+                const auto& children = node->children();
+
+                for (auto node : children)
+                    hierarchy_gui(node);
+
+                ImGui::TreePop();
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------------
+
 private:
     RenderState m_render_state;
     Scene::Ptr  m_scene;
-    bool        m_show_gui           = true;
-    bool        m_mouse_look         = false;
-    bool        m_ray_debug_mode     = false;
-    float       m_camera_yaw         = 0.0f;
-    float       m_camera_pitch       = 0.0f;
-    float       m_heading_speed      = 0.0f;
-    float       m_sideways_speed     = 0.0f;
-    float       m_camera_sensitivity = 0.05f;
-    float       m_camera_speed       = 0.05f;
-    int32_t     m_num_debug_rays     = 32;
+    bool        m_show_gui                    = true;
+    bool        m_mouse_look                  = false;
+    bool        m_ray_debug_mode              = false;
+    Node::Ptr   m_selected_node               = nullptr;
+    bool        m_should_remove_selected_node = false;
+    Node*       m_node_to_attach_to           = nullptr;
+    float       m_camera_yaw                  = 0.0f;
+    float       m_camera_pitch                = 0.0f;
+    float       m_heading_speed               = 0.0f;
+    float       m_sideways_speed              = 0.0f;
+    float       m_camera_sensitivity          = 0.05f;
+    float       m_camera_speed                = 0.05f;
+    int32_t     m_num_debug_rays              = 32;
 };
 } // namespace helios
 
