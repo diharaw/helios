@@ -296,13 +296,13 @@ private:
         }
         if (ImGui::CollapsingHeader("Settings"))
         {
-            int32_t max_ray_bounces = m_renderer->path_tracer()->max_ray_bounces();
+            int32_t max_ray_bounces = m_renderer->path_integrator()->max_ray_bounces();
 
             ImGui::SliderInt("Max Ray Bounces", &max_ray_bounces, 1, 8);
 
-            if (m_renderer->path_tracer()->max_ray_bounces() != max_ray_bounces)
+            if (m_renderer->path_integrator()->max_ray_bounces() != max_ray_bounces)
             {
-                m_renderer->path_tracer()->set_max_ray_bounces(max_ray_bounces);
+                m_renderer->path_integrator()->set_max_ray_bounces(max_ray_bounces);
                 m_renderer->reset_accumulation();
             }
         }

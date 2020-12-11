@@ -1,7 +1,7 @@
 #pragma once
 
 #include <resource/scene.h>
-#include <gfx/path_tracer.h>
+#include <gfx/path_integrator.h>
 
 namespace helios
 {
@@ -22,7 +22,7 @@ class Renderer
 private:
     std::vector<RayDebugView>  m_ray_debug_views;
     std::weak_ptr<vk::Backend> m_backend;
-    PathTracer::Ptr            m_path_tracer;
+    PathIntegrator::Ptr        m_path_integrator;
     vk::Buffer::Ptr            m_tlas_instance_buffer_device;
     vk::Image::Ptr             m_output_images[2];
     vk::ImageView::Ptr         m_output_image_views[2];
@@ -44,7 +44,7 @@ public:
     Renderer(vk::Backend::Ptr backend);
     ~Renderer();
 
-    inline PathTracer::Ptr path_tracer() { return m_path_tracer; }
+    inline PathIntegrator::Ptr path_integrator() { return m_path_integrator; }
     inline void            reset_accumulation() { m_accumulation_reset_requested = true; }
 
     void                             render(RenderState& render_state);

@@ -5,14 +5,14 @@
 
 namespace helios
 {
-class PathTracer
+class PathIntegrator
 {
 public:
-    using Ptr = std::shared_ptr<PathTracer>;
+    using Ptr = std::shared_ptr<PathIntegrator>;
 
 public:
-    PathTracer(vk::Backend::Ptr backend);
-    ~PathTracer();
+    PathIntegrator(vk::Backend::Ptr backend);
+    ~PathIntegrator();
 
     inline uint32_t max_ray_bounces() { return m_max_ray_bounces; }
     inline void     set_max_ray_bounces(const uint32_t& n) { m_max_ray_bounces = n; }

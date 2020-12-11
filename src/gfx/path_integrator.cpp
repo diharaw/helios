@@ -1,4 +1,4 @@
-#include <gfx/path_tracer.h>
+#include <gfx/path_integrator.h>
 #include <vk_mem_alloc.h>
 
 namespace helios
@@ -19,7 +19,7 @@ struct PushConstants
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-PathTracer::PathTracer(vk::Backend::Ptr backend) :
+PathIntegrator::PathIntegrator(vk::Backend::Ptr backend) :
     m_backend(backend)
 {
     create_pipeline();
@@ -28,13 +28,13 @@ PathTracer::PathTracer(vk::Backend::Ptr backend) :
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-PathTracer::~PathTracer()
+PathIntegrator::~PathIntegrator()
 {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void PathTracer::render(RenderState& render_state)
+void PathIntegrator::render(RenderState& render_state)
 {
     auto backend = m_backend.lock();
 
@@ -54,7 +54,7 @@ void PathTracer::render(RenderState& render_state)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void PathTracer::gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state)
+void PathIntegrator::gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state)
 {
     auto backend = m_backend.lock();
 
@@ -74,7 +74,7 @@ void PathTracer::gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void PathTracer::launch_rays(RenderState& render_state, vk::RayTracingPipeline::Ptr pipeline, vk::PipelineLayout::Ptr pipeline_layout, vk::ShaderBindingTable::Ptr sbt, const uint32_t& x, const uint32_t& y, const uint32_t& z, const glm::mat4& view, const glm::mat4& projection, const glm::ivec2& pixel_coord)
+void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeline::Ptr pipeline, vk::PipelineLayout::Ptr pipeline_layout, vk::ShaderBindingTable::Ptr sbt, const uint32_t& x, const uint32_t& y, const uint32_t& z, const glm::mat4& view, const glm::mat4& projection, const glm::ivec2& pixel_coord)
 {
     auto backend = m_backend.lock();
 
@@ -138,7 +138,7 @@ void PathTracer::launch_rays(RenderState& render_state, vk::RayTracingPipeline::
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void PathTracer::create_pipeline()
+void PathIntegrator::create_pipeline()
 {
     auto backend = m_backend.lock();
 
@@ -192,7 +192,7 @@ void PathTracer::create_pipeline()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void PathTracer::create_ray_debug_pipeline()
+void PathIntegrator::create_ray_debug_pipeline()
 {
     auto backend = m_backend.lock();
 
