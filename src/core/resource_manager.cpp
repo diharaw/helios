@@ -197,7 +197,7 @@ Scene::Ptr ResourceManager::load_scene(const std::string& path, bool absolute)
         vk::Backend::Ptr  backend = m_backend.lock();
         vk::BatchUploader uploader(backend);
 
-        ast::Scene ast_scene;
+        ast::Scene  ast_scene;
         std::string full_path = absolute ? path : utility::path_for_resource("assets/" + path);
 
         if (ast::load_scene(full_path, ast_scene))
@@ -298,7 +298,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
     {
         vk::Backend::Ptr backend = m_backend.lock();
         ast::Material    ast_material;
-        std::string full_path = absolute ? path : utility::path_for_resource("assets/" + path);
+        std::string      full_path = absolute ? path : utility::path_for_resource("assets/" + path);
 
         if (ast::load_material(full_path, ast_material))
         {

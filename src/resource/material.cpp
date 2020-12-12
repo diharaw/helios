@@ -21,7 +21,7 @@ Material::Ptr Material::create(vk::Backend::Ptr                        backend,
                                float                                   metallic_value,
                                float                                   roughness_value,
                                bool                                    alpha_test,
-                               const std::string& path)
+                               const std::string&                      path)
 {
     return std::shared_ptr<Material>(new Material(backend, type, textures, albedo_texture_info, normal_texture_info, metallic_texture_info, roughness_texture_info, emissive_texture_info, albedo_value, emissive_value, metallic_value, roughness_value, alpha_test, path));
 }

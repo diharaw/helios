@@ -58,7 +58,7 @@ public:
                                 float                                   metallic_value  = 0.0f,
                                 float                                   roughness_value = 0.0f,
                                 bool                                    alpha_test      = false,
-                                const std::string&                      path = "");
+                                const std::string&                      path            = "");
     ~Material();
 
     bool                              is_emissive();

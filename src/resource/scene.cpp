@@ -743,7 +743,7 @@ void Scene::update(RenderState& render_state)
     if (m_force_update)
     {
         render_state.m_scene_state = SCENE_STATE_HIERARCHY_UPDATED;
-        m_force_update = false;
+        m_force_update             = false;
     }
 
     create_gpu_resources(render_state);

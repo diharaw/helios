@@ -33,8 +33,8 @@ private:
 
 private:
     bool                        m_tiled                   = false;
-    uint32_t                    m_max_ray_bounces = 7;
-    uint32_t                    m_max_samples = 5000;
+    uint32_t                    m_max_ray_bounces         = 7;
+    uint32_t                    m_max_samples             = 5000;
     uint32_t                    m_num_accumulated_samples = 0;
     std::weak_ptr<vk::Backend>  m_backend;
     vk::DescriptorSet::Ptr      m_path_trace_ds[2];

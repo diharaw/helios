@@ -19,3 +19,9 @@
 [submodule "external/nativefiledialog"]
 	path = external/nativefiledialog
 	url = https://github.com/mlabbe/nativefiledialog.git
+[submodule "external/ImGuizmo"]
+	path = external/ImGuizmo
+	url = https://github.com/CedricGuillemet/ImGuizmo.git
+[submodule "external/stb"]
+	path = external/stb
+	url = https://github.com/nothings/stb.git

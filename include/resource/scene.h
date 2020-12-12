@@ -304,9 +304,9 @@ private:
     IBLNode*                           m_ibl_environment_map;
     SceneState                         m_scene_state = SCENE_STATE_READY;
     Scene*                             m_scene;
-    uint32_t                           m_viewport_width         = 0;
-    uint32_t                           m_viewport_height        = 0;
-    uint32_t                           m_num_lights             = 0;
+    uint32_t                           m_viewport_width  = 0;
+    uint32_t                           m_viewport_height = 0;
+    uint32_t                           m_num_lights      = 0;
     vk::DescriptorSet::Ptr             m_read_image_ds;
     vk::DescriptorSet::Ptr             m_write_image_ds;
     vk::DescriptorSet::Ptr             m_scene_ds;

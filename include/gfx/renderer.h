@@ -35,9 +35,9 @@ private:
     vk::PipelineLayout::Ptr    m_ray_debug_pipeline_layout;
     vk::Buffer::Ptr            m_ray_debug_vbo;
     vk::Buffer::Ptr            m_ray_debug_draw_cmd;
-    bool                       m_output_ping_pong             = false;
-    bool                       m_ray_debug_view_added         = false;
-    bool                       m_output_image_recreated       = true;
+    bool                       m_output_ping_pong       = false;
+    bool                       m_ray_debug_view_added   = false;
+    bool                       m_output_image_recreated = true;
 
 public:
     Renderer(vk::Backend::Ptr backend);

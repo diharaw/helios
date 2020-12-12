@@ -28,7 +28,8 @@ list(APPEND HELIOS_HEADERS ${PROJECT_SOURCE_DIR}/external/imgui/imconfig.h
                           ${PROJECT_SOURCE_DIR}/external/imgui/examples/imgui_impl_vulkan.h
                           ${CMAKE_SOURCE_DIR}/external/nativefiledialog/src/common.h
                           ${CMAKE_SOURCE_DIR}/external/nativefiledialog/src/nfd_common.h
-                          ${CMAKE_SOURCE_DIR}/external/nativefiledialog/src/include/nfd.h)
+                          ${CMAKE_SOURCE_DIR}/external/nativefiledialog/src/include/nfd.h
+                          ${CMAKE_SOURCE_DIR}/external/ImGuizmo/ImGuizmo.h)
 
 list(APPEND HELIOS_SOURCES ${PROJECT_SOURCE_DIR}/external/imgui/imgui.cpp
                           ${PROJECT_SOURCE_DIR}/external/imgui/imgui_demo.cpp
@@ -36,7 +37,8 @@ list(APPEND HELIOS_SOURCES ${PROJECT_SOURCE_DIR}/external/imgui/imgui.cpp
                           ${PROJECT_SOURCE_DIR}/external/imgui/imgui_widgets.cpp
                           ${PROJECT_SOURCE_DIR}/external/imgui/examples/imgui_impl_vulkan.cpp
                           ${PROJECT_SOURCE_DIR}/external/imgui/examples/imgui_impl_glfw.cpp
-                          ${PROJECT_SOURCE_DIR}/external/nativefiledialog/src/nfd_common.c)
+                          ${PROJECT_SOURCE_DIR}/external/nativefiledialog/src/nfd_common.c
+                          ${PROJECT_SOURCE_DIR}/external/ImGuizmo/ImGuizmo.cpp)
 
 if (APPLE)
     list(APPEND HELIOS_SOURCES ${CMAKE_SOURCE_DIR}/external/nativefiledialog/src/nfd_cocoa.m)

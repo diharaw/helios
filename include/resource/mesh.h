@@ -46,7 +46,7 @@ private:
     std::vector<std::shared_ptr<Material>> m_materials;
     uint32_t                               m_id;
     std::string                            m_path;
-    
+
 public:
     static Mesh::Ptr create(vk::Backend::Ptr                       backend,
                             vk::Buffer::Ptr                        vbo,
