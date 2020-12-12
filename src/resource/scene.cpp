@@ -37,7 +37,7 @@ struct LightData
     glm::vec4 light_data0; // x: light type, yzw: color    | x: light_type, y: mesh_id, z: material_id, w: primitive_offset
     glm::vec4 light_data1; // xyz: direction, w: intensity | x: primitive_count
     glm::vec4 light_data2; // xyz: position, w: radius
-    glm::vec4 light_data3; // x: cos_inner, y: cos_outer  
+    glm::vec4 light_data3; // x: cos_inner, y: cos_outer
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -739,6 +739,12 @@ void Scene::update(RenderState& render_state)
 
     if (render_state.ibl_environment_map() && render_state.ibl_environment_map()->image())
         render_state.m_num_lights++;
+
+    if (m_force_update)
+    {
+        render_state.m_scene_state = SCENE_STATE_HIERARCHY_UPDATED;
+        m_force_update = false;
+    }
 
     create_gpu_resources(render_state);
 }

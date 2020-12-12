@@ -322,6 +322,31 @@ private:
             }
             if (ImGui::CollapsingHeader("Inspector"))
             {
+                if (m_selected_node)
+                {
+                    ImGui::PushID(m_selected_node->id());
+
+                    m_string_buffer = m_selected_node->name();
+
+                    ImGui::InputText("Name", (char*)m_string_buffer.c_str(), 128);
+
+                    ImGui::Separator();
+
+                    if (m_selected_node->type() == NODE_MESH)
+                        inspector_mesh();
+                    else if (m_selected_node->type() == NODE_CAMERA)
+                        inspector_camera();
+                    else if (m_selected_node->type() == NODE_DIRECTIONAL_LIGHT)
+                        inspector_directional_light();
+                    else if (m_selected_node->type() == NODE_SPOT_LIGHT)
+                        inspector_spot_light();
+                    else if (m_selected_node->type() == NODE_POINT_LIGHT)
+                        inspector_point_light();
+                    else if (m_selected_node->type() == NODE_IBL)
+                        inspector_ibl();
+
+                    ImGui::PopID();
+                }
             }
         }
         if (ImGui::CollapsingHeader("Bake"))
@@ -489,6 +514,275 @@ private:
                 ImGui::TreePop();
             }
         }
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------------
+
+    void inspector_mesh()
+    {
+        inspector_transform();
+        ImGui::Separator();
+
+        MeshNode::Ptr mesh_node = std::dynamic_pointer_cast<MeshNode>(m_selected_node);
+
+        m_string_buffer = "";
+
+        if (mesh_node->mesh())
+            m_string_buffer = mesh_node->mesh()->path();
+
+        ImGui::InputText("Mesh", (char*)m_string_buffer.c_str(), 128, ImGuiInputTextFlags_ReadOnly);
+        ImGui::SameLine();
+
+        if (ImGui::Button("Browse..."))
+        {
+            nfdchar_t*  out_path = NULL;
+            nfdresult_t result   = NFD_OpenDialog("ast", NULL, &out_path);
+
+            if (result == NFD_OKAY)
+            {
+                std::string path;
+                path.resize(strlen(out_path));
+                strcpy(path.data(), out_path);
+                free(out_path);
+
+                Mesh::Ptr mesh = m_resource_manager->load_mesh(path, true);
+                mesh_node->set_mesh(mesh);
+
+                m_scene->force_update();
+            }
+        }
+
+        m_string_buffer = "";
+
+        if (mesh_node->material_override())
+            m_string_buffer = mesh_node->material_override()->path();
+
+        ImGui::InputText("Material Override", (char*)m_string_buffer.c_str(), 128, ImGuiInputTextFlags_ReadOnly);
+        ImGui::SameLine();
+
+        if (ImGui::Button("Browse..."))
+        {
+            nfdchar_t*  out_path = NULL;
+            nfdresult_t result   = NFD_OpenDialog("json", NULL, &out_path);
+
+            if (result == NFD_OKAY)
+            {
+                std::string path;
+                path.resize(strlen(out_path));
+                strcpy(path.data(), out_path);
+                free(out_path);
+
+                Material::Ptr material = m_resource_manager->load_material(path, true);
+                mesh_node->set_material_override(material);
+
+                m_scene->force_update();
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------------
+
+    void inspector_camera()
+    {
+        inspector_transform();
+        ImGui::Separator();
+
+        CameraNode::Ptr camera_node = std::dynamic_pointer_cast<CameraNode>(m_selected_node);
+
+        float near_plane = camera_node->near_plane();
+
+        ImGui::InputFloat("Near Plane", &near_plane);
+
+        if (near_plane != camera_node->near_plane())
+        {
+            m_scene->force_update();
+            camera_node->set_near_plane(near_plane);
+        }
+
+        float far_plane = camera_node->far_plane();
+
+        ImGui::InputFloat("Far Plane", &far_plane);
+
+        if (far_plane != camera_node->far_plane())
+        {
+            m_scene->force_update();
+            camera_node->set_far_plane(far_plane);
+        }
+
+        float fov = camera_node->fov();
+
+        ImGui::InputFloat("FOV", &fov);
+
+        if (fov != camera_node->fov())
+        {
+            m_scene->force_update();
+            camera_node->set_fov(fov);
+        }
+
+        if (ImGui::Button("Apply Camera Transform", ImVec2(ImGui::GetContentRegionAvailWidth(), 30.0f)))
+        {
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------------
+
+    void inspector_directional_light()
+    {
+        inspector_transform();
+        ImGui::Separator();
+
+        DirectionalLightNode::Ptr light_node = std::dynamic_pointer_cast<DirectionalLightNode>(m_selected_node);
+
+        float intensity = light_node->intensity();
+
+        ImGui::InputFloat("FOV", &intensity);
+
+        if (intensity != light_node->intensity())
+        {
+            m_scene->force_update();
+            light_node->set_intensity(intensity);
+        }
+
+        glm::vec3 color = light_node->color();
+
+        ImGui::ColorPicker3("Color", &color.x);
+
+        if (color != light_node->color())
+        {
+            m_scene->force_update();
+            light_node->set_color(color);
+        }
+
+        float radius = light_node->radius();
+
+        ImGui::InputFloat("Radius", &radius);
+
+        if (radius != light_node->radius())
+        {
+            m_scene->force_update();
+            light_node->set_radius(radius);
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------------
+
+    void inspector_spot_light()
+    {
+        inspector_transform();
+        ImGui::Separator();
+
+        SpotLightNode::Ptr light_node = std::dynamic_pointer_cast<SpotLightNode>(m_selected_node);
+
+        float intensity = light_node->intensity();
+
+        ImGui::InputFloat("FOV", &intensity);
+
+        if (intensity != light_node->intensity())
+        {
+            m_scene->force_update();
+            light_node->set_intensity(intensity);
+        }
+
+        glm::vec3 color = light_node->color();
+
+        ImGui::ColorPicker3("Color", &color.x);
+
+        if (color != light_node->color())
+        {
+            m_scene->force_update();
+            light_node->set_color(color);
+        }
+
+        float radius = light_node->radius();
+
+        ImGui::InputFloat("Radius", &radius);
+
+        if (radius != light_node->radius())
+        {
+            m_scene->force_update();
+            light_node->set_radius(radius);
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------------
+
+    void inspector_point_light()
+    {
+        inspector_transform();
+        ImGui::Separator();
+
+        PointLightNode::Ptr light_node = std::dynamic_pointer_cast<PointLightNode>(m_selected_node);
+
+        float intensity = light_node->intensity();
+
+        ImGui::InputFloat("FOV", &intensity);
+
+        if (intensity != light_node->intensity())
+        {
+            m_scene->force_update();
+            light_node->set_intensity(intensity);
+        }
+
+        glm::vec3 color = light_node->color();
+
+        ImGui::ColorPicker3("Color", &color.x);
+
+        if (color != light_node->color())
+        {
+            m_scene->force_update();
+            light_node->set_color(color);
+        }
+
+        float radius = light_node->radius();
+
+        ImGui::InputFloat("Radius", &radius);
+
+        if (radius != light_node->radius())
+        {
+            m_scene->force_update();
+            light_node->set_radius(radius);
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------------
+
+    void inspector_ibl()
+    {
+        IBLNode::Ptr ibl_node = std::dynamic_pointer_cast<IBLNode>(m_selected_node);
+
+        m_string_buffer = "";
+
+        if (ibl_node->image())
+            m_string_buffer = ibl_node->image()->path();
+
+        ImGui::InputText("Image", (char*)m_string_buffer.c_str(), 128, ImGuiInputTextFlags_ReadOnly);
+        ImGui::SameLine();
+
+        if (ImGui::Button("Browse..."))
+        {
+            nfdchar_t*  out_path = NULL;
+            nfdresult_t result   = NFD_OpenDialog("json", NULL, &out_path);
+
+            if (result == NFD_OKAY)
+            {
+                std::string path;
+                path.resize(strlen(out_path));
+                strcpy(path.data(), out_path);
+                free(out_path);
+
+                TextureCube::Ptr texture = m_resource_manager->load_texture_cube(path, true);
+                ibl_node->set_image(texture);
+
+                m_scene->force_update();
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------------
+
+    void inspector_transform()
+    {
+        
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------

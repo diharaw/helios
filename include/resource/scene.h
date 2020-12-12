@@ -73,6 +73,7 @@ public:
     inline std::string                               name() { return m_name; }
     inline Node*                                     parent() { return m_parent; }
     inline uint32_t                                  id() { return m_id; }
+    NodeType                                         type() { return m_type; }
 
 protected:
     virtual void mid_frame_cleanup();
@@ -365,6 +366,7 @@ public:
     inline std::string                name() { return m_name; }
     inline std::string                path() { return m_path; }
     inline AccelerationStructureData& acceleration_structure_data() { return m_tlas; }
+    inline void                       force_update() { m_force_update = true; }
 
 private:
     Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root = nullptr, const std::string& path = "");
@@ -387,5 +389,6 @@ private:
     std::weak_ptr<vk::Backend> m_backend;
     std::string                m_name;
     std::string                m_path;
+    bool                       m_force_update = false;
 };
 } // namespace helios
