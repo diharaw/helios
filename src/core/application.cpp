@@ -36,7 +36,10 @@ Application::~Application() {}
 int Application::run(int argc, const char* argv[])
 {
     if (!init_base(argc, argv))
+    {
+        shutdown_base();
         return 1;
+    }
 
     while (!exit_requested())
         update_base(m_delta_seconds);

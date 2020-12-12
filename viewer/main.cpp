@@ -1,6 +1,8 @@
 #include <core/application.h>
 #include <utility/macros.h>
 #include <imgui_internal.h>
+#include <filesystem>
+#include <nfd.h>
 
 #define NODE_NAME_PAYLOAD "NODE_NAME_PAYLOAD"
 
@@ -37,7 +39,32 @@ protected:
 
     bool init(int argc, const char* argv[]) override
     {
-        m_scene = m_resource_manager->load_scene("scene/pica_pica_ibl.json");
+        m_string_buffer.reserve(256);
+
+        if (std::filesystem::exists("assets/scene/default.json"))
+            m_scene = m_resource_manager->load_scene("scene/default.json", false);
+        else
+        {
+            nfdchar_t*  out_path = NULL;
+            nfdresult_t result   = NFD_OpenDialog("json", NULL, &out_path);
+
+            if (result == NFD_OKAY)
+            {
+                std::string path;
+                path.resize(strlen(out_path));
+                strcpy(path.data(), out_path);
+                free(out_path);
+
+                m_vk_backend->queue_object_deletion(m_scene);
+
+                m_scene = m_resource_manager->load_scene(path, true);
+
+                if (!m_scene)
+                    return false;
+            }
+            else
+                return false;
+        }
 
         return true;
     }
@@ -62,7 +89,8 @@ protected:
 
         m_render_state.setup(cmd_buf);
 
-        m_scene->update(m_render_state);
+        if (m_scene)
+            m_scene->update(m_render_state);
 
         m_renderer->render(m_render_state);
 
@@ -229,39 +257,96 @@ private:
 
         if (ImGui::CollapsingHeader("Scene"))
         {
-            char scene[128] = "assets/scene/cornell_box.scene";
+            ImGui::Spacing();
 
-            ImGui::InputText("##Scene", &scene[0], 128);
+            m_string_buffer = "";
+
+            if (m_scene)
+                m_string_buffer = m_scene->path();
+
+            ImGui::InputText("##Scene", (char*)m_string_buffer.c_str(), 128, ImGuiInputTextFlags_ReadOnly);
             ImGui::SameLine();
-            ImGui::Button("Browse...");
+
+            if (ImGui::Button("Browse..."))
+            {
+                nfdchar_t*  out_path = NULL;
+                nfdresult_t result   = NFD_OpenDialog("json", NULL, &out_path);
+
+                if (result == NFD_OKAY)
+                {
+                    std::string path;
+                    path.resize(strlen(out_path));
+                    strcpy(path.data(), out_path);
+                    free(out_path);
+
+                    m_vk_backend->queue_object_deletion(m_scene);
+
+                    m_scene = m_resource_manager->load_scene(path, true);
+                }
+            }
 
             ImVec2 region = ImGui::GetContentRegionAvail();
 
+            ImGui::Spacing();
+
             ImGui::Button("Save", ImVec2(region.x, 30.0f));
+
+            ImGui::Spacing();
         }
-        if (ImGui::CollapsingHeader("Hierarchy"))
+        if (m_scene)
         {
-            hierarchy_gui(m_scene->root_node());
-
-            if (m_selected_node && m_node_to_attach_to)
+            if (ImGui::CollapsingHeader("Hierarchy"))
             {
-                Node* parent = m_selected_node->parent();
-                parent->remove_child(m_selected_node->name());
+                ImGui::Spacing();
 
-                m_node_to_attach_to->add_child(m_selected_node);
-                m_node_to_attach_to = nullptr;
+                hierarchy_gui(m_scene->root_node());
+
+                ImGui::Spacing();
+
+                if (m_selected_node && m_node_to_attach_to)
+                {
+                    Node* parent = m_selected_node->parent();
+                    parent->remove_child(m_selected_node->name());
+
+                    m_node_to_attach_to->add_child(m_selected_node);
+                    m_node_to_attach_to = nullptr;
+                }
+
+                if (m_should_remove_selected_node)
+                {
+                    Node* parent = m_selected_node->parent();
+                    parent->remove_child(m_selected_node->name());
+
+                    m_should_remove_selected_node = false;
+                }
+            }
+            if (ImGui::CollapsingHeader("Inspector"))
+            {
+            }
+        }
+        if (ImGui::CollapsingHeader("Bake"))
+        {
+            ImVec2 region = ImGui::GetContentRegionAvail();
+
+            if (m_renderer->path_integrator()->is_tiled())
+            {
+                ImGui::ProgressBar(float(m_renderer->path_integrator()->num_accumulated_samples()) / float(m_renderer->path_integrator()->max_samples()), ImVec2(0.0f, 0.0f));
+            }
+            else
+            {
+                std::string overlay_text = std::to_string(m_renderer->path_integrator()->num_accumulated_samples()) + " / " + std::to_string(m_renderer->path_integrator()->max_samples());
+
+                ImGui::ProgressBar(float(m_renderer->path_integrator()->num_accumulated_samples()) / float(m_renderer->path_integrator()->max_samples()), ImVec2(region.x, 50.0f), overlay_text.c_str());
             }
 
-            if (m_should_remove_selected_node)
-            {
-                Node* parent = m_selected_node->parent();
-                parent->remove_child(m_selected_node->name());
+            ImGui::Spacing();
 
-                m_should_remove_selected_node = false;
+            if (ImGui::Button("Restart", ImVec2(region.x, 30.0f)))
+                m_renderer->path_integrator()->restart_bake();
+
+            if (ImGui::Button("Save to Disk", ImVec2(region.x, 30.0f)))
+            {
             }
-        }
-        if (ImGui::CollapsingHeader("Inspector"))
-        {
         }
         if (ImGui::CollapsingHeader("Ray Debug View"))
         {
@@ -296,6 +381,26 @@ private:
         }
         if (ImGui::CollapsingHeader("Settings"))
         {
+            bool tiled = m_renderer->path_integrator()->is_tiled();
+
+            ImGui::Checkbox("Use Tiled Rendering", &tiled);
+
+            if (m_renderer->path_integrator()->is_tiled() != tiled)
+            {
+                m_renderer->path_integrator()->set_tiled(tiled);
+                m_renderer->path_integrator()->restart_bake();
+            }
+
+            int32_t max_samples = m_renderer->path_integrator()->max_samples();
+
+            ImGui::InputInt("Max Samples", &max_samples);
+
+            if (m_renderer->path_integrator()->max_samples() != max_samples)
+            {
+                m_renderer->path_integrator()->set_max_samples(max_samples);
+                m_renderer->path_integrator()->restart_bake();
+            }
+
             int32_t max_ray_bounces = m_renderer->path_integrator()->max_ray_bounces();
 
             ImGui::SliderInt("Max Ray Bounces", &max_ray_bounces, 1, 8);
@@ -303,8 +408,11 @@ private:
             if (m_renderer->path_integrator()->max_ray_bounces() != max_ray_bounces)
             {
                 m_renderer->path_integrator()->set_max_ray_bounces(max_ray_bounces);
-                m_renderer->reset_accumulation();
+                m_renderer->path_integrator()->restart_bake();
             }
+
+            ImGui::SliderFloat("Camera Speed", &m_camera_speed, 0.01f, 0.5f);
+            ImGui::SliderFloat("Look Sensitivity", &m_camera_sensitivity, 0.01f, 0.5f);
         }
 
         if (m_ray_debug_mode)
@@ -336,7 +444,6 @@ private:
                     {
                         if (ImGui::MenuItem(type.c_str()))
                         {
-
                         }
                     }
 
@@ -402,6 +509,7 @@ private:
     float       m_camera_sensitivity          = 0.05f;
     float       m_camera_speed                = 0.05f;
     int32_t     m_num_debug_rays              = 32;
+    std::string m_string_buffer;
 };
 } // namespace helios
 

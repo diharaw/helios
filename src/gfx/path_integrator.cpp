@@ -36,20 +36,28 @@ PathIntegrator::~PathIntegrator()
 
 void PathIntegrator::render(RenderState& render_state)
 {
-    auto backend = m_backend.lock();
+    if (render_state.scene_state() != SCENE_STATE_READY)
+        m_num_accumulated_samples = 0;
 
-    auto extents = backend->swap_chain_extents();
+    if (m_num_accumulated_samples < m_max_samples)
+    {
+        auto backend = m_backend.lock();
 
-    launch_rays(render_state,
-                m_path_trace_pipeline,
-                m_path_trace_pipeline_layout,
-                m_path_trace_sbt,
-                extents.width,
-                extents.height,
-                1,
-                render_state.camera()->view_matrix(),
-                render_state.camera()->projection_matrix(),
-                glm::ivec2(0));
+        auto extents = backend->swap_chain_extents();
+
+        launch_rays(render_state,
+                    m_path_trace_pipeline,
+                    m_path_trace_pipeline_layout,
+                    m_path_trace_sbt,
+                    extents.width,
+                    extents.height,
+                    1,
+                    render_state.camera()->view_matrix(),
+                    render_state.camera()->projection_matrix(),
+                    glm::ivec2(0));
+
+        m_num_accumulated_samples++;
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -91,7 +99,7 @@ void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeli
     push_constants.view_inverse          = glm::inverse(view);
     push_constants.proj_inverse          = glm::inverse(projection);
     push_constants.num_lights            = render_state.num_lights();
-    push_constants.num_frames            = render_state.num_accumulated_frames();
+    push_constants.num_frames            = m_num_accumulated_samples;
     push_constants.accumulation          = float(push_constants.num_frames) / float(push_constants.num_frames + 1);
     push_constants.max_ray_bounces       = m_max_ray_bounces;
 

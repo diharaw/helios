@@ -42,6 +42,7 @@ private:
     float                                   m_roughness_value = 0.0f;
     bool                                    m_alpha_test      = false;
     uint32_t                                m_id;
+    std::string                             m_path;
 
 public:
     static Material::Ptr create(vk::Backend::Ptr                        backend,
@@ -56,7 +57,8 @@ public:
                                 glm::vec4                               emissive_value  = glm::vec4(0.0f),
                                 float                                   metallic_value  = 0.0f,
                                 float                                   roughness_value = 0.0f,
-                                bool                                    alpha_test      = false);
+                                bool                                    alpha_test      = false,
+                                const std::string&                      path = "");
     ~Material();
 
     bool                              is_emissive();
@@ -77,6 +79,7 @@ public:
     inline float                      metallic_value() { return m_metallic_value; }
     inline float                      roughness_value() { return m_roughness_value; }
     inline uint32_t                   id() { return m_id; }
+    inline std::string                path() { return m_path; }
 
 private:
     Material(vk::Backend::Ptr                        backend,
@@ -91,6 +94,7 @@ private:
              glm::vec4                               emissive_value  = glm::vec4(0.0f),
              float                                   metallic_value  = 0.0f,
              float                                   roughness_value = 0.0f,
-             bool                                    alpha_test      = false);
+             bool                                    alpha_test      = false,
+             const std::string&                      path            = "");
 };
 } // namespace helios

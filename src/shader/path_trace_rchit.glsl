@@ -281,24 +281,68 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
 
     vec3 Li = vec3(0.0f);
 
-    uint type = uint(light.light_data0.x);
+    uint type = light_type(light);
 
     if (type == LIGHT_DIRECTIONAL)
     {
-        Wi = -light.light_data1.xyz;
-        Li = light.light_data0.yzw * light.light_data1.w;
+        vec2 rng = next_vec2(p_PathTracePayload.rng);
+
+        vec3 light_dir = -punctual_light_direction(light);
+        vec3 light_tangent = normalize(cross(light_dir, vec3(0.0f, 1.0f, 0.0f)));
+        vec3 light_bitangent = normalize(cross(light_tangent, light_dir));
+        float light_radius = punctual_light_radius(light);
+
+        // calculate disk point
+        float point_radius = light_radius * sqrt(rng.x);
+        float point_angle = rng.y * 2.0f * M_PI;
+        vec2 disk_point = vec2(point_radius * cos(point_angle), point_radius * sin(point_angle));
+
+        Wi = normalize(light_dir + disk_point.x * light_tangent + disk_point.y * light_bitangent);
+        Li = punctual_light_color(light) * punctual_light_intensity(light);
         pdf = 0.0f;
     }
     else if (type == LIGHT_SPOT)
     {
-        Wi = -light.light_data1.xyz;
-        Li = light.light_data0.yzw * light.light_data1.w;
+        vec2 rng = next_vec2(p_PathTracePayload.rng);
+
+        vec3 to_light = punctual_light_position(light) - p.vertex.position.xyz;
+        vec3 light_dir = normalize(to_light);
+        float light_distance = length(to_light);
+        float light_radius = punctual_light_radius(light) / light_distance;
+
+        float angle_attenuation = dot(light_dir, -punctual_light_direction(light));
+
+        vec3 light_tangent = normalize(cross(light_dir, vec3(0.0f, 1.0f, 0.0f)));
+        vec3 light_bitangent = normalize(cross(light_tangent, light_dir));
+
+        // calculate disk point
+        float point_radius = light_radius * sqrt(rng.x);
+        float point_angle = rng.y * 2.0f * M_PI;
+        vec2 disk_point = vec2(point_radius * cos(point_angle), point_radius * sin(point_angle));
+
+        Wi = normalize(light_dir + disk_point.x * light_tangent + disk_point.y * light_bitangent);
+        Li = punctual_light_color(light) * punctual_light_intensity(light) * angle_attenuation /  (light_distance * light_distance);
         pdf = 0.0f;
     }
     else if (type == LIGHT_POINT)
     {
-        Wi = normalize(light.light_data1.xyz - p.vertex.position.xyz);
-        Li = light.light_data0.yzw * light.light_data1.w;
+        vec2 rng = next_vec2(p_PathTracePayload.rng);
+
+        vec3 to_light = punctual_light_position(light) - p.vertex.position.xyz;
+        vec3 light_dir = normalize(to_light);
+        float light_distance = length(to_light);
+        float light_radius = punctual_light_radius(light) / light_distance;
+
+        vec3 light_tangent = normalize(cross(light_dir, vec3(0.0f, 1.0f, 0.0f)));
+        vec3 light_bitangent = normalize(cross(light_tangent, light_dir));
+
+        // calculate disk point
+        float point_radius = light_radius * sqrt(rng.x);
+        float point_angle = rng.y * 2.0f * M_PI;
+        vec2 disk_point = vec2(point_radius * cos(point_angle), point_radius * sin(point_angle));
+
+        Wi = normalize(light_dir + disk_point.x * light_tangent + disk_point.y * light_bitangent);
+        Li = punctual_light_color(light) * punctual_light_intensity(light)  / (light_distance * light_distance);    
         pdf = 0.0f;
     }
     else if (type == LIGHT_ENVIRONMENT_MAP)

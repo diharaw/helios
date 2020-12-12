@@ -42,7 +42,7 @@ const VkFormat kSRGBFormats[][4] {
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Texture::Ptr create_image(const ast::Image& image, bool srgb, VkImageViewType image_view_type, vk::Backend::Ptr backend, vk::BatchUploader& uploader)
+Texture::Ptr create_image(const std::string& path, const ast::Image& image, bool srgb, VkImageViewType image_view_type, vk::Backend::Ptr backend, vk::BatchUploader& uploader)
 {
     uint32_t type = 0;
 
@@ -96,9 +96,9 @@ Texture::Ptr create_image(const ast::Image& image, bool srgb, VkImageViewType im
     uploader.upload_image_data(vk_image, image_data.data(), mip_level_sizes);
 
     if (image_view_type == VK_IMAGE_VIEW_TYPE_2D)
-        return Texture2D::create(backend, vk_image, vk_image_view);
+        return Texture2D::create(backend, vk_image, vk_image_view, path);
     else if (image_view_type == VK_IMAGE_VIEW_TYPE_CUBE)
-        return TextureCube::create(backend, vk_image, vk_image_view);
+        return TextureCube::create(backend, vk_image, vk_image_view, path);
 
     return nullptr;
 }
@@ -198,15 +198,16 @@ Scene::Ptr ResourceManager::load_scene(const std::string& path, bool absolute)
         vk::BatchUploader uploader(backend);
 
         ast::Scene ast_scene;
+        std::string full_path = absolute ? path : utility::path_for_resource("assets/" + path);
 
-        if (ast::load_scene(absolute ? path : utility::path_for_resource("assets/" + path), ast_scene))
+        if (ast::load_scene(full_path, ast_scene))
         {
             Node::Ptr root_node = create_node(ast_scene.scene_graph, uploader);
 
             uploader.submit();
 
             if (root_node)
-                return Scene::create(backend, ast_scene.name, root_node);
+                return Scene::create(backend, ast_scene.name, root_node, full_path);
             else
                 return nullptr;
         }
@@ -227,10 +228,11 @@ Texture2D::Ptr ResourceManager::load_texture_2d_internal(const std::string& path
     {
         vk::Backend::Ptr backend = m_backend.lock();
         ast::Image       ast_image;
+        std::string      full_path = absolute ? path : utility::path_for_resource("assets/" + path);
 
-        if (ast::load_image(absolute ? path : utility::path_for_resource("assets/" + path), ast_image))
+        if (ast::load_image(full_path, ast_image))
         {
-            auto texture = create_image(ast_image, srgb, VK_IMAGE_VIEW_TYPE_2D, backend, uploader);
+            auto texture = create_image(full_path, ast_image, srgb, VK_IMAGE_VIEW_TYPE_2D, backend, uploader);
 
             if (texture)
             {
@@ -261,10 +263,11 @@ TextureCube::Ptr ResourceManager::load_texture_cube_internal(const std::string& 
     {
         vk::Backend::Ptr backend = m_backend.lock();
         ast::Image       ast_image;
+        std::string      full_path = absolute ? path : utility::path_for_resource("assets/" + path);
 
-        if (ast::load_image(absolute ? path : utility::path_for_resource("assets/" + path), ast_image))
+        if (ast::load_image(full_path, ast_image))
         {
-            auto texture = create_image(ast_image, srgb, VK_IMAGE_VIEW_TYPE_CUBE, backend, uploader);
+            auto texture = create_image(full_path, ast_image, srgb, VK_IMAGE_VIEW_TYPE_CUBE, backend, uploader);
 
             if (texture)
             {
@@ -295,12 +298,11 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
     {
         vk::Backend::Ptr backend = m_backend.lock();
         ast::Material    ast_material;
+        std::string full_path = absolute ? path : utility::path_for_resource("assets/" + path);
 
-        std::string path_to_asset = absolute ? path : utility::path_for_resource("assets/" + path);
-
-        if (ast::load_material(path_to_asset, ast_material))
+        if (ast::load_material(full_path, ast_material))
         {
-            std::string path_to_root = utility::path_without_file(path_to_asset);
+            std::string path_to_root = utility::path_without_file(full_path);
 
             MaterialType type = ast_material.material_type == ast::MATERIAL_OPAQUE ? MATERIAL_OPAQUE : MATERIAL_TRANSPARENT;
 
@@ -404,7 +406,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
                     roughness_value = ast_property.float_value;
             }
 
-            Material::Ptr material = Material::create(backend, type, textures, albedo_texture_info, normal_texture_info, metallic_texture_info, roughness_texture_info, emissive_texture_info, albedo_value, emissive_value, metallic_value, roughness_value);
+            Material::Ptr material = Material::create(backend, type, textures, albedo_texture_info, normal_texture_info, metallic_texture_info, roughness_texture_info, emissive_texture_info, albedo_value, emissive_value, metallic_value, roughness_value, ast_material.alpha_mask, full_path);
 
             m_materials[path] = material;
 
@@ -428,12 +430,11 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
     {
         vk::Backend::Ptr backend = m_backend.lock();
         ast::Mesh        ast_mesh;
+        std::string      full_path = absolute ? path : utility::path_for_resource("assets/" + path);
 
-        std::string path_to_asset = absolute ? path : utility::path_for_resource("assets/" + path);
-
-        if (ast::load_mesh(path_to_asset, ast_mesh))
+        if (ast::load_mesh(full_path, ast_mesh))
         {
-            std::string path_to_root = utility::path_without_file(path_to_asset);
+            std::string path_to_root = utility::path_without_file(full_path);
 
             std::vector<Vertex>        vertices(ast_mesh.vertices.size());
             std::vector<SubMesh>       submeshes(ast_mesh.submeshes.size());
@@ -471,7 +472,7 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
             for (int i = 0; i < ast_mesh.material_paths.size(); i++)
                 materials[i] = load_material_internal(ast_mesh.material_paths[i], true, uploader);
 
-            Mesh::Ptr mesh = Mesh::create(backend, vertices, ast_mesh.indices, submeshes, materials, uploader);
+            Mesh::Ptr mesh = Mesh::create(backend, vertices, ast_mesh.indices, submeshes, materials, uploader, full_path);
 
             m_meshes[path] = mesh;
 
@@ -580,8 +581,9 @@ SpotLightNode::Ptr ResourceManager::create_spot_light_node(std::shared_ptr<ast::
 
     spot_light_node->set_color(ast_node->color);
     spot_light_node->set_intensity(ast_node->intensity);
-    spot_light_node->set_range(ast_node->range);
-    spot_light_node->set_cone_angle(ast_node->cone_angle);
+    spot_light_node->set_radius(ast_node->range);
+    //spot_light_node->set_inner_cone_angle(ast_node->cone_angle);
+    //spot_light_node->set_outer_cone_angle(ast_node->cone_angle);
 
     populate_transform_node(spot_light_node, ast_node);
     populate_scene_node(spot_light_node, ast_node, uploader);
@@ -597,7 +599,7 @@ PointLightNode::Ptr ResourceManager::create_point_light_node(std::shared_ptr<ast
 
     point_light_node->set_color(ast_node->color);
     point_light_node->set_intensity(ast_node->intensity);
-    point_light_node->set_range(ast_node->range);
+    point_light_node->set_radius(ast_node->range);
 
     populate_transform_node(point_light_node, ast_node);
     populate_scene_node(point_light_node, ast_node, uploader);

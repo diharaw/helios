@@ -88,9 +88,10 @@ struct Material
 
 struct Light
 {
-    vec4 light_data0; // x: light type, yzw: color
-    vec4 light_data1; // xyz: direction, w: intensity
-    vec4 light_data2; // x: range, y: cone angle
+    vec4 light_data0; // x: light type, yzw: color    | x: light_type, y: mesh_id, z: material_id, w: primitive_offset
+    vec4 light_data1; // xyz: direction, w: intensity | x: primitive_count
+    vec4 light_data2; // xyz: position, w: area
+    vec4 light_data3; // x: range, y: cone angle  
 };
 
 struct HitInfo
@@ -139,6 +140,90 @@ Vertex interpolated_vertex(in Triangle tri, in vec2 hit_attribs)
     o.bitangent.xyz = normalize(tri.v0.bitangent.xyz * barycentrics.x + tri.v1.bitangent.xyz * barycentrics.y + tri.v2.bitangent.xyz * barycentrics.z);
 
     return o;
+}
+
+// ------------------------------------------------------------------------
+
+uint light_type(in Light light)
+{
+    return uint(light.light_data0.x);
+}
+
+// ------------------------------------------------------------------------
+
+vec3 punctual_light_color(in Light light)
+{
+    return light.light_data0.yzw;
+}
+
+// ------------------------------------------------------------------------
+
+vec3 punctual_light_direction(in Light light)
+{
+    return light.light_data1.xyz;
+}
+
+// ------------------------------------------------------------------------
+
+float punctual_light_intensity(in Light light)
+{
+    return light.light_data1.w;
+}
+
+// ------------------------------------------------------------------------
+
+vec3 punctual_light_position(in Light light)
+{
+    return light.light_data2.xyz;
+}
+
+// ------------------------------------------------------------------------
+
+float punctual_light_radius(in Light light)
+{
+    return light.light_data2.w;
+}
+
+// ------------------------------------------------------------------------
+
+float punctual_light_cos_theta_inner(in Light light)
+{
+    return light.light_data3.x;
+}
+
+// ------------------------------------------------------------------------
+
+float punctual_light_cos_theta_outer(in Light light)
+{
+    return light.light_data3.y;
+}
+
+// ------------------------------------------------------------------------
+
+uint area_light_mesh_id(in Light light)
+{
+    return uint(light.light_data0.y);
+}
+
+// ------------------------------------------------------------------------
+
+uint area_light_material_id(in Light light)
+{
+    return uint(light.light_data0.z);
+}
+
+// ------------------------------------------------------------------------
+
+uint area_light_primitive_offset(in Light light)
+{
+    return uint(light.light_data0.w);
+}
+
+// ------------------------------------------------------------------------
+
+uint area_light_primitive_count(in Light light)
+{
+    return uint(light.light_data1.x);
 }
 
 // ------------------------------------------------------------------------

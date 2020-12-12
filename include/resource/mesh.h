@@ -45,20 +45,23 @@ private:
     std::vector<SubMesh>                   m_sub_meshes;
     std::vector<std::shared_ptr<Material>> m_materials;
     uint32_t                               m_id;
-
+    std::string                            m_path;
+    
 public:
     static Mesh::Ptr create(vk::Backend::Ptr                       backend,
                             vk::Buffer::Ptr                        vbo,
                             vk::Buffer::Ptr                        ibo,
                             std::vector<SubMesh>                   submeshes,
                             std::vector<std::shared_ptr<Material>> materials,
-                            vk::BatchUploader&                     uploader);
+                            vk::BatchUploader&                     uploader,
+                            const std::string&                     path = "");
     static Mesh::Ptr create(vk::Backend::Ptr                       backend,
                             std::vector<Vertex>                    vertices,
                             std::vector<uint32_t>                  indices,
                             std::vector<SubMesh>                   submeshes,
                             std::vector<std::shared_ptr<Material>> materials,
-                            vk::BatchUploader&                     uploader);
+                            vk::BatchUploader&                     uploader,
+                            const std::string&                     path = "");
     ~Mesh();
 
     inline const std::vector<std::shared_ptr<Material>>& materials() { return m_materials; }
@@ -67,6 +70,7 @@ public:
     inline vk::Buffer::Ptr                               vertex_buffer() { return m_vbo; }
     inline vk::Buffer::Ptr                               index_buffer() { return m_ibo; }
     inline uint32_t                                      id() { return m_id; }
+    inline std::string                                   path() { return m_path; }
 
 private:
     Mesh(vk::Backend::Ptr                       backend,
@@ -74,6 +78,7 @@ private:
          vk::Buffer::Ptr                        ibo,
          std::vector<SubMesh>                   submeshes,
          std::vector<std::shared_ptr<Material>> materials,
-         vk::BatchUploader&                     uploader);
+         vk::BatchUploader&                     uploader,
+         const std::string&                     path = "");
 };
 } // namespace helios

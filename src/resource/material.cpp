@@ -20,9 +20,10 @@ Material::Ptr Material::create(vk::Backend::Ptr                        backend,
                                glm::vec4                               emissive_value,
                                float                                   metallic_value,
                                float                                   roughness_value,
-                               bool                                    alpha_test)
+                               bool                                    alpha_test,
+                               const std::string& path)
 {
-    return std::shared_ptr<Material>(new Material(backend, type, textures, albedo_texture_info, normal_texture_info, metallic_texture_info, roughness_texture_info, emissive_texture_info, albedo_value, emissive_value, metallic_value, roughness_value, alpha_test));
+    return std::shared_ptr<Material>(new Material(backend, type, textures, albedo_texture_info, normal_texture_info, metallic_texture_info, roughness_texture_info, emissive_texture_info, albedo_value, emissive_value, metallic_value, roughness_value, alpha_test, path));
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -39,7 +40,8 @@ Material::Material(vk::Backend::Ptr                        backend,
                    glm::vec4                               emissive_value,
                    float                                   metallic_value,
                    float                                   roughness_value,
-                   bool                                    alpha_test) :
+                   bool                                    alpha_test,
+                   const std::string&                      path) :
     vk::Object(backend),
     m_type(type),
     m_textures(textures),
@@ -53,7 +55,8 @@ Material::Material(vk::Backend::Ptr                        backend,
     m_metallic_value(metallic_value),
     m_roughness_value(roughness_value),
     m_alpha_test(alpha_test),
-    m_id(g_last_material_id++)
+    m_id(g_last_material_id++),
+    m_path(path)
 {
 }
 

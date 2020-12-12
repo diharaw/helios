@@ -34,9 +34,10 @@ struct MaterialData
 
 struct LightData
 {
-    glm::vec4 light_data0; // x: light type, yzw: color    | x: light_type, y: mesh_id, z: material_id, w: base_index
-    glm::vec4 light_data1; // xyz: direction, w: intensity | x: index_count, y: vertex_count, z: triangle_count
-    glm::vec4 light_data2; // x: range, y: cone angle      |
+    glm::vec4 light_data0; // x: light type, yzw: color    | x: light_type, y: mesh_id, z: material_id, w: primitive_offset
+    glm::vec4 light_data1; // xyz: direction, w: intensity | x: primitive_count
+    glm::vec4 light_data2; // xyz: position, w: radius
+    glm::vec4 light_data3; // x: cos_inner, y: cos_outer  
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -623,15 +624,15 @@ void RenderState::setup(vk::CommandBuffer::Ptr cmd_buffer)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::Ptr Scene::create(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root)
+Scene::Ptr Scene::create(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root, const std::string& path)
 {
-    return std::shared_ptr<Scene>(new Scene(backend, name, root));
+    return std::shared_ptr<Scene>(new Scene(backend, name, root, path));
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root) :
-    m_name(name), m_backend(backend), m_root(root)
+Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root, const std::string& path) :
+    m_name(name), m_path(path), m_backend(backend), m_root(root), vk::Object(backend)
 {
     // Create TLAS
     VkAccelerationStructureCreateGeometryTypeInfoKHR tlas_geometry_type_info;
@@ -949,7 +950,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
                             LightData& light_data = light_buffer[gpu_light_counter++];
 
                             light_data.light_data0 = glm::vec4(float(LIGHT_AREA), float(mesh_node_idx), float(global_material_indices[material->id()]), float(submesh.base_index / 3));
-                            light_data.light_data1 = glm::vec4(float(submesh.index_count), float(submesh.vertex_count), float(submesh.index_count / 3), 0.0f);
+                            light_data.light_data1 = glm::vec4(float(submesh.index_count / 3), 0.0f, 0.0f, 0.0f);
                         }
                     }
                 }
@@ -1130,6 +1131,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
             light_data.light_data0 = glm::vec4(float(LIGHT_DIRECTIONAL), light->color());
             light_data.light_data1 = glm::vec4(light->forward(), light->intensity());
+            light_data.light_data2 = glm::vec4(0.0f, 0.0f, 0.0f, light->radius());
         }
 
         for (int i = 0; i < render_state.m_point_lights.size(); i++)
@@ -1139,8 +1141,9 @@ void Scene::create_gpu_resources(RenderState& render_state)
             LightData& light_data = light_buffer[gpu_light_counter++];
 
             light_data.light_data0 = glm::vec4(float(LIGHT_POINT), light->color());
-            light_data.light_data1 = glm::vec4(light->position(), light->intensity());
-            light_data.light_data2 = glm::vec4(light->range(), 0.0f, 0.0f, 0.0f);
+            light_data.light_data1 = glm::vec4(0.0f, 0.0f, 0.0f, light->intensity());
+            light_data.light_data2 = glm::vec4(light->position(), light->radius());
+            light_data.light_data3 = glm::vec4(0.0f);
         }
 
         for (int i = 0; i < render_state.m_spot_lights.size(); i++)
@@ -1151,7 +1154,8 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
             light_data.light_data0 = glm::vec4(float(LIGHT_SPOT), light->color());
             light_data.light_data1 = glm::vec4(light->forward(), light->intensity());
-            light_data.light_data2 = glm::vec4(light->range(), light->cone_angle(), 0.0f, 0.0f);
+            light_data.light_data2 = glm::vec4(light->position(), light->radius());
+            light_data.light_data3 = glm::vec4(cosf(glm::radians(light->inner_cone_angle())), cosf(glm::radians(light->outer_cone_angle())), 0.0f, 0.0f);
         }
     }
 }

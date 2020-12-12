@@ -16,3 +16,6 @@
 [submodule "external/SPIRV-Reflect"]
 	path = external/SPIRV-Reflect
 	url = https://github.com/chaoticbob/SPIRV-Reflect.git
+[submodule "external/nativefiledialog"]
+	path = external/nativefiledialog
+	url = https://github.com/mlabbe/nativefiledialog.git

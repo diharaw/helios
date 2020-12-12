@@ -37,7 +37,6 @@ private:
     vk::Buffer::Ptr            m_ray_debug_draw_cmd;
     bool                       m_output_ping_pong             = false;
     bool                       m_ray_debug_view_added         = false;
-    bool                       m_accumulation_reset_requested = false;
     bool                       m_output_image_recreated       = true;
 
 public:
@@ -45,7 +44,6 @@ public:
     ~Renderer();
 
     inline PathIntegrator::Ptr path_integrator() { return m_path_integrator; }
-    inline void            reset_accumulation() { m_accumulation_reset_requested = true; }
 
     void                             render(RenderState& render_state);
     void                             on_window_resize();
@@ -63,5 +61,6 @@ private:
     void create_buffers();
     void create_static_descriptor_sets();
     void create_dynamic_descriptor_sets();
+    void update_dynamic_descriptor_sets();
 };
 } // namespace helios

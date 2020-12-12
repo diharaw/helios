@@ -153,6 +153,7 @@ public:
 private:
     glm::vec3 m_color;
     float     m_intensity;
+    float     m_radius = 0.1f;
 
 public:
     DirectionalLightNode(const std::string& name);
@@ -162,8 +163,10 @@ public:
 
     inline void      set_color(const glm::vec3& color) { m_color = color; }
     inline void      set_intensity(const float& intensity) { m_intensity = intensity; }
+    inline void      set_radius(const float& r) { m_radius = r; }
     inline glm::vec3 color() { return m_color; }
     inline float     intensity() { return m_intensity; }
+    inline float     radius() { return m_radius; }
 };
 
 class SpotLightNode : public TransformNode
@@ -172,9 +175,10 @@ public:
     using Ptr = std::shared_ptr<SpotLightNode>;
 
     glm::vec3 m_color;
-    float     m_cone_angle;
-    float     m_range;
+    float     m_inner_cone_angle = 40.0f;
+    float     m_outer_cone_angle = 50.0f;
     float     m_intensity;
+    float     m_radius = 5.0f;
 
 public:
     SpotLightNode(const std::string& name);
@@ -184,12 +188,14 @@ public:
 
     inline void      set_color(const glm::vec3& color) { m_color = color; }
     inline void      set_intensity(const float& intensity) { m_intensity = intensity; }
-    inline void      set_range(const float& range) { m_range = range; }
-    inline void      set_cone_angle(const float& cone_angle) { m_cone_angle = cone_angle; }
+    inline void      set_inner_cone_angle(const float& cone_angle) { m_inner_cone_angle = cone_angle; }
+    inline void      set_outer_cone_angle(const float& cone_angle) { m_outer_cone_angle = cone_angle; }
+    inline void      set_radius(const float& r) { m_radius = r; }
     inline glm::vec3 color() { return m_color; }
     inline float     intensity() { return m_intensity; }
-    inline float     range() { return m_range; }
-    inline float     cone_angle() { return m_cone_angle; }
+    inline float     radius() { return m_radius; }
+    inline float     inner_cone_angle() { return m_inner_cone_angle; }
+    inline float     outer_cone_angle() { return m_outer_cone_angle; }
 };
 
 class PointLightNode : public TransformNode
@@ -199,8 +205,8 @@ public:
 
 private:
     glm::vec3 m_color;
-    float     m_range;
     float     m_intensity;
+    float     m_radius = 5.0f;
 
 public:
     PointLightNode(const std::string& name);
@@ -210,10 +216,10 @@ public:
 
     inline void      set_color(const glm::vec3& color) { m_color = color; }
     inline void      set_intensity(const float& intensity) { m_intensity = intensity; }
-    inline void      set_range(const float& range) { m_range = range; }
+    inline void      set_radius(const float& r) { m_radius = r; }
     inline glm::vec3 color() { return m_color; }
     inline float     intensity() { return m_intensity; }
-    inline float     range() { return m_range; }
+    inline float     radius() { return m_radius; }
 };
 
 class CameraNode : public TransformNode
@@ -297,7 +303,6 @@ private:
     IBLNode*                           m_ibl_environment_map;
     SceneState                         m_scene_state = SCENE_STATE_READY;
     Scene*                             m_scene;
-    uint32_t                           m_num_accumulated_frames = 0;
     uint32_t                           m_viewport_width         = 0;
     uint32_t                           m_viewport_height        = 0;
     uint32_t                           m_num_lights             = 0;
@@ -326,7 +331,6 @@ public:
     inline IBLNode*                                  ibl_environment_map() { return m_ibl_environment_map; }
     inline SceneState                                scene_state() { return m_scene_state; }
     inline Scene*                                    scene() { return m_scene; }
-    inline uint32_t                                  num_accumulated_frames() { return m_num_accumulated_frames; }
     inline uint32_t                                  viewport_width() { return m_viewport_width; }
     inline uint32_t                                  viewport_height() { return m_viewport_height; }
     inline uint32_t                                  num_lights() { return m_num_lights; }
@@ -341,7 +345,7 @@ public:
     inline vk::CommandBuffer::Ptr                    cmd_buffer() { return m_cmd_buffer; }
 };
 
-class Scene
+class Scene : public vk::Object
 {
 public:
     using Ptr = std::shared_ptr<Scene>;
@@ -349,7 +353,7 @@ public:
     friend class ResourceManager;
 
 public:
-    static Scene::Ptr create(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root = nullptr);
+    static Scene::Ptr create(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root = nullptr, const std::string& path = "");
     ~Scene();
 
     void      update(RenderState& render_state);
@@ -359,10 +363,11 @@ public:
 
     inline void                       set_name(const std::string& name) { m_name = name; }
     inline std::string                name() { return m_name; }
+    inline std::string                path() { return m_path; }
     inline AccelerationStructureData& acceleration_structure_data() { return m_tlas; }
 
 private:
-    Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root = nullptr);
+    Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root = nullptr, const std::string& path = "");
     void create_gpu_resources(RenderState& render_state);
 
 private:
@@ -381,5 +386,6 @@ private:
     uint32_t                   m_num_area_lights = 0;
     std::weak_ptr<vk::Backend> m_backend;
     std::string                m_name;
+    std::string                m_path;
 };
 } // namespace helios

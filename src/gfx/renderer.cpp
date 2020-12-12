@@ -27,6 +27,7 @@ Renderer::Renderer(vk::Backend::Ptr backend) :
     create_ray_debug_pipeline();
     create_static_descriptor_sets();
     create_dynamic_descriptor_sets();
+    update_dynamic_descriptor_sets();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -56,15 +57,9 @@ Renderer::~Renderer()
 
 void Renderer::render(RenderState& render_state)
 {
-    if (render_state.scene_state() != SCENE_STATE_READY || m_accumulation_reset_requested)
-    {
-        render_state.m_num_accumulated_frames = 0;
-        m_accumulation_reset_requested        = false;
-    }
-
     auto backend = m_backend.lock();
 
-    if (render_state.m_scene_state == SCENE_STATE_HIERARCHY_UPDATED)
+    if (render_state.m_scene && render_state.m_scene_state == SCENE_STATE_HIERARCHY_UPDATED)
     {
         auto& tlas_data = render_state.m_scene->acceleration_structure_data();
 
@@ -164,7 +159,8 @@ void Renderer::render(RenderState& render_state)
         subresource_range);
 
     // Begin path trace iteration
-    m_path_integrator->render(render_state);
+    if (render_state.m_scene)
+        m_path_integrator->render(render_state);
 
     if (m_ray_debug_view_added)
     {
@@ -256,7 +252,6 @@ void Renderer::render(RenderState& render_state)
 
     vkCmdEndRenderPass(render_state.m_cmd_buffer->handle());
 
-    render_state.m_num_accumulated_frames++;
     m_output_ping_pong = !m_output_ping_pong;
 
     render_state.clear();
@@ -299,7 +294,7 @@ void Renderer::on_window_resize()
 {
     m_output_image_recreated = true;
     create_output_images();
-    create_dynamic_descriptor_sets();
+    update_dynamic_descriptor_sets();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -585,6 +580,21 @@ void Renderer::create_dynamic_descriptor_sets()
 {
     auto backend = m_backend.lock();
 
+    for (int i = 0; i < 2; i++)
+    {
+        m_output_storage_image_ds[i]   = backend->allocate_descriptor_set(backend->image_descriptor_set_layout());
+        m_input_combined_sampler_ds[i] = backend->allocate_descriptor_set(backend->combined_sampler_descriptor_set_layout());
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::update_dynamic_descriptor_sets()
+{
+    auto backend = m_backend.lock();
+
+    backend->wait_idle();
+
     int idx = 0;
 
     std::vector<VkWriteDescriptorSet>  write_datas;
@@ -595,12 +605,6 @@ void Renderer::create_dynamic_descriptor_sets()
 
     for (int i = 0; i < 2; i++)
     {
-        backend->queue_object_deletion(m_output_storage_image_ds[i]);
-        backend->queue_object_deletion(m_input_combined_sampler_ds[i]);
-
-        m_output_storage_image_ds[i]   = backend->allocate_descriptor_set(backend->image_descriptor_set_layout());
-        m_input_combined_sampler_ds[i] = backend->allocate_descriptor_set(backend->combined_sampler_descriptor_set_layout());
-
         {
             VkDescriptorImageInfo image_info;
 
