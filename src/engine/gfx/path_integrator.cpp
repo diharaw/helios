@@ -1,4 +1,5 @@
 #include <gfx/path_integrator.h>
+#include <utility/profiler.h>
 #include <vk_mem_alloc.h>
 
 namespace helios
@@ -36,6 +37,8 @@ PathIntegrator::~PathIntegrator()
 
 void PathIntegrator::render(RenderState& render_state)
 {
+    HELIOS_SCOPED_SAMPLE("Path Trace");
+
     if (render_state.scene_state() != SCENE_STATE_READY)
         m_num_accumulated_samples = 0;
 

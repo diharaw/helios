@@ -1,5 +1,6 @@
 #include <gfx/renderer.h>
 #include <utility/macros.h>
+#include <utility/profiler.h>
 #include <vk_mem_alloc.h>
 #include <imgui.h>
 #include <examples/imgui_impl_vulkan.h>
@@ -57,6 +58,8 @@ Renderer::~Renderer()
 
 void Renderer::render(RenderState& render_state)
 {
+    HELIOS_SCOPED_SAMPLE("Render");
+
     auto backend = m_backend.lock();
 
     if (render_state.m_scene && render_state.m_scene_state == SCENE_STATE_HIERARCHY_UPDATED)
@@ -246,9 +249,13 @@ void Renderer::render(RenderState& render_state)
     if (m_ray_debug_views.size() > 0)
         render_ray_debug_views(render_state);
 
-    // Render ImGui
-    ImGui::Render();
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), render_state.m_cmd_buffer->handle());
+    {
+        HELIOS_SCOPED_SAMPLE("UI");
+
+        // Render ImGui
+        ImGui::Render();
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), render_state.m_cmd_buffer->handle());
+    }
 
     vkCmdEndRenderPass(render_state.m_cmd_buffer->handle());
 
@@ -264,6 +271,8 @@ void Renderer::render(RenderState& render_state)
 
 void Renderer::tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr read_image)
 {
+    HELIOS_SCOPED_SAMPLE("Tone Map");
+
     vkCmdBindPipeline(cmd_buf->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_tone_map_pipeline->handle());
 
     vkCmdBindDescriptorSets(cmd_buf->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_tone_map_pipeline_layout->handle(), 0, 1, &read_image->handle(), 0, nullptr);
@@ -276,6 +285,8 @@ void Renderer::tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr r
 
 void Renderer::render_ray_debug_views(RenderState& render_state)
 {
+    HELIOS_SCOPED_SAMPLE("Ray Debug View");
+
     vkCmdBindPipeline(render_state.m_cmd_buffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_ray_debug_pipeline->handle());
 
     const VkDeviceSize offset = 0;

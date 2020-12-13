@@ -17,7 +17,7 @@ find_program(CLANG_FORMAT_EXE NAMES "clang-format" DOC "Path to clang-format exe
 
 file(GLOB_RECURSE HELIOS_HEADERS ${PROJECT_SOURCE_DIR}/include/*.h)
 
-file(GLOB_RECURSE HELIOS_SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
+file(GLOB_RECURSE HELIOS_SOURCES ${PROJECT_SOURCE_DIR}/src/engine/*.cpp)
 
 list(APPEND HELIOS_HEADERS ${PROJECT_SOURCE_DIR}/external/imgui/imconfig.h
                           ${PROJECT_SOURCE_DIR}/external/imgui/imgui.h
@@ -48,12 +48,12 @@ elseif (LINUX)
     list(APPEND HELIOS_SOURCES ${CMAKE_SOURCE_DIR}/external/nativefiledialog/src/nfd_gtk.c)
 endif()
 
-file(GLOB_RECURSE HELIOS_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/src/shader/*.vert 
-                                        ${PROJECT_SOURCE_DIR}/src/shader/*.frag
-                                        ${PROJECT_SOURCE_DIR}/src/shader/*.rgen  
-                                        ${PROJECT_SOURCE_DIR}/src/shader/*.rchit 
-                                        ${PROJECT_SOURCE_DIR}/src/shader/*.rmiss
-                                        ${PROJECT_SOURCE_DIR}/src/shader/*.rahit)
+file(GLOB_RECURSE HELIOS_SHADER_SOURCES ${PROJECT_SOURCE_DIR}/src/engine/shader/*.vert 
+                                        ${PROJECT_SOURCE_DIR}/src/engine/shader/*.frag
+                                        ${PROJECT_SOURCE_DIR}/src/engine/shader/*.rgen  
+                                        ${PROJECT_SOURCE_DIR}/src/engine/shader/*.rchit 
+                                        ${PROJECT_SOURCE_DIR}/src/engine/shader/*.rmiss
+                                        ${PROJECT_SOURCE_DIR}/src/engine/shader/*.rahit)
 
 if (APPLE)
     add_library(Helios MACOSX_BUNDLE ${HELIOS_HEADERS} ${HELIOS_SOURCES})

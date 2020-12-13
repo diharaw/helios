@@ -942,7 +942,7 @@ public:
 
     static QueryPool::Ptr create(Backend::Ptr backend, VkQueryType query_type, uint32_t query_count, VkQueryPipelineStatisticFlags pipeline_statistics = 0);
 
-    void results(uint32_t           first_query,
+    bool results(uint32_t           first_query,
                  uint32_t           query_count,
                  size_t             data_size,
                  void*              ptr,

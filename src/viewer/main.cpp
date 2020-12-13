@@ -1,6 +1,8 @@
 #include <core/application.h>
 #include <utility/macros.h>
 #include <imgui_internal.h>
+#include <utility/imgui_plot.h>
+#include <utility/profiler.h>
 #include <filesystem>
 #include <nfd.h>
 
@@ -71,32 +73,230 @@ protected:
 
     // -----------------------------------------------------------------------------------------------------------------------------------
 
-    void update(double delta) override
+    void update(vk::CommandBuffer::Ptr cmd_buffer) override
     {
-        if (m_show_gui)
-            gui();
-
         update_camera();
 
-        vk::CommandBuffer::Ptr cmd_buf = m_vk_backend->allocate_graphics_command_buffer();
-
-        VkCommandBufferBeginInfo begin_info;
-        HELIOS_ZERO_MEMORY(begin_info);
-
-        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-        vkBeginCommandBuffer(cmd_buf->handle(), &begin_info);
-
-        m_render_state.setup(cmd_buf);
+        m_render_state.setup(cmd_buffer);
 
         if (m_scene)
             m_scene->update(m_render_state);
 
         m_renderer->render(m_render_state);
+    }
 
-        vkEndCommandBuffer(cmd_buf->handle());
+    // -----------------------------------------------------------------------------------------------------------------------------------
 
-        submit_and_present({ cmd_buf });
+    void gui()
+    {
+        if (!m_show_gui)
+            return;
+
+        bool open = true;
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+        ImGui::SetNextWindowSize(ImVec2(m_width * 0.3f, m_height));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+        ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
+
+        ImGui::Begin("Editor", &open, window_flags);
+
+        if (m_ray_debug_mode)
+            ImGui::PushDisabled();
+
+        if (ImGui::CollapsingHeader("Scene"))
+        {
+            ImGui::Spacing();
+
+            m_string_buffer = "";
+
+            if (m_scene)
+                m_string_buffer = m_scene->path();
+
+            ImGui::InputText("##Scene", (char*)m_string_buffer.c_str(), 128, ImGuiInputTextFlags_ReadOnly);
+
+            if (ImGui::Button("Browse..."))
+            {
+                nfdchar_t*  out_path = NULL;
+                nfdresult_t result   = NFD_OpenDialog("json", NULL, &out_path);
+
+                if (result == NFD_OKAY)
+                {
+                    std::string path;
+                    path.resize(strlen(out_path));
+                    strcpy(path.data(), out_path);
+                    free(out_path);
+
+                    m_vk_backend->queue_object_deletion(m_scene);
+
+                    m_scene = m_resource_manager->load_scene(path, true);
+                }
+            }
+
+            ImVec2 region = ImGui::GetContentRegionAvail();
+
+            ImGui::Spacing();
+
+            ImGui::Button("Save", ImVec2(region.x, 30.0f));
+
+            ImGui::Spacing();
+        }
+        if (m_scene)
+        {
+            if (ImGui::CollapsingHeader("Hierarchy"))
+            {
+                ImGui::Spacing();
+
+                hierarchy_gui(m_scene->root_node());
+
+                ImGui::Spacing();
+
+                if (m_selected_node && m_node_to_attach_to)
+                {
+                    Node* parent = m_selected_node->parent();
+                    parent->remove_child(m_selected_node->name());
+
+                    m_node_to_attach_to->add_child(m_selected_node);
+                    m_node_to_attach_to = nullptr;
+                }
+
+                if (m_should_remove_selected_node)
+                {
+                    Node* parent = m_selected_node->parent();
+                    parent->remove_child(m_selected_node->name());
+
+                    m_should_remove_selected_node = false;
+                }
+            }
+            if (ImGui::CollapsingHeader("Inspector"))
+            {
+                if (m_selected_node)
+                {
+                    ImGui::PushID(m_selected_node->id());
+
+                    m_string_buffer = m_selected_node->name();
+
+                    ImGui::InputText("Name", (char*)m_string_buffer.c_str(), 128);
+
+                    ImGui::Separator();
+
+                    if (m_selected_node->type() == NODE_MESH)
+                        inspector_mesh();
+                    else if (m_selected_node->type() == NODE_CAMERA)
+                        inspector_camera();
+                    else if (m_selected_node->type() == NODE_DIRECTIONAL_LIGHT)
+                        inspector_directional_light();
+                    else if (m_selected_node->type() == NODE_SPOT_LIGHT)
+                        inspector_spot_light();
+                    else if (m_selected_node->type() == NODE_POINT_LIGHT)
+                        inspector_point_light();
+                    else if (m_selected_node->type() == NODE_IBL)
+                        inspector_ibl();
+
+                    ImGui::PopID();
+                }
+            }
+        }
+        if (ImGui::CollapsingHeader("Bake"))
+        {
+            ImVec2 region = ImGui::GetContentRegionAvail();
+
+            if (m_renderer->path_integrator()->is_tiled())
+            {
+                ImGui::ProgressBar(float(m_renderer->path_integrator()->num_accumulated_samples()) / float(m_renderer->path_integrator()->max_samples()), ImVec2(0.0f, 0.0f));
+            }
+            else
+            {
+                std::string overlay_text = std::to_string(m_renderer->path_integrator()->num_accumulated_samples()) + " / " + std::to_string(m_renderer->path_integrator()->max_samples());
+
+                ImGui::ProgressBar(float(m_renderer->path_integrator()->num_accumulated_samples()) / float(m_renderer->path_integrator()->max_samples()), ImVec2(region.x, 50.0f), overlay_text.c_str());
+            }
+
+            ImGui::Spacing();
+
+            if (ImGui::Button("Restart", ImVec2(region.x, 30.0f)))
+                m_renderer->path_integrator()->restart_bake();
+
+            if (ImGui::Button("Save to Disk", ImVec2(region.x, 30.0f)))
+            {
+            }
+        }
+        if (ImGui::CollapsingHeader("Ray Debug View"))
+        {
+            ImGui::ListBoxHeader("##pixels", ImVec2(ImGui::GetContentRegionAvailWidth(), 100.0f));
+
+            const auto& views = m_renderer->ray_debug_views();
+
+            for (int i = 0; i < views.size(); i++)
+            {
+                const auto& view = views[i];
+                ImGui::Text("%i, %i", view.pixel_coord.x, view.pixel_coord.x);
+            }
+
+            ImGui::ListBoxFooter();
+
+            if (ImGui::Button("Add", ImVec2(ImGui::GetContentRegionAvailWidth(), 30.0f)))
+            {
+                m_ray_debug_mode = true;
+                ImGui::PushDisabled();
+            }
+
+            if (ImGui::Button("Clear", ImVec2(ImGui::GetContentRegionAvailWidth(), 30.0f)))
+                m_renderer->clear_ray_debug_views();
+
+            if (m_ray_debug_mode)
+                ImGui::Text("Left Click to add Ray Debug View for pixel (%i, %i), Right Click to cancel", (int)m_mouse_x, (int)m_mouse_y);
+
+            ImGui::InputInt("Num Debug Rays", &m_num_debug_rays);
+        }
+        if (ImGui::CollapsingHeader("Profiler"))
+            profiler_gui();
+
+        if (ImGui::CollapsingHeader("Settings"))
+        {
+            bool tiled = m_renderer->path_integrator()->is_tiled();
+
+            ImGui::Checkbox("Use Tiled Rendering", &tiled);
+
+            if (m_renderer->path_integrator()->is_tiled() != tiled)
+            {
+                m_renderer->path_integrator()->set_tiled(tiled);
+                m_renderer->path_integrator()->restart_bake();
+            }
+
+            int32_t max_samples = m_renderer->path_integrator()->max_samples();
+
+            ImGui::InputInt("Max Samples", &max_samples);
+
+            if (m_renderer->path_integrator()->max_samples() != max_samples)
+            {
+                m_renderer->path_integrator()->set_max_samples(max_samples);
+                m_renderer->path_integrator()->restart_bake();
+            }
+
+            int32_t max_ray_bounces = m_renderer->path_integrator()->max_ray_bounces();
+
+            ImGui::SliderInt("Max Ray Bounces", &max_ray_bounces, 1, 8);
+
+            if (m_renderer->path_integrator()->max_ray_bounces() != max_ray_bounces)
+            {
+                m_renderer->path_integrator()->set_max_ray_bounces(max_ray_bounces);
+                m_renderer->path_integrator()->restart_bake();
+            }
+
+            ImGui::SliderFloat("Camera Speed", &m_camera_speed, 20.0f, 200.0f);
+            ImGui::SliderFloat("Look Sensitivity", &m_camera_sensitivity, 0.01f, 0.5f);
+        }
+
+        if (m_ray_debug_mode)
+            ImGui::PopDisabled();
+
+        ImGui::End();
+
+        ImGui::PopStyleVar();
+        ImGui::PopStyleVar();
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------
@@ -239,214 +439,22 @@ private:
 
     // -----------------------------------------------------------------------------------------------------------------------------------
 
-    void gui()
+    void profiler_gui()
     {
-        bool open = true;
+        ImGui::Spacing();
 
-        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
-        ImGui::SetNextWindowSize(ImVec2(m_width * 0.3f, m_height));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PlotVar("Frametimes (ms)", m_smooth_frametime * 1000.0f, 0.0f, 20.0f);
+        ImGui::PlotVarFlushOldEntries();
 
-        ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
+        m_smooth_frametime += m_delta_seconds;
+        m_smooth_frametime /= 2.0f;
 
-        ImGui::Begin("Editor", &open, window_flags);
+        ImGui::Separator();
+        ImGui::Spacing();
 
-        if (m_ray_debug_mode)
-            ImGui::PushDisabled();
+        profiler::ui();
 
-        if (ImGui::CollapsingHeader("Scene"))
-        {
-            ImGui::Spacing();
-
-            m_string_buffer = "";
-
-            if (m_scene)
-                m_string_buffer = m_scene->path();
-
-            ImGui::InputText("##Scene", (char*)m_string_buffer.c_str(), 128, ImGuiInputTextFlags_ReadOnly);
-            ImGui::SameLine();
-
-            if (ImGui::Button("Browse..."))
-            {
-                nfdchar_t*  out_path = NULL;
-                nfdresult_t result   = NFD_OpenDialog("json", NULL, &out_path);
-
-                if (result == NFD_OKAY)
-                {
-                    std::string path;
-                    path.resize(strlen(out_path));
-                    strcpy(path.data(), out_path);
-                    free(out_path);
-
-                    m_vk_backend->queue_object_deletion(m_scene);
-
-                    m_scene = m_resource_manager->load_scene(path, true);
-                }
-            }
-
-            ImVec2 region = ImGui::GetContentRegionAvail();
-
-            ImGui::Spacing();
-
-            ImGui::Button("Save", ImVec2(region.x, 30.0f));
-
-            ImGui::Spacing();
-        }
-        if (m_scene)
-        {
-            if (ImGui::CollapsingHeader("Hierarchy"))
-            {
-                ImGui::Spacing();
-
-                hierarchy_gui(m_scene->root_node());
-
-                ImGui::Spacing();
-
-                if (m_selected_node && m_node_to_attach_to)
-                {
-                    Node* parent = m_selected_node->parent();
-                    parent->remove_child(m_selected_node->name());
-
-                    m_node_to_attach_to->add_child(m_selected_node);
-                    m_node_to_attach_to = nullptr;
-                }
-
-                if (m_should_remove_selected_node)
-                {
-                    Node* parent = m_selected_node->parent();
-                    parent->remove_child(m_selected_node->name());
-
-                    m_should_remove_selected_node = false;
-                }
-            }
-            if (ImGui::CollapsingHeader("Inspector"))
-            {
-                if (m_selected_node)
-                {
-                    ImGui::PushID(m_selected_node->id());
-
-                    m_string_buffer = m_selected_node->name();
-
-                    ImGui::InputText("Name", (char*)m_string_buffer.c_str(), 128);
-
-                    ImGui::Separator();
-
-                    if (m_selected_node->type() == NODE_MESH)
-                        inspector_mesh();
-                    else if (m_selected_node->type() == NODE_CAMERA)
-                        inspector_camera();
-                    else if (m_selected_node->type() == NODE_DIRECTIONAL_LIGHT)
-                        inspector_directional_light();
-                    else if (m_selected_node->type() == NODE_SPOT_LIGHT)
-                        inspector_spot_light();
-                    else if (m_selected_node->type() == NODE_POINT_LIGHT)
-                        inspector_point_light();
-                    else if (m_selected_node->type() == NODE_IBL)
-                        inspector_ibl();
-
-                    ImGui::PopID();
-                }
-            }
-        }
-        if (ImGui::CollapsingHeader("Bake"))
-        {
-            ImVec2 region = ImGui::GetContentRegionAvail();
-
-            if (m_renderer->path_integrator()->is_tiled())
-            {
-                ImGui::ProgressBar(float(m_renderer->path_integrator()->num_accumulated_samples()) / float(m_renderer->path_integrator()->max_samples()), ImVec2(0.0f, 0.0f));
-            }
-            else
-            {
-                std::string overlay_text = std::to_string(m_renderer->path_integrator()->num_accumulated_samples()) + " / " + std::to_string(m_renderer->path_integrator()->max_samples());
-
-                ImGui::ProgressBar(float(m_renderer->path_integrator()->num_accumulated_samples()) / float(m_renderer->path_integrator()->max_samples()), ImVec2(region.x, 50.0f), overlay_text.c_str());
-            }
-
-            ImGui::Spacing();
-
-            if (ImGui::Button("Restart", ImVec2(region.x, 30.0f)))
-                m_renderer->path_integrator()->restart_bake();
-
-            if (ImGui::Button("Save to Disk", ImVec2(region.x, 30.0f)))
-            {
-            }
-        }
-        if (ImGui::CollapsingHeader("Ray Debug View"))
-        {
-            ImGui::ListBoxHeader("##pixels", ImVec2(ImGui::GetContentRegionAvailWidth(), 100.0f));
-
-            const auto& views = m_renderer->ray_debug_views();
-
-            for (int i = 0; i < views.size(); i++)
-            {
-                const auto& view = views[i];
-                ImGui::Text("%i, %i", view.pixel_coord.x, view.pixel_coord.x);
-            }
-
-            ImGui::ListBoxFooter();
-
-            if (ImGui::Button("Add", ImVec2(ImGui::GetContentRegionAvailWidth(), 30.0f)))
-            {
-                m_ray_debug_mode = true;
-                ImGui::PushDisabled();
-            }
-
-            if (ImGui::Button("Clear", ImVec2(ImGui::GetContentRegionAvailWidth(), 30.0f)))
-                m_renderer->clear_ray_debug_views();
-
-            if (m_ray_debug_mode)
-                ImGui::Text("Left Click to add Ray Debug View for pixel (%i, %i), Right Click to cancel", (int)m_mouse_x, (int)m_mouse_y);
-
-            ImGui::InputInt("Num Debug Rays", &m_num_debug_rays);
-        }
-        if (ImGui::CollapsingHeader("Profiler"))
-        {
-        }
-        if (ImGui::CollapsingHeader("Settings"))
-        {
-            bool tiled = m_renderer->path_integrator()->is_tiled();
-
-            ImGui::Checkbox("Use Tiled Rendering", &tiled);
-
-            if (m_renderer->path_integrator()->is_tiled() != tiled)
-            {
-                m_renderer->path_integrator()->set_tiled(tiled);
-                m_renderer->path_integrator()->restart_bake();
-            }
-
-            int32_t max_samples = m_renderer->path_integrator()->max_samples();
-
-            ImGui::InputInt("Max Samples", &max_samples);
-
-            if (m_renderer->path_integrator()->max_samples() != max_samples)
-            {
-                m_renderer->path_integrator()->set_max_samples(max_samples);
-                m_renderer->path_integrator()->restart_bake();
-            }
-
-            int32_t max_ray_bounces = m_renderer->path_integrator()->max_ray_bounces();
-
-            ImGui::SliderInt("Max Ray Bounces", &max_ray_bounces, 1, 8);
-
-            if (m_renderer->path_integrator()->max_ray_bounces() != max_ray_bounces)
-            {
-                m_renderer->path_integrator()->set_max_ray_bounces(max_ray_bounces);
-                m_renderer->path_integrator()->restart_bake();
-            }
-
-            ImGui::SliderFloat("Camera Speed", &m_camera_speed, 0.01f, 0.5f);
-            ImGui::SliderFloat("Look Sensitivity", &m_camera_sensitivity, 0.01f, 0.5f);
-        }
-
-        if (m_ray_debug_mode)
-            ImGui::PopDisabled();
-
-        ImGui::End();
-
-        ImGui::PopStyleVar();
-        ImGui::PopStyleVar();
+        ImGui::Spacing();
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------
@@ -531,7 +539,6 @@ private:
             m_string_buffer = mesh_node->mesh()->path();
 
         ImGui::InputText("Mesh", (char*)m_string_buffer.c_str(), 128, ImGuiInputTextFlags_ReadOnly);
-        ImGui::SameLine();
 
         if (ImGui::Button("Browse..."))
         {
@@ -558,7 +565,6 @@ private:
             m_string_buffer = mesh_node->material_override()->path();
 
         ImGui::InputText("Material Override", (char*)m_string_buffer.c_str(), 128, ImGuiInputTextFlags_ReadOnly);
-        ImGui::SameLine();
 
         if (ImGui::Button("Browse..."))
         {
@@ -756,7 +762,6 @@ private:
             m_string_buffer = ibl_node->image()->path();
 
         ImGui::InputText("Image", (char*)m_string_buffer.c_str(), 128, ImGuiInputTextFlags_ReadOnly);
-        ImGui::SameLine();
 
         if (ImGui::Button("Browse..."))
         {
@@ -782,7 +787,6 @@ private:
 
     void inspector_transform()
     {
-        
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------
@@ -801,7 +805,8 @@ private:
     float       m_heading_speed               = 0.0f;
     float       m_sideways_speed              = 0.0f;
     float       m_camera_sensitivity          = 0.05f;
-    float       m_camera_speed                = 0.05f;
+    float       m_camera_speed                = 5.0f;
+    float       m_smooth_frametime            = 0.0f;
     int32_t     m_num_debug_rays              = 32;
     std::string m_string_buffer;
 };

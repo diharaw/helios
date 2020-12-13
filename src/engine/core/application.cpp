@@ -1,6 +1,7 @@
 #include <core/application.h>
 #include <utility/logger.h>
 #include <utility/macros.h>
+#include <utility/profiler.h>
 #include <examples/imgui_impl_glfw.h>
 #include <examples/imgui_impl_vulkan.h>
 #include <iostream>
@@ -57,7 +58,11 @@ bool Application::init(int argc, const char* argv[]) { return true; }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Application::update(double delta) {}
+void Application::update(vk::CommandBuffer::Ptr cmd_buffer) {}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Application::gui() {}
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -250,6 +255,8 @@ bool Application::init_base(int argc, const char* argv[])
     style->TabRounding       = 0.0f;
     style->WindowRounding    = 4.0f;
 
+    profiler::initialize(m_vk_backend);
+
     if (!init(argc, argv))
         return false;
 
@@ -264,9 +271,9 @@ void Application::update_base(double delta)
 
     if (!m_window_minimized)
     {
-        begin_frame();
-        update(delta);
-        end_frame();
+        vk::CommandBuffer::Ptr cmd_buffer = begin_frame();
+        update(cmd_buffer);
+        end_frame(cmd_buffer);
     }
 }
 
@@ -276,6 +283,8 @@ void Application::shutdown_base()
 {
     // Execute user-side shutdown method.
     shutdown();
+
+    profiler::shutdown();
 
     // Shutdown ImGui.
     ImGui_ImplVulkan_Shutdown();
@@ -316,7 +325,7 @@ void Application::submit_and_present(const std::vector<vk::CommandBuffer::Ptr>& 
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Application::begin_frame()
+vk::CommandBuffer::Ptr Application::begin_frame()
 {
     m_time_start = glfwGetTime();
 
@@ -346,13 +355,38 @@ void Application::begin_frame()
 
     m_last_mouse_x = m_mouse_x;
     m_last_mouse_y = m_mouse_y;
+
+    vk::CommandBuffer::Ptr cmd_buf = m_vk_backend->allocate_graphics_command_buffer();
+
+    profiler::begin_frame(cmd_buf);
+
+    gui();
+
+    VkCommandBufferBeginInfo begin_info;
+    HELIOS_ZERO_MEMORY(begin_info);
+
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    vkBeginCommandBuffer(cmd_buf->handle(), &begin_info);
+
+    profiler::begin_sample("Update");
+
+    return cmd_buf;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Application::end_frame()
+void Application::end_frame(vk::CommandBuffer::Ptr cmd_buffer)
 {
-    m_delta_seconds = glfwGetTime() - m_delta_seconds;
+    profiler::end_sample("Update");
+
+    profiler::end_frame();
+
+    vkEndCommandBuffer(cmd_buffer->handle());
+
+    submit_and_present({ cmd_buffer });
+
+    m_delta_seconds = glfwGetTime() - m_time_start;
     m_last_width    = m_width;
     m_last_height   = m_height;
 }

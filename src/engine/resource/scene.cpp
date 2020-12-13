@@ -2,6 +2,7 @@
 #include <resource/mesh.h>
 #include <resource/material.h>
 #include <resource/texture.h>
+#include <utility/profiler.h>
 #include <vk_mem_alloc.h>
 #include <unordered_map>
 #include <unordered_set>
@@ -733,7 +734,10 @@ void Scene::update(RenderState& render_state)
     render_state.m_viewport_width      = extents.width;
     render_state.m_viewport_height     = extents.height;
 
-    m_root->update(render_state);
+    {
+        HELIOS_SCOPED_SAMPLE("Gather Render State");
+        m_root->update(render_state);
+    }
 
     render_state.m_num_lights = m_num_area_lights + render_state.m_directional_lights.size() + render_state.m_spot_lights.size() + render_state.m_point_lights.size();
 
@@ -746,7 +750,10 @@ void Scene::update(RenderState& render_state)
         m_force_update             = false;
     }
 
-    create_gpu_resources(render_state);
+    {
+        HELIOS_SCOPED_SAMPLE("Upload GPU Resources");
+        create_gpu_resources(render_state);
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

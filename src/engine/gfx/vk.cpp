@@ -2791,7 +2791,7 @@ QueryPool::Ptr QueryPool::create(Backend::Ptr backend, VkQueryType query_type, u
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void QueryPool::results(uint32_t           first_query,
+bool QueryPool::results(uint32_t           first_query,
                         uint32_t           query_count,
                         size_t             data_size,
                         void*              ptr,
@@ -2800,7 +2800,7 @@ void QueryPool::results(uint32_t           first_query,
 {
     auto backend = m_vk_backend.lock();
 
-    vkGetQueryPoolResults(backend->device(), m_vk_query_pool, first_query, query_count, data_size, ptr, stride, flags);
+    return vkGetQueryPoolResults(backend->device(), m_vk_query_pool, first_query, query_count, data_size, ptr, stride, flags) != VK_SUCCESS;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

@@ -79,15 +79,16 @@ protected:
 
     // Life cycle hooks. Override these!
     virtual bool init(int argc, const char* argv[]);
-    virtual void update(double delta);
+    virtual void update(vk::CommandBuffer::Ptr cmd_buffer);
+    virtual void gui();
     virtual void shutdown();
 
     void submit_and_present(const std::vector<vk::CommandBuffer::Ptr>& cmd_bufs);
 
 private:
     // Pre, Post frame methods for ImGUI updates, presentations etc.
-    void begin_frame();
-    void end_frame();
+    vk::CommandBuffer::Ptr begin_frame();
+    void                   end_frame(vk::CommandBuffer::Ptr cmd_buffer);
 
     // Internal lifecycle methods
     bool init_base(int argc, const char* argv[]);

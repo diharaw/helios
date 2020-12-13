@@ -35,5 +35,6 @@ include_directories("${HELIOS_INCLUDE_DIRS}"
 					"${Vulkan_INCLUDE_DIR}"
 					"${NATIVEFILEDIALOG_INCLUDE_DIRS}")
 
-add_subdirectory(src)
-add_subdirectory(viewer)
+add_subdirectory(src/engine)
+add_subdirectory(src/viewer)
+add_subdirectory(src/editor)
