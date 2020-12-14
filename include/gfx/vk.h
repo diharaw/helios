@@ -225,7 +225,7 @@ class Image : public Object
 public:
     using Ptr = std::shared_ptr<Image>;
 
-    static Image::Ptr create(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout = VK_IMAGE_LAYOUT_UNDEFINED, size_t size = 0, void* data = nullptr, VkImageCreateFlags flags = 0);
+    static Image::Ptr create(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout = VK_IMAGE_LAYOUT_UNDEFINED, size_t size = 0, void* data = nullptr, VkImageCreateFlags flags = 0, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL);
     static Image::Ptr create_from_swapchain(Backend::Ptr backend, VkImage image, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count);
 
     ~Image();
@@ -244,9 +244,10 @@ public:
     inline VkImageUsageFlags  usage() { return m_usage; }
     inline VmaMemoryUsage     memory_usage() { return m_memory_usage; }
     inline VkSampleCountFlags sample_count() { return m_sample_count; }
+    inline VkImageTiling      tiling() { return m_tiling; }
 
 private:
-    Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data, VkImageCreateFlags flags = 0);
+    Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data, VkImageCreateFlags flags = 0, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL);
     Image(Backend::Ptr backend, VkImage image, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count);
 
 private:
@@ -261,6 +262,7 @@ private:
     VkSampleCountFlagBits m_sample_count;
     VkImageType           m_type;
     VkImageCreateFlags    m_flags            = 0;
+    VkImageTiling         m_tiling;
     VkImage               m_vk_image         = nullptr;
     VkDeviceMemory        m_vk_device_memory = nullptr;
     VmaAllocator_T*       m_vma_allocator    = nullptr;

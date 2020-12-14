@@ -34,6 +34,11 @@ std::vector<std::string> node_types = {
     "IBL"
 };
 
+std::vector<std::string> tone_map_operators = {
+    "ACES",
+    "Reinhard"
+};
+
 class Viewer : public Application
 {
 protected:
@@ -285,6 +290,27 @@ protected:
                 m_renderer->path_integrator()->set_max_ray_bounces(max_ray_bounces);
                 m_renderer->path_integrator()->restart_bake();
             }
+            
+            if (ImGui::BeginCombo("Tone Map Operator", tone_map_operators[m_renderer->tone_map_operator()].c_str()))
+            {
+                for (uint32_t i = 0; i < tone_map_operators.size(); i++)
+                {
+                    const bool is_selected = (i == m_renderer->tone_map_operator());
+                    
+                    if (ImGui::Selectable(tone_map_operators[i].c_str(), is_selected))
+                        m_renderer->set_tone_map_operator((ToneMapOperator)i);
+
+                    if (is_selected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+
+            float exposure = m_renderer->exposure();
+
+            ImGui::InputFloat("Exposure", &exposure);
+
+            m_renderer->set_exposure(exposure);
 
             ImGui::SliderFloat("Camera Speed", &m_camera_speed, 20.0f, 200.0f);
             ImGui::SliderFloat("Look Sensitivity", &m_camera_sensitivity, 0.01f, 0.5f);

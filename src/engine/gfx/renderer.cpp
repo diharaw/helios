@@ -8,10 +8,20 @@
 
 namespace helios
 {
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 struct RayDebugVertex
 {
     glm::vec4 position;
     glm::vec4 color;
+};
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+struct ToneMapPushConstants
+{
+    float exposure;
+    uint32_t tone_map_operator;
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -22,7 +32,10 @@ Renderer::Renderer(vk::Backend::Ptr backend) :
     m_path_integrator = std::shared_ptr<PathIntegrator>(new PathIntegrator(backend));
 
     create_output_images();
+    create_tone_map_render_pass();
+    create_tone_map_framebuffer();
     create_tone_map_pipeline();
+    create_copy_pipeline();
     create_buffers();
     create_ray_debug_buffers();
     create_ray_debug_pipeline();
@@ -43,6 +56,10 @@ Renderer::~Renderer()
         m_input_combined_sampler_ds[i].reset();
     }
 
+    m_screenshot_image.reset();
+    m_tone_map_ds.reset();
+    m_tone_map_image_view.reset();
+    m_tone_map_image.reset();
     m_ray_debug_vbo.reset();
     m_ray_debug_draw_cmd.reset();
     m_tlas_instance_buffer_device.reset();
@@ -51,6 +68,12 @@ Renderer::~Renderer()
     m_tone_map_pipeline_layout.reset();
     m_ray_debug_pipeline.reset();
     m_ray_debug_pipeline_layout.reset();
+    m_tone_map_framebuffer.reset();
+    m_tone_map_render_pass.reset();
+    m_tone_map_pipeline_layout.reset();
+    m_tone_map_pipeline.reset();
+    m_copy_pipeline_layout.reset();
+    m_copy_pipeline.reset();
     m_path_integrator.reset();
 }
 
@@ -196,6 +219,11 @@ void Renderer::render(RenderState& render_state)
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         subresource_range);
 
+    // Tone map output
+    tone_map(render_state.m_cmd_buffer, m_input_combined_sampler_ds[write_index]);
+
+    // TODO: copy screenshot
+
     // Render final onscreen passes
     auto extents = backend->swap_chain_extents();
 
@@ -225,9 +253,9 @@ void Renderer::render(RenderState& render_state)
     VkViewport vp;
 
     vp.x        = 0.0f;
-    vp.y        = (float)extents.height;
+    vp.y        = 0.0f;
     vp.width    = (float)extents.width;
-    vp.height   = -(float)extents.height;
+    vp.height   = (float)extents.height;
     vp.minDepth = 0.0f;
     vp.maxDepth = 1.0f;
 
@@ -242,8 +270,8 @@ void Renderer::render(RenderState& render_state)
 
     vkCmdSetScissor(render_state.m_cmd_buffer->handle(), 0, 1, &scissor_rect);
 
-    // Perform tone mapping and render ImGui
-    tone_map(render_state.m_cmd_buffer, m_input_combined_sampler_ds[write_index]);
+    // Copy tone mapped image to swapchain image
+    copy(render_state.m_cmd_buffer);
 
     // If any ray debug views were added, render them
     if (m_ray_debug_views.size() > 0)
@@ -273,11 +301,79 @@ void Renderer::tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr r
 {
     HELIOS_SCOPED_SAMPLE("Tone Map");
 
+    auto backend = m_backend.lock();
+    auto extents = backend->swap_chain_extents();
+
+
+
+
+
+
+
+    VkClearValue clear_value;
+
+    clear_value.color.float32[0] = 0.0f;
+    clear_value.color.float32[1] = 0.0f;
+    clear_value.color.float32[2] = 0.0f;
+    clear_value.color.float32[3] = 1.0f;
+
+    VkRenderPassBeginInfo info    = {};
+    info.sType                    = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    info.renderPass               = m_tone_map_render_pass->handle();
+    info.framebuffer              = m_tone_map_framebuffer->handle();
+    info.renderArea.extent.width  = extents.width;
+    info.renderArea.extent.height = extents.height;
+    info.clearValueCount          = 1;
+    info.pClearValues             = &clear_value;
+
+    vkCmdBeginRenderPass(cmd_buf->handle(), &info, VK_SUBPASS_CONTENTS_INLINE);
+
+    VkViewport vp;
+
+    vp.x        = 0.0f;
+    vp.y        = (float)extents.height;
+    vp.width    = (float)extents.width;
+    vp.height   = -(float)extents.height;
+    vp.minDepth = 0.0f;
+    vp.maxDepth = 1.0f;
+
+    vkCmdSetViewport(cmd_buf->handle(), 0, 1, &vp);
+
+    VkRect2D scissor_rect;
+
+    scissor_rect.extent.width  = extents.width;
+    scissor_rect.extent.height = extents.height;
+    scissor_rect.offset.x      = 0;
+    scissor_rect.offset.y      = 0;
+
+    vkCmdSetScissor(cmd_buf->handle(), 0, 1, &scissor_rect);
+
     vkCmdBindPipeline(cmd_buf->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_tone_map_pipeline->handle());
 
     vkCmdBindDescriptorSets(cmd_buf->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_tone_map_pipeline_layout->handle(), 0, 1, &read_image->handle(), 0, nullptr);
 
-    // Apply tonemapping
+    ToneMapPushConstants pc;
+    
+    pc.exposure = m_exposure;
+    pc.tone_map_operator = m_tone_map_operator;
+
+    vkCmdPushConstants(cmd_buf->handle(), m_tone_map_pipeline_layout->handle(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ToneMapPushConstants), &pc);
+
+    vkCmdDraw(cmd_buf->handle(), 3, 1, 0, 0);
+
+    vkCmdEndRenderPass(cmd_buf->handle());
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::copy(vk::CommandBuffer::Ptr cmd_buf)
+{
+    HELIOS_SCOPED_SAMPLE("Copy");
+
+    vkCmdBindPipeline(cmd_buf->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_copy_pipeline->handle());
+
+    vkCmdBindDescriptorSets(cmd_buf->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_copy_pipeline_layout->handle(), 0, 1, &m_tone_map_ds->handle(), 0, nullptr);
+
     vkCmdDraw(cmd_buf->handle(), 3, 1, 0, 0);
 }
 
@@ -341,7 +437,90 @@ void Renderer::create_buffers()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+void Renderer::create_tone_map_render_pass()
+{
+    auto backend = m_backend.lock();
+
+    VkAttachmentDescription attachment;
+    HELIOS_ZERO_MEMORY(attachment);
+
+    // Color attachment
+    attachment.format         = VK_FORMAT_R8G8B8A8_SNORM;
+    attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
+    attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+    attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachment.finalLayout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkAttachmentReference color_reference;
+    color_reference.attachment = 0;
+    color_reference.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    std::vector<VkSubpassDescription> subpass_description(1);
+
+    subpass_description[0].pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass_description[0].colorAttachmentCount    = 1;
+    subpass_description[0].pColorAttachments       = &color_reference;
+    subpass_description[0].pDepthStencilAttachment = nullptr;
+    subpass_description[0].inputAttachmentCount    = 0;
+    subpass_description[0].pInputAttachments       = nullptr;
+    subpass_description[0].preserveAttachmentCount = 0;
+    subpass_description[0].pPreserveAttachments    = nullptr;
+    subpass_description[0].pResolveAttachments     = nullptr;
+
+    // Subpass dependencies for layout transitions
+    std::vector<VkSubpassDependency> dependencies(2);
+
+    dependencies[0].srcSubpass      = VK_SUBPASS_EXTERNAL;
+    dependencies[0].dstSubpass      = 0;
+    dependencies[0].srcStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[0].dstStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[0].srcAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[0].dstAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    dependencies[1].srcSubpass      = 0;
+    dependencies[1].dstSubpass      = VK_SUBPASS_EXTERNAL;
+    dependencies[1].srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[1].dstStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[1].srcAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[1].dstAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    m_tone_map_render_pass = vk::RenderPass::create(backend, { attachment }, subpass_description, dependencies);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_tone_map_framebuffer()
+{
+    auto backend = m_backend.lock();
+    auto extents = backend->swap_chain_extents();
+
+    m_tone_map_framebuffer = vk::Framebuffer::create(backend, m_tone_map_render_pass, { m_tone_map_image_view }, extents.width, extents.height, 1);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 void Renderer::create_tone_map_pipeline()
+{
+    auto backend = m_backend.lock();
+
+    vk::PipelineLayout::Desc pl_desc;
+
+    pl_desc.add_descriptor_set_layout(backend->combined_sampler_descriptor_set_layout());
+
+    pl_desc.add_push_constant_range(VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ToneMapPushConstants));
+
+    m_tone_map_pipeline_layout = vk::PipelineLayout::create(backend, pl_desc);
+    m_tone_map_pipeline        = vk::GraphicsPipeline::create_for_post_process(backend, "assets/shader/triangle.vert.spv", "assets/shader/tone_map.frag.spv", m_tone_map_pipeline_layout, m_tone_map_render_pass);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_copy_pipeline()
 {
     auto backend = m_backend.lock();
 
@@ -349,8 +528,8 @@ void Renderer::create_tone_map_pipeline()
 
     ds_desc.add_descriptor_set_layout(backend->combined_sampler_descriptor_set_layout());
 
-    m_tone_map_pipeline_layout = vk::PipelineLayout::create(backend, ds_desc);
-    m_tone_map_pipeline        = vk::GraphicsPipeline::create_for_post_process(backend, "shader/triangle.vert.spv", "shader/tone_map.frag.spv", m_tone_map_pipeline_layout, backend->swapchain_render_pass());
+    m_copy_pipeline_layout = vk::PipelineLayout::create(backend, ds_desc);
+    m_copy_pipeline        = vk::GraphicsPipeline::create_for_post_process(backend, "assets/shader/triangle.vert.spv", "assets/shader/copy.frag.spv", m_copy_pipeline_layout, backend->swapchain_render_pass());
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -365,8 +544,8 @@ void Renderer::create_ray_debug_pipeline()
 
     std::vector<char> spirv;
 
-    vk::ShaderModule::Ptr vs = vk::ShaderModule::create_from_file(backend, "shader/debug_ray.vert.spv");
-    vk::ShaderModule::Ptr fs = vk::ShaderModule::create_from_file(backend, "shader/debug_ray.frag.spv");
+    vk::ShaderModule::Ptr vs = vk::ShaderModule::create_from_file(backend, "assets/shader/debug_ray.vert.spv");
+    vk::ShaderModule::Ptr fs = vk::ShaderModule::create_from_file(backend, "assets/shader/debug_ray.frag.spv");
 
     vk::GraphicsPipeline::Desc pso_desc;
 
@@ -526,6 +705,14 @@ void Renderer::create_output_images()
         m_output_images[i]      = vk::Image::create(backend, VK_IMAGE_TYPE_2D, extents.width, extents.height, 1, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_SAMPLE_COUNT_1_BIT);
         m_output_image_views[i] = vk::ImageView::create(backend, m_output_images[i], VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
     }
+
+    backend->queue_object_deletion(m_tone_map_image_view);
+    backend->queue_object_deletion(m_tone_map_image);
+    backend->queue_object_deletion(m_screenshot_image);
+
+    m_tone_map_image      = vk::Image::create(backend, VK_IMAGE_TYPE_2D, extents.width, extents.height, 1, 1, 1, VK_FORMAT_R8G8B8A8_SNORM, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_SAMPLE_COUNT_1_BIT);
+    m_tone_map_image_view = vk::ImageView::create(backend, m_tone_map_image, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
+    m_screenshot_image    = vk::Image::create(backend, VK_IMAGE_TYPE_2D, extents.width, extents.height, 1, 1, 1, VK_FORMAT_R8G8B8A8_SNORM, VMA_MEMORY_USAGE_CPU_ONLY, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, 0, nullptr, 0, VK_IMAGE_TILING_LINEAR);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -596,6 +783,8 @@ void Renderer::create_dynamic_descriptor_sets()
         m_output_storage_image_ds[i]   = backend->allocate_descriptor_set(backend->image_descriptor_set_layout());
         m_input_combined_sampler_ds[i] = backend->allocate_descriptor_set(backend->combined_sampler_descriptor_set_layout());
     }
+
+    m_tone_map_ds = backend->allocate_descriptor_set(backend->combined_sampler_descriptor_set_layout());
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -612,7 +801,7 @@ void Renderer::update_dynamic_descriptor_sets()
     std::vector<VkDescriptorImageInfo> image_descriptors;
 
     write_datas;
-    image_descriptors.reserve(4);
+    image_descriptors.reserve(5);
 
     for (int i = 0; i < 2; i++)
     {
@@ -666,6 +855,29 @@ void Renderer::update_dynamic_descriptor_sets()
             write_datas.push_back(write_data);
         }
     }
+
+    VkDescriptorImageInfo image_info;
+
+    HELIOS_ZERO_MEMORY(image_info);
+
+    image_info.sampler     = backend->bilinear_sampler()->handle();
+    image_info.imageView   = m_tone_map_image_view->handle();
+    image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    image_descriptors.push_back(image_info);
+
+    VkWriteDescriptorSet write_data;
+
+    HELIOS_ZERO_MEMORY(write_data);
+
+    write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write_data.descriptorCount = 1;
+    write_data.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write_data.pImageInfo      = &image_descriptors[idx++];
+    write_data.dstBinding      = 0;
+    write_data.dstSet          = m_tone_map_ds->handle();
+
+    write_datas.push_back(write_data);
 
     vkUpdateDescriptorSets(backend->device(), write_datas.size(), &write_datas[0], 0, nullptr);
 }

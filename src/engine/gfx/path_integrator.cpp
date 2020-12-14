@@ -157,11 +157,11 @@ void PathIntegrator::create_pipeline()
     // Create shader modules
     // ---------------------------------------------------------------------------
 
-    vk::ShaderModule::Ptr rgen             = vk::ShaderModule::create_from_file(backend, "shader/path_trace.rgen.spv");
-    vk::ShaderModule::Ptr rchit            = vk::ShaderModule::create_from_file(backend, "shader/path_trace.rchit.spv");
-    vk::ShaderModule::Ptr rmiss            = vk::ShaderModule::create_from_file(backend, "shader/path_trace.rmiss.spv");
-    vk::ShaderModule::Ptr rchit_visibility = vk::ShaderModule::create_from_file(backend, "shader/path_trace_shadow.rchit.spv");
-    vk::ShaderModule::Ptr rmiss_visibility = vk::ShaderModule::create_from_file(backend, "shader/path_trace_shadow.rmiss.spv");
+    vk::ShaderModule::Ptr rgen             = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace.rgen.spv");
+    vk::ShaderModule::Ptr rchit            = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace.rchit.spv");
+    vk::ShaderModule::Ptr rmiss            = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace.rmiss.spv");
+    vk::ShaderModule::Ptr rchit_visibility = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace_shadow.rchit.spv");
+    vk::ShaderModule::Ptr rmiss_visibility = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace_shadow.rmiss.spv");
 
     vk::ShaderBindingTable::Desc sbt_desc;
 
@@ -211,11 +211,11 @@ void PathIntegrator::create_ray_debug_pipeline()
     // Create shader modules
     // ---------------------------------------------------------------------------
 
-    vk::ShaderModule::Ptr rgen             = vk::ShaderModule::create_from_file(backend, "shader/path_trace_debug.rgen.spv");
-    vk::ShaderModule::Ptr rchit            = vk::ShaderModule::create_from_file(backend, "shader/path_trace_debug.rchit.spv");
-    vk::ShaderModule::Ptr rmiss            = vk::ShaderModule::create_from_file(backend, "shader/path_trace_debug.rmiss.spv");
-    vk::ShaderModule::Ptr rchit_visibility = vk::ShaderModule::create_from_file(backend, "shader/path_trace_shadow.rchit.spv");
-    vk::ShaderModule::Ptr rmiss_visibility = vk::ShaderModule::create_from_file(backend, "shader/path_trace_shadow.rmiss.spv");
+    vk::ShaderModule::Ptr rgen             = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace_debug.rgen.spv");
+    vk::ShaderModule::Ptr rchit            = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace_debug.rchit.spv");
+    vk::ShaderModule::Ptr rmiss            = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace_debug.rmiss.spv");
+    vk::ShaderModule::Ptr rchit_visibility = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace_shadow.rchit.spv");
+    vk::ShaderModule::Ptr rmiss_visibility = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace_shadow.rmiss.spv");
 
     vk::ShaderBindingTable::Desc sbt_desc;
 

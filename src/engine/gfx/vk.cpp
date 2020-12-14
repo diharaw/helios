@@ -178,9 +178,9 @@ Object::Object(Backend::Ptr backend) :
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Image::Ptr Image::create(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data, VkImageCreateFlags flags)
+Image::Ptr Image::create(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data, VkImageCreateFlags flags, VkImageTiling tiling)
 {
-    return std::shared_ptr<Image>(new Image(backend, type, width, height, depth, mip_levels, array_size, format, memory_usage, usage, sample_count, initial_layout, size, data, flags));
+    return std::shared_ptr<Image>(new Image(backend, type, width, height, depth, mip_levels, array_size, format, memory_usage, usage, sample_count, initial_layout, size, data, flags, tiling));
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -192,8 +192,8 @@ Image::Ptr Image::create_from_swapchain(Backend::Ptr backend, VkImage image, VkI
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Image::Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data, VkImageCreateFlags flags) :
-    Object(backend), m_type(type), m_width(width), m_height(height), m_depth(depth), m_mip_levels(mip_levels), m_array_size(array_size), m_format(format), m_memory_usage(memory_usage), m_sample_count(sample_count), m_usage(usage), m_flags(flags)
+Image::Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data, VkImageCreateFlags flags, VkImageTiling tiling) :
+    Object(backend), m_type(type), m_width(width), m_height(height), m_depth(depth), m_mip_levels(mip_levels), m_array_size(array_size), m_format(format), m_memory_usage(memory_usage), m_sample_count(sample_count), m_usage(usage), m_flags(flags), m_tiling(tiling)
 {
     m_vma_allocator = backend->allocator();
 
@@ -211,7 +211,7 @@ Image::Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t he
     image_info.mipLevels     = m_mip_levels;
     image_info.arrayLayers   = m_array_size;
     image_info.format        = m_format;
-    image_info.tiling        = VK_IMAGE_TILING_OPTIMAL;
+    image_info.tiling        = tiling;
     image_info.initialLayout = initial_layout;
     image_info.usage         = m_usage;
     image_info.samples       = m_sample_count;
