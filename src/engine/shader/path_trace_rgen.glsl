@@ -169,8 +169,10 @@ void main()
     {
         vec3 final_color = clamped_color;
 
+#if defined(VISUALIZE_NANS)
         if (is_nan(final_color))
             final_color = vec3(1.0, 0.0, 0.0);
+#endif
 
         imageStore(i_CurrentColor, ivec2(gl_LaunchIDEXT.xy), vec4(final_color, 1.0));
     }
@@ -183,8 +185,10 @@ void main()
 
         vec3 final_color = accumulated_color;
 
+#if defined(VISUALIZE_NANS)
         if (is_nan(final_color))
             final_color = vec3(1.0, 0.0, 0.0);
+#endif
 
         imageStore(i_CurrentColor, ivec2(gl_LaunchIDEXT.xy), vec4(final_color, 1.0));
     }
