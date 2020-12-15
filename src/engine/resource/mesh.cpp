@@ -58,9 +58,9 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
     m_id(g_last_mesh_id++),
     m_path(path)
 {
-    std::vector<VkAccelerationStructureBuildRangeInfoKHR>         build_ranges;
-    std::vector<VkAccelerationStructureGeometryKHR>               geometries;
-    std::vector<uint32_t>               max_primitive_counts;
+    std::vector<VkAccelerationStructureBuildRangeInfoKHR> build_ranges;
+    std::vector<VkAccelerationStructureGeometryKHR>       geometries;
+    std::vector<uint32_t>                                 max_primitive_counts;
 
     // Populate geometries
     for (int i = 0; i < submeshes.size(); i++)
@@ -87,7 +87,7 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
         geometry.geometry.triangles.indexData.deviceAddress  = m_ibo->device_address();
         geometry.geometry.triangles.indexType                = VK_INDEX_TYPE_UINT32;
         geometry.flags                                       = geometry_flags;
-   
+
         geometries.push_back(geometry);
         max_primitive_counts.push_back(submeshes[i].index_count / 3);
 

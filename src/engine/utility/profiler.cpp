@@ -19,18 +19,18 @@ struct Profiler
     struct Sample
     {
         std::string name;
-        uint32_t query_index;
-        bool    start = true;
-        double  cpu_time;
-        Sample* end_sample;
+        uint32_t    query_index;
+        bool        start = true;
+        double      cpu_time;
+        Sample*     end_sample;
     };
 
     struct Buffer
     {
         std::vector<std::unique_ptr<Sample>> samples;
         int32_t                              index = 0;
-        vk::QueryPool::Ptr query_pool;
-        uint32_t           query_index = 0;
+        vk::QueryPool::Ptr                   query_pool;
+        uint32_t                             query_index = 0;
 
         Buffer()
         {
@@ -90,7 +90,7 @@ struct Profiler
 
         auto& sample = m_sample_buffers[m_write_buffer_idx].samples[idx];
 
-        sample->name = name;
+        sample->name        = name;
         sample->query_index = m_sample_buffers[m_write_buffer_idx].query_index++;
         vkCmdWriteTimestamp(m_cmd_buf->handle(), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_sample_buffers[m_write_buffer_idx].query_pool->handle(), sample->query_index);
 
@@ -121,8 +121,8 @@ struct Profiler
 
         auto& sample = m_sample_buffers[m_write_buffer_idx].samples[idx];
 
-        sample->name  = name;
-        sample->start = false;
+        sample->name        = name;
+        sample->start       = false;
         sample->query_index = m_sample_buffers[m_write_buffer_idx].query_index++;
         vkCmdWriteTimestamp(m_cmd_buf->handle(), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_sample_buffers[m_write_buffer_idx].query_pool->handle(), sample->query_index);
 
@@ -199,7 +199,7 @@ struct Profiler
 
                     m_sample_buffers[m_read_buffer_idx].query_pool->results(sample->query_index, 1, sizeof(uint64_t), &start_time, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
                     m_sample_buffers[m_read_buffer_idx].query_pool->results(sample->end_sample->query_index, 1, sizeof(uint64_t), &end_time, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
-    
+
                     uint64_t gpu_time_diff = end_time - start_time;
 
                     float gpu_time = float(gpu_time_diff / 1000000.0);
@@ -225,15 +225,15 @@ struct Profiler
         }
     }
 
-// -----------------------------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------------------------
 
-    int32_t             m_read_buffer_idx  = -BUFFER_COUNT;
-    int32_t             m_write_buffer_idx = -1;
-    Buffer              m_sample_buffers[BUFFER_COUNT];
-    std::stack<Sample*> m_sample_stack;
-    std::stack<bool>    m_should_pop_stack;
+    int32_t                m_read_buffer_idx  = -BUFFER_COUNT;
+    int32_t                m_write_buffer_idx = -1;
+    Buffer                 m_sample_buffers[BUFFER_COUNT];
+    std::stack<Sample*>    m_sample_stack;
+    std::stack<bool>       m_should_pop_stack;
     vk::CommandBuffer::Ptr m_cmd_buf      = nullptr;
-    bool m_should_reset = true;
+    bool                   m_should_reset = true;
 #ifdef WIN32
     LARGE_INTEGER m_frequency;
 #endif

@@ -6,10 +6,10 @@
 
 struct PlotVarData
 {
-    ImGuiID       ID;
+    ImGuiID            ID;
     std::vector<float> Data;
-    int           DataInsertIdx;
-    int           LastFrame;
+    int                DataInsertIdx;
+    int                LastFrame;
 
     PlotVarData() :
         ID(0), DataInsertIdx(0), LastFrame(-1) {}

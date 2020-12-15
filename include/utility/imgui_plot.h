@@ -10,4 +10,4 @@ void PlotVar(const char* label, float value, float scale_min = FLT_MAX, float sc
 
 // Call this periodically to discard old/unused data
 void PlotVarFlushOldEntries();
-}
+} // namespace ImGui

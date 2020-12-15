@@ -64,7 +64,6 @@ Renderer::~Renderer()
     m_tone_map_image.reset();
     m_ray_debug_vbo.reset();
     m_ray_debug_draw_cmd.reset();
-    m_tlas_instance_buffer_device.reset();
     m_ray_debug_ds.reset();
     m_tone_map_pipeline.reset();
     m_tone_map_pipeline_layout.reset();
@@ -97,7 +96,7 @@ void Renderer::render(RenderState& render_state)
         copy_region.dstOffset = 0;
         copy_region.size      = sizeof(VkAccelerationStructureInstanceKHR) * render_state.m_meshes.size();
 
-        vkCmdCopyBuffer(render_state.m_cmd_buffer->handle(), tlas_data.instance_buffer_host->handle(), m_tlas_instance_buffer_device->handle(), 1, &copy_region);
+        vkCmdCopyBuffer(render_state.m_cmd_buffer->handle(), tlas_data.instance_buffer_host->handle(), tlas_data.instance_buffer_device->handle(), 1, &copy_region);
 
         {
             VkMemoryBarrier memory_barrier;
@@ -116,7 +115,7 @@ void Renderer::render(RenderState& render_state)
         geometry.geometryType                          = VK_GEOMETRY_TYPE_INSTANCES_KHR;
         geometry.geometry.instances.sType              = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
         geometry.geometry.instances.arrayOfPointers    = VK_FALSE;
-        geometry.geometry.instances.data.deviceAddress = m_tlas_instance_buffer_device->device_address();
+        geometry.geometry.instances.data.deviceAddress = tlas_data.instance_buffer_device->device_address();
 
         VkAccelerationStructureBuildGeometryInfoKHR build_info;
         HELIOS_ZERO_MEMORY(build_info);
@@ -408,7 +407,7 @@ void Renderer::copy_and_save_tone_mapped_image(vk::CommandBuffer::Ptr cmd_buf)
         if (stbi_write_png(m_image_save_path.c_str(), extents.width, extents.height, 4, m_save_to_disk_image->mapped_ptr(), sizeof(char) * 4 * extents.width) == 0)
             HELIOS_LOG_ERROR("Failed to write image to disk.");
 
-        m_copy_started = false;
+        m_copy_started       = false;
         m_save_image_to_disk = false;
         m_image_save_path    = "";
     }
@@ -522,7 +521,7 @@ void Renderer::create_tone_map_render_pass()
     HELIOS_ZERO_MEMORY(attachment);
 
     // Color attachment
-    attachment.format         = VK_FORMAT_R8G8B8A8_SNORM;
+    attachment.format         = VK_FORMAT_R8G8B8A8_UNORM;
     attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
     attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;

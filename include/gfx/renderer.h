@@ -29,7 +29,6 @@ private:
     std::vector<RayDebugView>  m_ray_debug_views;
     std::weak_ptr<vk::Backend> m_backend;
     PathIntegrator::Ptr        m_path_integrator;
-    vk::Buffer::Ptr            m_tlas_instance_buffer_device;
     vk::Image::Ptr             m_output_images[2];
     vk::ImageView::Ptr         m_output_image_views[2];
     vk::Image::Ptr             m_tone_map_image;
@@ -52,9 +51,9 @@ private:
     bool                       m_output_ping_pong       = false;
     bool                       m_ray_debug_view_added   = false;
     bool                       m_output_image_recreated = true;
-    bool                       m_save_image_to_disk = false;
+    bool                       m_save_image_to_disk     = false;
     bool                       m_copy_started           = false;
-    std::string                m_image_save_path = "";
+    std::string                m_image_save_path        = "";
     ToneMapOperator            m_tone_map_operator      = TONE_MAP_OPERATOR_ACES;
     float                      m_exposure               = 1.0f;
 
@@ -62,7 +61,7 @@ public:
     Renderer(vk::Backend::Ptr backend);
     ~Renderer();
 
-    inline void set_tone_map_operator(const ToneMapOperator& tone_map) { m_tone_map_operator = tone_map; }
+    inline void                set_tone_map_operator(const ToneMapOperator& tone_map) { m_tone_map_operator = tone_map; }
     inline void                set_exposure(const float& exposure) { m_exposure = exposure; }
     inline PathIntegrator::Ptr path_integrator() { return m_path_integrator; }
     inline ToneMapOperator     tone_map_operator() { return m_tone_map_operator; }
@@ -79,7 +78,7 @@ private:
     void tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr read_image);
     void copy(vk::CommandBuffer::Ptr cmd_buf);
     void render_ray_debug_views(RenderState& render_state);
-    void copy_and_save_tone_mapped_image(vk::CommandBuffer::Ptr cmd_buf);  
+    void copy_and_save_tone_mapped_image(vk::CommandBuffer::Ptr cmd_buf);
     void create_output_images();
     void create_tone_map_render_pass();
     void create_tone_map_framebuffer();

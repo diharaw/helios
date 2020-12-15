@@ -6,7 +6,6 @@
 
 #define HELIOS_SCOPED_SAMPLE(name) helios::profiler::ScopedProfile __FILE__##__LINE__(name)
 
-
 namespace helios
 {
 namespace profiler

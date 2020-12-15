@@ -89,7 +89,7 @@ void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeli
 {
     auto backend = m_backend.lock();
 
-    auto  extents  = backend->swap_chain_extents();
+    auto  extents           = backend->swap_chain_extents();
     auto& rt_pipeline_props = backend->ray_tracing_pipeline_properties();
 
     vkCmdBindPipeline(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->handle());
@@ -136,12 +136,12 @@ void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeli
         vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline_layout->handle(), 0, 7, descriptor_sets, 0, nullptr);
     }
 
-    VkDeviceSize prog_size = rt_pipeline_props.shaderGroupBaseAlignment;
-    VkDeviceSize sbt_size  = prog_size * pipeline->shader_binding_table()->groups().size();
+    VkDeviceSize group_size = vk::utilities::aligned_size(rt_pipeline_props.shaderGroupHandleSize, rt_pipeline_props.shaderGroupBaseAlignment);
+    VkDeviceSize group_stride = group_size;
 
-    const VkStridedDeviceAddressRegionKHR raygen_sbt   = { pipeline->shader_binding_table_buffer()->device_address(), 0, prog_size };
-    const VkStridedDeviceAddressRegionKHR miss_sbt     = { pipeline->shader_binding_table_buffer()->device_address(), sbt->miss_group_offset(), prog_size };
-    const VkStridedDeviceAddressRegionKHR hit_sbt      = { pipeline->shader_binding_table_buffer()->device_address(), sbt->hit_group_offset(), prog_size };
+    const VkStridedDeviceAddressRegionKHR raygen_sbt   = { pipeline->shader_binding_table_buffer()->device_address(), group_stride, group_size };
+    const VkStridedDeviceAddressRegionKHR miss_sbt     = { pipeline->shader_binding_table_buffer()->device_address() + sbt->miss_group_offset(), group_stride, group_size * 2 };
+    const VkStridedDeviceAddressRegionKHR hit_sbt      = { pipeline->shader_binding_table_buffer()->device_address() + sbt->hit_group_offset(), group_stride, group_size * 2 };
     const VkStridedDeviceAddressRegionKHR callable_sbt = { VK_NULL_HANDLE, 0, 0 };
 
     vkCmdTraceRaysKHR(render_state.cmd_buffer()->handle(), &raygen_sbt, &miss_sbt, &hit_sbt, &callable_sbt, x, y, z);
