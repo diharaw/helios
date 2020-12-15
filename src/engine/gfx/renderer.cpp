@@ -376,6 +376,29 @@ void Renderer::render_ray_debug_views(RenderState& render_state)
 {
     HELIOS_SCOPED_SAMPLE("Ray Debug View");
 
+    auto backend = m_backend.lock();
+    auto extents = backend->swap_chain_extents();
+
+    VkViewport vp;
+
+    vp.x        = 0.0f;
+    vp.y        = (float)extents.height;
+    vp.width    = (float)extents.width;
+    vp.height   = -(float)extents.height;
+    vp.minDepth = 0.0f;
+    vp.maxDepth = 1.0f;
+
+    vkCmdSetViewport(render_state.m_cmd_buffer->handle(), 0, 1, &vp);
+
+    VkRect2D scissor_rect;
+
+    scissor_rect.extent.width  = extents.width;
+    scissor_rect.extent.height = extents.height;
+    scissor_rect.offset.x      = 0;
+    scissor_rect.offset.y      = 0;
+
+    vkCmdSetScissor(render_state.m_cmd_buffer->handle(), 0, 1, &scissor_rect);
+
     vkCmdBindPipeline(render_state.m_cmd_buffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_ray_debug_pipeline->handle());
 
     const VkDeviceSize offset = 0;
