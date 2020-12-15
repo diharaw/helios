@@ -119,7 +119,8 @@ public:
     void             process_deletion_queue();
     void             queue_object_deletion(std::shared_ptr<Object> object);
 
-    inline VkPhysicalDeviceRayTracingPropertiesKHR ray_tracing_properties() { return m_ray_tracing_properties; }
+    inline VkPhysicalDeviceRayTracingPipelinePropertiesKHR ray_tracing_pipeline_properties() { return m_ray_tracing_pipeline_properties; }
+    inline VkPhysicalDeviceAccelerationStructurePropertiesKHR acceleration_structure_properties() { return m_acceleration_structure_properties; }
     inline VkFormat                                swap_chain_image_format() { return m_swap_chain_image_format; }
     inline VkFormat                                swap_chain_depth_format() { return m_swap_chain_depth_format; }
     inline VkExtent2D                              swap_chain_extents() { return m_swap_chain_extent; }
@@ -139,7 +140,6 @@ public:
 private:
     Backend(GLFWwindow* window, bool enable_validation_layers, bool require_ray_tracing, std::vector<const char*> additional_device_extensions);
     void                     initialize();
-    void                     load_extensions();
     VkFormat                 find_depth_format();
     bool                     check_validation_layer_support(std::vector<const char*> layers);
     bool                     check_device_extension_support(VkPhysicalDevice device, std::vector<const char*> extensions);
@@ -183,7 +183,8 @@ private:
     VkFormat                                                 m_swap_chain_image_format;
     VkFormat                                                 m_swap_chain_depth_format;
     VkExtent2D                                               m_swap_chain_extent;
-    VkPhysicalDeviceRayTracingPropertiesKHR                  m_ray_tracing_properties;
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR          m_ray_tracing_pipeline_properties;
+    VkPhysicalDeviceAccelerationStructurePropertiesKHR       m_acceleration_structure_properties;
     std::shared_ptr<RenderPass>                              m_swap_chain_render_pass;
     std::vector<std::shared_ptr<Image>>                      m_swap_chain_images;
     std::vector<std::shared_ptr<ImageView>>                  m_swap_chain_image_views;
@@ -245,6 +246,7 @@ public:
     inline VmaMemoryUsage     memory_usage() { return m_memory_usage; }
     inline VkSampleCountFlags sample_count() { return m_sample_count; }
     inline VkImageTiling      tiling() { return m_tiling; }
+    inline void*              mapped_ptr() { return m_mapped_ptr; }
 
 private:
     Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_size, VkFormat format, VmaMemoryUsage memory_usage, VkImageUsageFlags usage, VkSampleCountFlagBits sample_count, VkImageLayout initial_layout, size_t size, void* data, VkImageCreateFlags flags = 0, VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL);
@@ -267,6 +269,7 @@ private:
     VkDeviceMemory        m_vk_device_memory = nullptr;
     VmaAllocator_T*       m_vma_allocator    = nullptr;
     VmaAllocation_T*      m_vma_allocation   = nullptr;
+    void*                 m_mapped_ptr = nullptr;
 };
 
 class ImageView : public Object
@@ -697,7 +700,7 @@ public:
         Desc();
         Desc& set_shader_binding_table(ShaderBindingTable::Ptr table);
         Desc& set_pipeline_layout(std::shared_ptr<PipelineLayout> layout);
-        Desc& set_recursion_depth(uint32_t depth);
+        Desc& set_max_pipeline_ray_recursion_depth(uint32_t depth);
         Desc& set_base_pipeline(RayTracingPipeline::Ptr pipeline);
         Desc& set_base_pipeline_index(int32_t index);
     };
@@ -726,13 +729,16 @@ public:
 
     struct Desc
     {
-        VkAccelerationStructureCreateInfoKHR                          create_info;
-        std::vector<VkAccelerationStructureCreateGeometryTypeInfoKHR> geometries;
+        VkAccelerationStructureCreateInfoKHR            create_info;
+        VkAccelerationStructureBuildGeometryInfoKHR     build_geometry_info;
+        std::vector<VkAccelerationStructureGeometryKHR> geometries;
+        std::vector<uint32_t> max_primitive_counts;
 
         Desc();
         Desc& set_type(VkAccelerationStructureTypeKHR type);
-        Desc& set_geometry_type_infos(const std::vector<VkAccelerationStructureCreateGeometryTypeInfoKHR>& geometry_vec);
-        Desc& set_max_geometry_count(uint32_t count);
+        Desc& set_geometries(const std::vector<VkAccelerationStructureGeometryKHR>& geometry_vec);
+        Desc& set_max_primitive_counts(const std::vector<uint32_t>& primitive_counts);
+        Desc& set_geometry_count(uint32_t count);
         Desc& set_flags(VkBuildAccelerationStructureFlagsKHR flags);
         Desc& set_compacted_size(uint32_t size);
         Desc& set_device_address(VkDeviceAddress address);
@@ -743,6 +749,8 @@ public:
     inline VkAccelerationStructureCreateInfoKHR& info() { return m_vk_acceleration_structure_info; };
     inline const VkAccelerationStructureKHR&     handle() { return m_vk_acceleration_structure; }
     inline VkDeviceAddress                       device_address() { return m_device_address; }
+    inline VkBuildAccelerationStructureFlagsKHR flags() { return m_flags; }
+    inline VkAccelerationStructureBuildSizesInfoKHR build_sizes() { return m_build_sizes; }
 
     ~AccelerationStructure();
 
@@ -750,8 +758,10 @@ private:
     AccelerationStructure(Backend::Ptr backend, Desc desc);
 
 private:
-    VmaAllocation_T*                     m_vma_allocation = nullptr;
+    Buffer::Ptr                          m_buffer;
     VkDeviceAddress                      m_device_address = 0;
+    VkBuildAccelerationStructureFlagsKHR     m_flags;
+    VkAccelerationStructureBuildSizesInfoKHR m_build_sizes;
     VkAccelerationStructureCreateInfoKHR m_vk_acceleration_structure_info;
     VkAccelerationStructureKHR           m_vk_acceleration_structure = nullptr;
 };
@@ -993,7 +1003,7 @@ private:
     {
         AccelerationStructure::Ptr                             acceleration_structure;
         std::vector<VkAccelerationStructureGeometryKHR>        geometries;
-        std::vector<VkAccelerationStructureBuildOffsetInfoKHR> build_offsets;
+        std::vector<VkAccelerationStructureBuildRangeInfoKHR>  build_ranges;
     };
 
 public:
@@ -1002,7 +1012,7 @@ public:
 
     void upload_buffer_data(Buffer::Ptr buffer, void* data, const size_t& offset, const size_t& size);
     void upload_image_data(Image::Ptr image, void* data, const std::vector<size_t>& mip_level_sizes, VkImageLayout src_layout = VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout dst_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    void build_blas(AccelerationStructure::Ptr acceleration_structure, const std::vector<VkAccelerationStructureGeometryKHR>& geometries, const std::vector<VkAccelerationStructureBuildOffsetInfoKHR> build_offsets);
+    void build_blas(AccelerationStructure::Ptr acceleration_structure, const std::vector<VkAccelerationStructureGeometryKHR>& geometries, const std::vector<VkAccelerationStructureBuildRangeInfoKHR> build_ranges);
     void submit();
 
 private:

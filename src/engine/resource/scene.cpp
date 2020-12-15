@@ -635,43 +635,37 @@ Scene::Ptr Scene::create(vk::Backend::Ptr backend, const std::string& name, Node
 Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root, const std::string& path) :
     m_name(name), m_path(path), m_backend(backend), m_root(root), vk::Object(backend)
 {
-    // Create TLAS
-    VkAccelerationStructureCreateGeometryTypeInfoKHR tlas_geometry_type_info;
-    HELIOS_ZERO_MEMORY(tlas_geometry_type_info);
+    // Allocate device instance buffer
+    m_tlas.instance_buffer_device = vk::Buffer::create(backend, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, sizeof(VkAccelerationStructureInstanceKHR) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
 
-    tlas_geometry_type_info.sType             = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_GEOMETRY_TYPE_INFO_KHR;
-    tlas_geometry_type_info.geometryType      = VK_GEOMETRY_TYPE_INSTANCES_KHR;
-    tlas_geometry_type_info.maxPrimitiveCount = MAX_SCENE_MESH_INSTANCE_COUNT;
-    tlas_geometry_type_info.allowsTransforms  = VK_TRUE;
+    VkDeviceOrHostAddressConstKHR instance_device_address {};
+    instance_device_address.deviceAddress = m_tlas.instance_buffer_device->device_address();
+
+    // Allocate host instance buffer
+    m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(VkAccelerationStructureInstanceKHR) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_CPU_ONLY, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+
+    // Create TLAS
+    VkAccelerationStructureGeometryKHR tlas_geometry;
+    HELIOS_ZERO_MEMORY(tlas_geometry);
+
+    tlas_geometry.sType             = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+    tlas_geometry.geometryType      = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+    tlas_geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+    tlas_geometry.geometry.instances.arrayOfPointers = VK_FALSE;
+    tlas_geometry.geometry.instances.data            = instance_device_address;
 
     vk::AccelerationStructure::Desc desc;
 
-    desc.set_max_geometry_count(1);
-    desc.set_geometry_type_infos({ tlas_geometry_type_info });
+    desc.set_geometry_count(1);
+    desc.set_geometries({ tlas_geometry });
+    desc.set_max_primitive_counts({ MAX_SCENE_MESH_INSTANCE_COUNT });
     desc.set_type(VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR);
     desc.set_flags(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR);
 
     m_tlas.tlas = vk::AccelerationStructure::create(backend, desc);
 
-    // Allocate instance buffer
-    m_tlas.instance_buffer_host = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(VkAccelerationStructureInstanceKHR) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_CPU_ONLY, VMA_ALLOCATION_CREATE_MAPPED_BIT);
-
-    // Allocate TLAS scratch buffer
-    VkAccelerationStructureMemoryRequirementsInfoKHR memory_requirements_info;
-    memory_requirements_info.sType                 = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_KHR;
-    memory_requirements_info.pNext                 = nullptr;
-    memory_requirements_info.type                  = VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_KHR;
-    memory_requirements_info.buildType             = VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR;
-    memory_requirements_info.accelerationStructure = m_tlas.tlas->handle();
-
-    VkMemoryRequirements2 mem_req_blas;
-    HELIOS_ZERO_MEMORY(mem_req_blas);
-
-    mem_req_blas.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
-
-    vkGetAccelerationStructureMemoryRequirementsKHR(backend->device(), &memory_requirements_info, &mem_req_blas);
-
-    m_tlas.scratch_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, mem_req_blas.memoryRequirements.size, VMA_MEMORY_USAGE_GPU_ONLY, 0);
+    // Allocate scratch buffer
+    m_tlas.scratch_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, m_tlas.tlas->build_sizes().buildScratchSize, VMA_MEMORY_USAGE_GPU_ONLY, 0);
 
     vk::DescriptorPool::Desc dp_desc;
 

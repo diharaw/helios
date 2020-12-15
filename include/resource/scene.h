@@ -35,6 +35,7 @@ struct AccelerationStructureData
 {
     vk::AccelerationStructure::Ptr tlas;
     vk::Buffer::Ptr                instance_buffer_host;
+    vk::Buffer::Ptr                instance_buffer_device;
     vk::Buffer::Ptr                scratch_buffer;
     bool                           is_built = false;
 };

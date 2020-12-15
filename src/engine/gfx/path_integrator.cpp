@@ -90,7 +90,7 @@ void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeli
     auto backend = m_backend.lock();
 
     auto  extents  = backend->swap_chain_extents();
-    auto& rt_props = backend->ray_tracing_properties();
+    auto& rt_pipeline_props = backend->ray_tracing_pipeline_properties();
 
     vkCmdBindPipeline(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->handle());
 
@@ -136,13 +136,13 @@ void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeli
         vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline_layout->handle(), 0, 7, descriptor_sets, 0, nullptr);
     }
 
-    VkDeviceSize prog_size = rt_props.shaderGroupBaseAlignment;
+    VkDeviceSize prog_size = rt_pipeline_props.shaderGroupBaseAlignment;
     VkDeviceSize sbt_size  = prog_size * pipeline->shader_binding_table()->groups().size();
 
-    const VkStridedBufferRegionKHR raygen_sbt   = { pipeline->shader_binding_table_buffer()->handle(), 0, prog_size, sbt_size };
-    const VkStridedBufferRegionKHR miss_sbt     = { pipeline->shader_binding_table_buffer()->handle(), sbt->miss_group_offset(), prog_size, sbt_size };
-    const VkStridedBufferRegionKHR hit_sbt      = { pipeline->shader_binding_table_buffer()->handle(), sbt->hit_group_offset(), prog_size, sbt_size };
-    const VkStridedBufferRegionKHR callable_sbt = { VK_NULL_HANDLE, 0, 0, 0 };
+    const VkStridedDeviceAddressRegionKHR raygen_sbt   = { pipeline->shader_binding_table_buffer()->device_address(), 0, prog_size };
+    const VkStridedDeviceAddressRegionKHR miss_sbt     = { pipeline->shader_binding_table_buffer()->device_address(), sbt->miss_group_offset(), prog_size };
+    const VkStridedDeviceAddressRegionKHR hit_sbt      = { pipeline->shader_binding_table_buffer()->device_address(), sbt->hit_group_offset(), prog_size };
+    const VkStridedDeviceAddressRegionKHR callable_sbt = { VK_NULL_HANDLE, 0, 0 };
 
     vkCmdTraceRaysKHR(render_state.cmd_buffer()->handle(), &raygen_sbt, &miss_sbt, &hit_sbt, &callable_sbt, x, y, z);
 }
@@ -175,7 +175,7 @@ void PathIntegrator::create_pipeline()
 
     vk::RayTracingPipeline::Desc desc;
 
-    desc.set_recursion_depth(8);
+    desc.set_max_pipeline_ray_recursion_depth(8);
     desc.set_shader_binding_table(m_path_trace_sbt);
 
     // ---------------------------------------------------------------------------
@@ -229,7 +229,7 @@ void PathIntegrator::create_ray_debug_pipeline()
 
     vk::RayTracingPipeline::Desc desc;
 
-    desc.set_recursion_depth(8);
+    desc.set_max_pipeline_ray_recursion_depth(8);
     desc.set_shader_binding_table(m_ray_debug_sbt);
 
     // ---------------------------------------------------------------------------

@@ -58,9 +58,9 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
     m_id(g_last_mesh_id++),
     m_path(path)
 {
-    std::vector<VkAccelerationStructureBuildOffsetInfoKHR>        build_offsets;
+    std::vector<VkAccelerationStructureBuildRangeInfoKHR>         build_ranges;
     std::vector<VkAccelerationStructureGeometryKHR>               geometries;
-    std::vector<VkAccelerationStructureCreateGeometryTypeInfoKHR> geometry_type_infos;
+    std::vector<uint32_t>               max_primitive_counts;
 
     // Populate geometries
     for (int i = 0; i < submeshes.size(); i++)
@@ -82,34 +82,24 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
         geometry.geometry.triangles.pNext                    = nullptr;
         geometry.geometry.triangles.vertexData.deviceAddress = m_vbo->device_address();
         geometry.geometry.triangles.vertexStride             = sizeof(Vertex);
+        geometry.geometry.triangles.maxVertex                = submeshes[i].vertex_count;
         geometry.geometry.triangles.vertexFormat             = VK_FORMAT_R32G32B32_SFLOAT;
         geometry.geometry.triangles.indexData.deviceAddress  = m_ibo->device_address();
         geometry.geometry.triangles.indexType                = VK_INDEX_TYPE_UINT32;
         geometry.flags                                       = geometry_flags;
-
+   
         geometries.push_back(geometry);
+        max_primitive_counts.push_back(submeshes[i].index_count / 3);
 
-        VkAccelerationStructureCreateGeometryTypeInfoKHR geometry_type_info;
-        HELIOS_ZERO_MEMORY(geometry_type_info);
+        VkAccelerationStructureBuildRangeInfoKHR build_range;
+        HELIOS_ZERO_MEMORY(build_range);
 
-        geometry_type_info.sType             = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_GEOMETRY_TYPE_INFO_KHR;
-        geometry_type_info.vertexFormat      = VK_FORMAT_R32G32B32_SFLOAT;
-        geometry_type_info.indexType         = VK_INDEX_TYPE_UINT32;
-        geometry_type_info.maxPrimitiveCount = submeshes[i].index_count / 3;
-        geometry_type_info.maxVertexCount    = submeshes[i].vertex_count;
-        geometry_type_info.allowsTransforms  = VK_FALSE;
+        build_range.primitiveCount  = submeshes[i].index_count / 3;
+        build_range.primitiveOffset = submeshes[i].base_index * sizeof(uint32_t);
+        build_range.firstVertex     = 0;
+        build_range.transformOffset = 0;
 
-        geometry_type_infos.push_back(geometry_type_info);
-
-        VkAccelerationStructureBuildOffsetInfoKHR build_offset;
-        HELIOS_ZERO_MEMORY(build_offset);
-
-        build_offset.primitiveCount  = submeshes[i].index_count / 3;
-        build_offset.primitiveOffset = submeshes[i].base_index * sizeof(uint32_t);
-        build_offset.firstVertex     = 0;
-        build_offset.transformOffset = 0;
-
-        build_offsets.push_back(build_offset);
+        build_ranges.push_back(build_range);
     }
 
     // Create blas
@@ -117,12 +107,13 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
 
     desc.set_type(VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR);
     desc.set_flags(VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
-    desc.set_geometry_type_infos(geometry_type_infos);
-    desc.set_max_geometry_count(geometry_type_infos.size());
+    desc.set_geometries(geometries);
+    desc.set_geometry_count(geometries.size());
+    desc.set_max_primitive_counts(max_primitive_counts);
 
     m_blas = vk::AccelerationStructure::create(backend, desc);
 
-    uploader.build_blas(m_blas, geometries, build_offsets);
+    uploader.build_blas(m_blas, geometries, build_ranges);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

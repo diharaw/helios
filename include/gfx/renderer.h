@@ -34,7 +34,7 @@ private:
     vk::ImageView::Ptr         m_output_image_views[2];
     vk::Image::Ptr             m_tone_map_image;
     vk::ImageView::Ptr         m_tone_map_image_view;
-    vk::Image::Ptr             m_screenshot_image;
+    vk::Image::Ptr             m_save_to_disk_image;
     vk::DescriptorSet::Ptr     m_output_storage_image_ds[2];
     vk::DescriptorSet::Ptr     m_input_combined_sampler_ds[2];
     vk::DescriptorSet::Ptr     m_tone_map_ds;
@@ -52,6 +52,9 @@ private:
     bool                       m_output_ping_pong       = false;
     bool                       m_ray_debug_view_added   = false;
     bool                       m_output_image_recreated = true;
+    bool                       m_save_image_to_disk = false;
+    bool                       m_copy_started           = false;
+    std::string                m_image_save_path = "";
     ToneMapOperator            m_tone_map_operator      = TONE_MAP_OPERATOR_ACES;
     float                      m_exposure               = 1.0f;
 
@@ -70,11 +73,13 @@ public:
     void                             add_ray_debug_view(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection);
     const std::vector<RayDebugView>& ray_debug_views();
     void                             clear_ray_debug_views();
+    void                             save_image_to_disk(const std::string& path);
 
 private:
     void tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr read_image);
     void copy(vk::CommandBuffer::Ptr cmd_buf);
     void render_ray_debug_views(RenderState& render_state);
+    void copy_and_save_tone_mapped_image(vk::CommandBuffer::Ptr cmd_buf);  
     void create_output_images();
     void create_tone_map_render_pass();
     void create_tone_map_framebuffer();
@@ -82,7 +87,6 @@ private:
     void create_copy_pipeline();
     void create_ray_debug_pipeline();
     void create_ray_debug_buffers();
-    void create_buffers();
     void create_static_descriptor_sets();
     void create_dynamic_descriptor_sets();
     void update_dynamic_descriptor_sets();

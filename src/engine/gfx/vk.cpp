@@ -223,7 +223,7 @@ Image::Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t he
     HELIOS_ZERO_MEMORY(alloc_create_info);
 
     alloc_create_info.usage = memory_usage;
-    alloc_create_info.flags = 0;
+    alloc_create_info.flags = (memory_usage == VMA_MEMORY_USAGE_CPU_ONLY || memory_usage == VMA_MEMORY_USAGE_GPU_TO_CPU) ? VMA_ALLOCATION_CREATE_MAPPED_BIT : 0;
 
     if (vmaCreateImage(m_vma_allocator, &image_info, &alloc_create_info, &m_vk_image, &m_vma_allocation, &alloc_info) != VK_SUCCESS)
     {
@@ -232,6 +232,7 @@ Image::Image(Backend::Ptr backend, VkImageType type, uint32_t width, uint32_t he
     }
 
     m_vk_device_memory = alloc_info.deviceMemory;
+    m_mapped_ptr       = alloc_info.pMappedData;
 
     if (data)
     {
@@ -2021,7 +2022,7 @@ ShaderBindingTable::ShaderBindingTable(Backend::Ptr backend, Desc desc) :
 {
     m_entry_point_names.reserve(32);
 
-    auto& rt_props = backend->ray_tracing_properties();
+    auto& rt_pipeline_props = backend->ray_tracing_pipeline_properties();
 
     // Ray gen shaders
     for (auto& stage : desc.ray_gen_stages)
@@ -2114,9 +2115,9 @@ ShaderBindingTable::ShaderBindingTable(Backend::Ptr backend, Desc desc) :
         m_groups.push_back(group_info);
     }
 
-    m_ray_gen_size    = desc.ray_gen_stages.size() * rt_props.shaderGroupBaseAlignment;
-    m_hit_group_size  = desc.hit_groups.size() * rt_props.shaderGroupBaseAlignment;
-    m_miss_group_size = desc.miss_stages.size() * rt_props.shaderGroupBaseAlignment;
+    m_ray_gen_size    = desc.ray_gen_stages.size() * rt_pipeline_props.shaderGroupBaseAlignment;
+    m_hit_group_size  = desc.hit_groups.size() * rt_pipeline_props.shaderGroupBaseAlignment;
+    m_miss_group_size = desc.miss_stages.size() * rt_pipeline_props.shaderGroupBaseAlignment;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -2127,7 +2128,6 @@ RayTracingPipeline::Desc::Desc()
 
     create_info.sType           = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
     create_info.pNext           = nullptr;
-    create_info.libraries.sType = VK_STRUCTURE_TYPE_PIPELINE_LIBRARY_CREATE_INFO_KHR;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -2157,9 +2157,9 @@ RayTracingPipeline::Desc& RayTracingPipeline::Desc::set_pipeline_layout(std::sha
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-RayTracingPipeline::Desc& RayTracingPipeline::Desc::set_recursion_depth(uint32_t depth)
+RayTracingPipeline::Desc& RayTracingPipeline::Desc::set_max_pipeline_ray_recursion_depth(uint32_t depth)
 {
-    create_info.maxRecursionDepth = depth;
+    create_info.maxPipelineRayRecursionDepth = depth;
     return *this;
 }
 
@@ -2213,17 +2213,17 @@ RayTracingPipeline::RayTracingPipeline(Backend::Ptr backend, Desc desc) :
     desc.create_info.pGroups = m_sbt->groups().data();
     desc.create_info.pStages = m_sbt->stages().data();
 
-    if (vkCreateRayTracingPipelinesKHR(backend->device(), VK_NULL_HANDLE, 1, &desc.create_info, VK_NULL_HANDLE, &m_vk_pipeline) != VK_SUCCESS)
+    if (vkCreateRayTracingPipelinesKHR(backend->device(), VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &desc.create_info, VK_NULL_HANDLE, &m_vk_pipeline) != VK_SUCCESS)
     {
         HELIOS_LOG_FATAL("(Vulkan) Failed to create Ray Tracing Pipeline.");
         throw std::runtime_error("(Vulkan) Failed to create Ray Tracing Pipeline.");
     }
 
-    const auto& rt_props = backend->ray_tracing_properties();
+    const auto& rt_pipeline_props = backend->ray_tracing_pipeline_properties();
 
-    size_t sbt_size = m_sbt->groups().size() * rt_props.shaderGroupBaseAlignment;
+    size_t sbt_size = m_sbt->groups().size() * rt_pipeline_props.shaderGroupBaseAlignment;
 
-    m_vk_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_KHR, sbt_size, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+    m_vk_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, sbt_size, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
     std::vector<uint8_t> scratch_mem(sbt_size);
 
@@ -2238,10 +2238,10 @@ RayTracingPipeline::RayTracingPipeline(Backend::Ptr backend, Desc desc) :
 
     for (int i = 0; i < m_sbt->groups().size(); i++)
     {
-        memcpy(dst_ptr, src_ptr, rt_props.shaderGroupHandleSize);
+        memcpy(dst_ptr, src_ptr, rt_pipeline_props.shaderGroupHandleSize);
 
-        dst_ptr += rt_props.shaderGroupBaseAlignment;
-        src_ptr += rt_props.shaderGroupHandleSize;
+        dst_ptr += rt_pipeline_props.shaderGroupBaseAlignment;
+        src_ptr += rt_pipeline_props.shaderGroupHandleSize;
     }
 }
 
@@ -2253,9 +2253,11 @@ AccelerationStructure::Desc::Desc()
 
     create_info.sType         = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
     create_info.pNext         = nullptr;
-    create_info.compactedSize = 0;
-    create_info.sType         = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-    create_info.pNext         = nullptr;
+
+    HELIOS_ZERO_MEMORY(build_geometry_info);
+
+    build_geometry_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+    build_geometry_info.pNext = nullptr;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -2268,18 +2270,26 @@ AccelerationStructure::Desc& AccelerationStructure::Desc::set_type(VkAcceleratio
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-AccelerationStructure::Desc& AccelerationStructure::Desc::set_geometry_type_infos(const std::vector<VkAccelerationStructureCreateGeometryTypeInfoKHR>& geometry_vec)
+AccelerationStructure::Desc& AccelerationStructure::Desc::set_geometries(const std::vector<VkAccelerationStructureGeometryKHR>& geometry_vec)
 {
     geometries                 = geometry_vec;
-    create_info.pGeometryInfos = geometries.data();
+    build_geometry_info.pGeometries = geometries.data();
     return *this;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-AccelerationStructure::Desc& AccelerationStructure::Desc::set_max_geometry_count(uint32_t count)
+AccelerationStructure::Desc& AccelerationStructure::Desc::set_max_primitive_counts(const std::vector<uint32_t>& primitive_counts)
 {
-    create_info.maxGeometryCount = count;
+    max_primitive_counts = primitive_counts;
+    return *this;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+AccelerationStructure::Desc& AccelerationStructure::Desc::set_geometry_count(uint32_t count)
+{
+    build_geometry_info.geometryCount = count;
     return *this;
 }
 
@@ -2287,15 +2297,7 @@ AccelerationStructure::Desc& AccelerationStructure::Desc::set_max_geometry_count
 
 AccelerationStructure::Desc& AccelerationStructure::Desc::set_flags(VkBuildAccelerationStructureFlagsKHR flags)
 {
-    create_info.flags = flags;
-    return *this;
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-AccelerationStructure::Desc& AccelerationStructure::Desc::set_compacted_size(uint32_t size)
-{
-    create_info.compactedSize = size;
+    build_geometry_info.flags = flags;
     return *this;
 }
 
@@ -2327,7 +2329,7 @@ AccelerationStructure::~AccelerationStructure()
     auto backend = m_vk_backend.lock();
 
     vkDestroyAccelerationStructureKHR(backend->device(), m_vk_acceleration_structure, nullptr);
-    vmaFreeMemory(backend->allocator(), m_vma_allocation);
+    m_buffer.reset();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -2335,48 +2337,27 @@ AccelerationStructure::~AccelerationStructure()
 AccelerationStructure::AccelerationStructure(Backend::Ptr backend, Desc desc) :
     Object(backend)
 {
+    m_flags                          = desc.build_geometry_info.flags;
     m_vk_acceleration_structure_info = desc.create_info;
 
+    HELIOS_ZERO_MEMORY(m_build_sizes);
+
+    m_build_sizes.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+    
+    vkGetAccelerationStructureBuildSizesKHR(
+        backend->device(),
+        VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+        &desc.build_geometry_info,
+        desc.max_primitive_counts.data(),
+        &m_build_sizes);
+
+    // Allocate buffer
+    m_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, m_build_sizes.accelerationStructureSize, VMA_MEMORY_USAGE_GPU_ONLY, 0);
+
+    m_vk_acceleration_structure_info.buffer = m_buffer->handle();
+    m_vk_acceleration_structure_info.size   = m_build_sizes.accelerationStructureSize;
+
     if (vkCreateAccelerationStructureKHR(backend->device(), &desc.create_info, nullptr, &m_vk_acceleration_structure) != VK_SUCCESS)
-    {
-        HELIOS_LOG_FATAL("(Vulkan) Failed to create Acceleration Structure.");
-        throw std::runtime_error("(Vulkan) Failed to create Acceleration Structure.");
-    }
-
-    VkAccelerationStructureMemoryRequirementsInfoKHR memory_requirements_info;
-    HELIOS_ZERO_MEMORY(memory_requirements_info);
-
-    memory_requirements_info.sType                 = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_KHR;
-    memory_requirements_info.pNext                 = nullptr;
-    memory_requirements_info.type                  = VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_OBJECT_KHR;
-    memory_requirements_info.accelerationStructure = m_vk_acceleration_structure;
-
-    VkMemoryRequirements2 memory_requirements;
-    HELIOS_ZERO_MEMORY(memory_requirements);
-
-    memory_requirements.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
-
-    vkGetAccelerationStructureMemoryRequirementsKHR(backend->device(), &memory_requirements_info, &memory_requirements);
-
-    VmaAllocationInfo       alloc_info;
-    VmaAllocationCreateInfo alloc_create_info;
-    HELIOS_ZERO_MEMORY(alloc_create_info);
-
-    alloc_create_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    alloc_create_info.flags = 0;
-
-    vmaAllocateMemory(backend->allocator(), &memory_requirements.memoryRequirements, &alloc_create_info, &m_vma_allocation, &alloc_info);
-
-    VkBindAccelerationStructureMemoryInfoKHR bind_info;
-    bind_info.sType                 = VK_STRUCTURE_TYPE_BIND_ACCELERATION_STRUCTURE_MEMORY_INFO_KHR;
-    bind_info.pNext                 = nullptr;
-    bind_info.accelerationStructure = m_vk_acceleration_structure;
-    bind_info.memory                = alloc_info.deviceMemory;
-    bind_info.memoryOffset          = alloc_info.offset;
-    bind_info.deviceIndexCount      = 0;
-    bind_info.pDeviceIndices        = nullptr;
-
-    if (vkBindAccelerationStructureMemoryKHR(backend->device(), 1, &bind_info) != VK_SUCCESS)
     {
         HELIOS_LOG_FATAL("(Vulkan) Failed to create Acceleration Structure.");
         throw std::runtime_error("(Vulkan) Failed to create Acceleration Structure.");
@@ -3010,10 +2991,10 @@ void BatchUploader::upload_image_data(Image::Ptr image, void* data, const std::v
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void BatchUploader::build_blas(AccelerationStructure::Ptr acceleration_structure, const std::vector<VkAccelerationStructureGeometryKHR>& geometries, const std::vector<VkAccelerationStructureBuildOffsetInfoKHR> build_offsets)
+void BatchUploader::build_blas(AccelerationStructure::Ptr acceleration_structure, const std::vector<VkAccelerationStructureGeometryKHR>& geometries, const std::vector<VkAccelerationStructureBuildRangeInfoKHR> build_ranges)
 {
-    if (geometries.size() > 0 || build_offsets.size() > 0)
-        m_blas_build_requests.push_back({ acceleration_structure, geometries, build_offsets });
+    if (geometries.size() > 0 || build_ranges.size() > 0)
+        m_blas_build_requests.push_back({ acceleration_structure, geometries, build_ranges });
     else
     {
         HELIOS_LOG_FATAL("(Vulkan) Building a BLAS requires one or more Geometry and Build Offset structures.");
@@ -3208,7 +3189,10 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
     std::vector<const char*> device_extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
     device_extensions.push_back(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
-    device_extensions.push_back(VK_KHR_RAY_TRACING_EXTENSION_NAME);
+    device_extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+    device_extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+    device_extensions.push_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+    device_extensions.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
     device_extensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
     device_extensions.push_back(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
     device_extensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
@@ -3243,7 +3227,7 @@ Backend::Backend(GLFWwindow* window, bool enable_validation_layers, bool require
         throw std::runtime_error("(Vulkan) Failed to create Allocator.");
     }
 
-    load_extensions();
+    load_VK_EXTENSION_SUBSET(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -3468,84 +3452,6 @@ void Backend::initialize()
     uploader.upload_image_data(m_default_cubemap_image, cubemap_data.data(), cubemap_sizes);
 
     uploader.submit();
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-void Backend::load_extensions()
-{
-#if VK_EXT_debug_marker
-    load_VK_EXT_debug_marker(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_KHR_external_memory_win32 && defined(VK_USE_PLATFORM_WIN32_KHR)
-    load_VK_KHR_external_memory_win32(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_KHR_external_memory_fd
-    load_VK_KHR_external_memory_fd(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_KHR_external_semaphore_win32 && defined(VK_USE_PLATFORM_WIN32_KHR)
-    load_VK_KHR_external_semaphore_win32(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_KHR_external_semaphore_fd
-    load_VK_KHR_external_semaphore_fd(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_KHR_push_descriptor
-    load_VK_KHR_push_descriptor(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_KHR_create_renderpass2
-    load_VK_KHR_create_renderpass2(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_KHR_external_fence_win32 && defined(VK_USE_PLATFORM_WIN32_KHR)
-    load_VK_KHR_external_fence_win32(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_EXT_debug_utils
-    load_VK_EXT_debug_utils(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_EXT_sample_locations
-    load_VK_EXT_sample_locations(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_KHR_ray_tracing
-    load_VK_KHR_ray_tracing(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_NV_shading_rate_image
-    load_VK_NV_shading_rate_image(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_NV_ray_tracing
-    load_VK_NV_ray_tracing(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_KHR_draw_indirect_count
-    load_VK_KHR_draw_indirect_count(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_EXT_calibrated_timestamps
-    load_VK_EXT_calibrated_timestamps(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_NV_mesh_shader
-    load_VK_NV_mesh_shader(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_NV_scissor_exclusive
-    load_VK_NV_scissor_exclusive(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_EXT_buffer_device_address
-    load_VK_EXT_buffer_device_address(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_NV_cooperative_matrix
-    load_VK_NV_cooperative_matrix(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_NV_coverage_reduction_mode
-    load_VK_NV_coverage_reduction_mode(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_KHR_buffer_device_address
-    load_VK_KHR_buffer_device_address(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_EXT_host_query_reset
-    load_VK_EXT_host_query_reset(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_KHR_pipeline_executable_properties
-    load_VK_KHR_pipeline_executable_properties(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
-#if VK_NV_device_generated_commands
-    load_VK_NV_device_generated_commands(m_vk_instance, vkGetInstanceProcAddr, m_vk_device, vkGetDeviceProcAddr);
-#endif
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -4176,7 +4082,7 @@ bool Backend::is_device_suitable(VkPhysicalDevice device, VkPhysicalDeviceType t
 
     for (auto& ext : extensions)
     {
-        if (strcmp(ext, VK_KHR_RAY_TRACING_EXTENSION_NAME) == 0)
+        if (strcmp(ext, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) == 0)
         {
             requires_ray_tracing = true;
             break;
@@ -4197,18 +4103,23 @@ bool Backend::is_device_suitable(VkPhysicalDevice device, VkPhysicalDeviceType t
 
             if (requires_ray_tracing)
             {
-                m_ray_tracing_properties.sType                 = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_KHR;
-                m_ray_tracing_properties.pNext                 = nullptr;
-                m_ray_tracing_properties.maxRecursionDepth     = 0;
-                m_ray_tracing_properties.shaderGroupHandleSize = 0;
+                // Get ray tracing pipeline properties
+                HELIOS_ZERO_MEMORY(m_ray_tracing_pipeline_properties);
+                m_ray_tracing_pipeline_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+                
+                VkPhysicalDeviceProperties2 device_properties2 {};
+                device_properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+                device_properties2.pNext = &m_ray_tracing_pipeline_properties;
+                vkGetPhysicalDeviceProperties2(device, &device_properties2);
 
-                VkPhysicalDeviceProperties2 properties;
-                properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-                properties.pNext = &m_ray_tracing_properties;
-
-                HELIOS_ZERO_MEMORY(properties.properties);
-
-                vkGetPhysicalDeviceProperties2(device, &properties);
+                // Get acceleration structure properties
+                HELIOS_ZERO_MEMORY(m_acceleration_structure_properties);
+                m_acceleration_structure_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+                
+                VkPhysicalDeviceFeatures2 device_features2 {};
+                device_features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+                device_features2.pNext = &m_acceleration_structure_properties;
+                vkGetPhysicalDeviceFeatures2(device, &device_features2);
             }
 
             return find_queues(device, infos);
@@ -4423,12 +4334,21 @@ bool Backend::is_queue_compatible(VkQueueFlags current_queue_flags, int32_t grap
 
 bool Backend::create_logical_device(std::vector<const char*> extensions)
 {
-    // Ray Tracing Features
-    VkPhysicalDeviceRayTracingFeaturesKHR device_ray_tracing_features;
-    HELIOS_ZERO_MEMORY(device_ray_tracing_features);
+    // Acceleration Structure Features
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR device_acceleration_structure_features;
+    HELIOS_ZERO_MEMORY(device_acceleration_structure_features);
 
-    device_ray_tracing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_FEATURES_KHR;
-    device_ray_tracing_features.pNext = nullptr;
+    device_acceleration_structure_features.sType                 = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+    device_acceleration_structure_features.pNext = nullptr;
+    device_acceleration_structure_features.accelerationStructure = VK_TRUE;
+
+    // Ray Tracing Features
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR device_ray_tracing_pipeline_features;
+    HELIOS_ZERO_MEMORY(device_ray_tracing_pipeline_features);
+
+    device_ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+    device_ray_tracing_pipeline_features.pNext              = &device_acceleration_structure_features;
+    device_ray_tracing_pipeline_features.rayTracingPipeline = VK_TRUE;
 
     // Vulkan 1.1/1.2 Features
     VkPhysicalDeviceVulkan11Features features11;
@@ -4441,7 +4361,7 @@ bool Backend::create_logical_device(std::vector<const char*> extensions)
     features11.pNext = &features12;
 
     features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-    features12.pNext = &device_ray_tracing_features;
+    features12.pNext = &device_ray_tracing_pipeline_features;
 
     // Physical Device Features 2
     VkPhysicalDeviceFeatures2 physical_device_features_2;

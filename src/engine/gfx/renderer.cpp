@@ -1,10 +1,13 @@
 #include <gfx/renderer.h>
 #include <utility/macros.h>
 #include <utility/profiler.h>
+#include <utility/logger.h>
 #include <vk_mem_alloc.h>
 #include <imgui.h>
 #include <examples/imgui_impl_vulkan.h>
 #include <resource/scene.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 
 namespace helios
 {
@@ -20,7 +23,7 @@ struct RayDebugVertex
 
 struct ToneMapPushConstants
 {
-    float exposure;
+    float    exposure;
     uint32_t tone_map_operator;
 };
 
@@ -36,7 +39,6 @@ Renderer::Renderer(vk::Backend::Ptr backend) :
     create_tone_map_framebuffer();
     create_tone_map_pipeline();
     create_copy_pipeline();
-    create_buffers();
     create_ray_debug_buffers();
     create_ray_debug_pipeline();
     create_static_descriptor_sets();
@@ -56,7 +58,7 @@ Renderer::~Renderer()
         m_input_combined_sampler_ds[i].reset();
     }
 
-    m_screenshot_image.reset();
+    m_save_to_disk_image.reset();
     m_tone_map_ds.reset();
     m_tone_map_image_view.reset();
     m_tone_map_image.reset();
@@ -116,32 +118,28 @@ void Renderer::render(RenderState& render_state)
         geometry.geometry.instances.arrayOfPointers    = VK_FALSE;
         geometry.geometry.instances.data.deviceAddress = m_tlas_instance_buffer_device->device_address();
 
-        VkAccelerationStructureGeometryKHR* ptr_geometry = &geometry;
-
         VkAccelerationStructureBuildGeometryInfoKHR build_info;
         HELIOS_ZERO_MEMORY(build_info);
 
         build_info.sType                     = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
         build_info.type                      = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-        build_info.flags                     = tlas_data.tlas->info().flags;
-        build_info.update                    = tlas_data.is_built;
+        build_info.flags                     = tlas_data.tlas->flags();
         build_info.srcAccelerationStructure  = tlas_data.is_built ? tlas_data.tlas->handle() : VK_NULL_HANDLE;
         build_info.dstAccelerationStructure  = tlas_data.tlas->handle();
-        build_info.geometryArrayOfPointers   = VK_FALSE;
         build_info.geometryCount             = 1;
-        build_info.ppGeometries              = &ptr_geometry;
+        build_info.pGeometries               = &geometry;
         build_info.scratchData.deviceAddress = tlas_data.scratch_buffer->device_address();
 
-        VkAccelerationStructureBuildOffsetInfoKHR build_offset_info;
+        VkAccelerationStructureBuildRangeInfoKHR build_range_info;
 
-        build_offset_info.primitiveCount  = render_state.m_meshes.size();
-        build_offset_info.primitiveOffset = 0;
-        build_offset_info.firstVertex     = 0;
-        build_offset_info.transformOffset = 0;
+        build_range_info.primitiveCount  = render_state.m_meshes.size();
+        build_range_info.primitiveOffset = 0;
+        build_range_info.firstVertex     = 0;
+        build_range_info.transformOffset = 0;
 
-        const VkAccelerationStructureBuildOffsetInfoKHR* ptr_build_offset_info = &build_offset_info;
+        const VkAccelerationStructureBuildRangeInfoKHR* ptr_build_range_info = &build_range_info;
 
-        vkCmdBuildAccelerationStructureKHR(render_state.m_cmd_buffer->handle(), 1, &build_info, &ptr_build_offset_info);
+        vkCmdBuildAccelerationStructuresKHR(render_state.m_cmd_buffer->handle(), 1, &build_info, &ptr_build_range_info);
 
         {
             VkMemoryBarrier memory_barrier;
@@ -222,7 +220,9 @@ void Renderer::render(RenderState& render_state)
     // Tone map output
     tone_map(render_state.m_cmd_buffer, m_input_combined_sampler_ds[write_index]);
 
-    // TODO: copy screenshot
+    // Copy screenshot
+    if (m_save_image_to_disk)
+        copy_and_save_tone_mapped_image(render_state.m_cmd_buffer);
 
     // Render final onscreen passes
     auto extents = backend->swap_chain_extents();
@@ -304,12 +304,6 @@ void Renderer::tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr r
     auto backend = m_backend.lock();
     auto extents = backend->swap_chain_extents();
 
-
-
-
-
-
-
     VkClearValue clear_value;
 
     clear_value.color.float32[0] = 0.0f;
@@ -353,8 +347,8 @@ void Renderer::tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr r
     vkCmdBindDescriptorSets(cmd_buf->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_tone_map_pipeline_layout->handle(), 0, 1, &read_image->handle(), 0, nullptr);
 
     ToneMapPushConstants pc;
-    
-    pc.exposure = m_exposure;
+
+    pc.exposure          = m_exposure;
     pc.tone_map_operator = m_tone_map_operator;
 
     vkCmdPushConstants(cmd_buf->handle(), m_tone_map_pipeline_layout->handle(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ToneMapPushConstants), &pc);
@@ -397,6 +391,84 @@ void Renderer::render_ray_debug_views(RenderState& render_state)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+void Renderer::copy_and_save_tone_mapped_image(vk::CommandBuffer::Ptr cmd_buf)
+{
+    auto backend = m_backend.lock();
+    auto extents = backend->swap_chain_extents();
+
+    if (m_copy_started)
+    {
+        backend->wait_idle();
+
+        // Get layout of the image (including row pitch)
+        VkImageSubresource  subResource { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
+        VkSubresourceLayout subResourceLayout;
+        vkGetImageSubresourceLayout(backend->device(), m_save_to_disk_image->handle(), &subResource, &subResourceLayout);
+
+        if (stbi_write_png(m_image_save_path.c_str(), extents.width, extents.height, 4, m_save_to_disk_image->mapped_ptr(), sizeof(char) * 4 * extents.width) == 0)
+            HELIOS_LOG_ERROR("Failed to write image to disk.");
+
+        m_copy_started = false;
+        m_save_image_to_disk = false;
+        m_image_save_path    = "";
+    }
+    else
+    {
+        VkImageSubresourceRange subresource_range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+        vk::utilities::set_image_layout(
+            cmd_buf->handle(),
+            m_tone_map_image->handle(),
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            subresource_range);
+
+        vk::utilities::set_image_layout(
+            cmd_buf->handle(),
+            m_save_to_disk_image->handle(),
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            subresource_range);
+
+        VkImageCopy image_copy_region {};
+        image_copy_region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        image_copy_region.srcSubresource.layerCount = 1;
+        image_copy_region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        image_copy_region.dstSubresource.layerCount = 1;
+        image_copy_region.extent.width              = extents.width;
+        image_copy_region.extent.height             = extents.height;
+        image_copy_region.extent.depth              = 1;
+
+        // Issue the copy command
+        vkCmdCopyImage(
+            cmd_buf->handle(),
+            m_tone_map_image->handle(),
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            m_save_to_disk_image->handle(),
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &image_copy_region);
+
+        vk::utilities::set_image_layout(
+            cmd_buf->handle(),
+            m_tone_map_image->handle(),
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            subresource_range);
+
+        vk::utilities::set_image_layout(
+            cmd_buf->handle(),
+            m_save_to_disk_image->handle(),
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_GENERAL,
+            subresource_range);
+
+        m_copy_started = true;
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 void Renderer::on_window_resize()
 {
     m_output_image_recreated = true;
@@ -428,11 +500,16 @@ void Renderer::clear_ray_debug_views()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void Renderer::create_buffers()
+void Renderer::save_image_to_disk(const std::string& path)
 {
-    auto backend = m_backend.lock();
+    if (path.length() == 0)
+    {
+        HELIOS_LOG_ERROR("A valid path is required to save an image to disk");
+        return;
+    }
 
-    m_tlas_instance_buffer_device = vk::Buffer::create(backend, VK_BUFFER_USAGE_RAY_TRACING_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, sizeof(VkAccelerationStructureInstanceKHR) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_GPU_ONLY, 0);
+    m_save_image_to_disk = true;
+    m_image_save_path    = path;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -708,11 +785,11 @@ void Renderer::create_output_images()
 
     backend->queue_object_deletion(m_tone_map_image_view);
     backend->queue_object_deletion(m_tone_map_image);
-    backend->queue_object_deletion(m_screenshot_image);
+    backend->queue_object_deletion(m_save_to_disk_image);
 
-    m_tone_map_image      = vk::Image::create(backend, VK_IMAGE_TYPE_2D, extents.width, extents.height, 1, 1, 1, VK_FORMAT_R8G8B8A8_SNORM, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_SAMPLE_COUNT_1_BIT);
+    m_tone_map_image      = vk::Image::create(backend, VK_IMAGE_TYPE_2D, extents.width, extents.height, 1, 1, 1, VK_FORMAT_R8G8B8A8_UNORM, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_SAMPLE_COUNT_1_BIT);
     m_tone_map_image_view = vk::ImageView::create(backend, m_tone_map_image, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
-    m_screenshot_image    = vk::Image::create(backend, VK_IMAGE_TYPE_2D, extents.width, extents.height, 1, 1, 1, VK_FORMAT_R8G8B8A8_SNORM, VMA_MEMORY_USAGE_CPU_ONLY, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, 0, nullptr, 0, VK_IMAGE_TILING_LINEAR);
+    m_save_to_disk_image  = vk::Image::create(backend, VK_IMAGE_TYPE_2D, extents.width, extents.height, 1, 1, 1, VK_FORMAT_R8G8B8A8_UNORM, VMA_MEMORY_USAGE_GPU_TO_CPU, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, 0, nullptr, 0, VK_IMAGE_TILING_LINEAR);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

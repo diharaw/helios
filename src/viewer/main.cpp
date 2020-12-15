@@ -226,6 +226,18 @@ protected:
 
             if (ImGui::Button("Save to Disk", ImVec2(region.x, 30.0f)))
             {
+                nfdchar_t*  out_path = NULL;
+                nfdresult_t result   = NFD_SaveDialog("png", NULL, &out_path);
+
+                if (result == NFD_OKAY)
+                {
+                    std::string path;
+                    path.resize(strlen(out_path));
+                    strcpy(path.data(), out_path);
+                    free(out_path);
+
+                    m_renderer->save_image_to_disk(path + ".png");
+                }
             }
         }
         if (ImGui::CollapsingHeader("Ray Debug View"))
