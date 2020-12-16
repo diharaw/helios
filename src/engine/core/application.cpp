@@ -267,9 +267,7 @@ bool Application::init_base(int argc, const char* argv[])
 
 void Application::update_base(double delta)
 {
-    glfwPollEvents();
-
-    if (!m_window_minimized)
+    if (handle_events())
     {
         vk::CommandBuffer::Ptr cmd_buffer = begin_frame();
         update(cmd_buffer);
@@ -325,11 +323,11 @@ void Application::submit_and_present(const std::vector<vk::CommandBuffer::Ptr>& 
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-vk::CommandBuffer::Ptr Application::begin_frame()
+bool Application::handle_events()
 {
-    m_time_start = glfwGetTime();
+    glfwPollEvents();
 
-    if (m_should_recreate_swap_chain)
+    if (!m_window_minimized && m_should_recreate_swap_chain)
     {
         m_vk_backend->recreate_swapchain();
         m_should_recreate_swap_chain = false;
@@ -342,7 +340,19 @@ vk::CommandBuffer::Ptr Application::begin_frame()
             m_window_resize_in_progress = false;
             window_resized();
         }
+
+        m_last_width  = m_width;
+        m_last_height = m_height;
     }
+
+    return !m_window_minimized && !m_window_resize_in_progress;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+vk::CommandBuffer::Ptr Application::begin_frame()
+{
+    m_time_start = glfwGetTime();
 
     m_vk_backend->acquire_next_swap_chain_image(m_image_available_semaphores[m_vk_backend->current_frame_idx()]);
 
@@ -387,8 +397,6 @@ void Application::end_frame(vk::CommandBuffer::Ptr cmd_buffer)
     submit_and_present({ cmd_buffer });
 
     m_delta_seconds = glfwGetTime() - m_time_start;
-    m_last_width    = m_width;
-    m_last_height   = m_height;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

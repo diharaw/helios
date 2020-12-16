@@ -494,7 +494,13 @@ void Renderer::copy_and_save_tone_mapped_image(vk::CommandBuffer::Ptr cmd_buf)
 void Renderer::on_window_resize()
 {
     m_output_image_recreated = true;
+
+    auto backend = m_backend.lock();
+
+    backend->wait_idle();
+
     create_output_images();
+    create_tone_map_framebuffer();
     update_dynamic_descriptor_sets();
 }
 
@@ -597,6 +603,8 @@ void Renderer::create_tone_map_framebuffer()
 {
     auto backend = m_backend.lock();
     auto extents = backend->swap_chain_extents();
+
+    backend->queue_object_deletion(m_tone_map_framebuffer);
 
     m_tone_map_framebuffer = vk::Framebuffer::create(backend, m_tone_map_render_pass, { m_tone_map_image_view }, extents.width, extents.height, 1);
 }
@@ -891,8 +899,6 @@ void Renderer::create_dynamic_descriptor_sets()
 void Renderer::update_dynamic_descriptor_sets()
 {
     auto backend = m_backend.lock();
-
-    backend->wait_idle();
 
     int idx = 0;
 

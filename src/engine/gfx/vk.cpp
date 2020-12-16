@@ -3503,14 +3503,14 @@ void Backend::initialize()
     m_scene_descriptor_set_layout = DescriptorSetLayout::create(shared_from_this(), scene_ds_layout_desc);
     m_scene_descriptor_set_layout->set_name("Scene Descriptor Set Layout");
 
-    std::vector<VkDescriptorBindingFlagsEXT> descriptor_binding_flags = {
-        VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT
+    std::vector<VkDescriptorBindingFlags> descriptor_binding_flags = {
+        VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT
     };
 
-    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT set_layout_binding_flags;
+    VkDescriptorSetLayoutBindingFlagsCreateInfo set_layout_binding_flags;
     HELIOS_ZERO_MEMORY(set_layout_binding_flags);
 
-    set_layout_binding_flags.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
+    set_layout_binding_flags.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
     set_layout_binding_flags.bindingCount  = 1;
     set_layout_binding_flags.pBindingFlags = descriptor_binding_flags.data();
 
@@ -3586,12 +3586,12 @@ void Backend::initialize()
     m_nearest_sampler = Sampler::create(shared_from_this(), sampler_desc);
     m_nearest_sampler->set_name("Nearest Sampler");
 
-    m_default_cubemap_image      = Image::create(shared_from_this(), VK_IMAGE_TYPE_2D, 2, 2, 1, 1, 6, VK_FORMAT_R32G32B32A32_SFLOAT, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, 0, nullptr, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
+    m_default_cubemap_image = Image::create(shared_from_this(), VK_IMAGE_TYPE_2D, 2, 2, 1, 1, 6, VK_FORMAT_R32G32B32A32_SFLOAT, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_LAYOUT_UNDEFINED, 0, nullptr, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
     m_default_cubemap_image->set_name("Default Cubemap");
-    
+
     m_default_cubemap_image_view = ImageView::create(shared_from_this(), m_default_cubemap_image, VK_IMAGE_VIEW_TYPE_CUBE, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6);
     m_default_cubemap_image_view->set_name("Default Cubemap Image View");
-    
+
     std::vector<glm::vec4> cubemap_data(2 * 2 * 6);
     std::vector<size_t>    cubemap_sizes(6);
 
@@ -4043,7 +4043,8 @@ void Backend::process_deletion_queue()
 
 void Backend::queue_object_deletion(std::shared_ptr<Object> object)
 {
-    m_deletion_queue.push_back({ object, m_current_frame });
+    if (object)
+        m_deletion_queue.push_back({ object, m_current_frame });
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

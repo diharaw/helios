@@ -684,25 +684,25 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root, 
     uint32_t variable_desc_count = MAX_SCENE_MESH_INSTANCE_COUNT;
 
     variable_ds_alloc_info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
-    variable_ds_alloc_info.descriptorSetCount = 0;
+    variable_ds_alloc_info.descriptorSetCount = 1;
     variable_ds_alloc_info.pDescriptorCounts  = &variable_desc_count;
-    
+
     m_scene_descriptor_set = vk::DescriptorSet::create(backend, backend->scene_descriptor_set_layout(), m_descriptor_pool);
     m_scene_descriptor_set->set_name("Scene Descriptor Set");
-    
+
     m_vbo_descriptor_set = vk::DescriptorSet::create(backend, backend->buffer_array_descriptor_set_layout(), m_descriptor_pool, &variable_ds_alloc_info);
     m_vbo_descriptor_set->set_name("VBO Descriptor Set");
-    
+
     m_ibo_descriptor_set = vk::DescriptorSet::create(backend, backend->buffer_array_descriptor_set_layout(), m_descriptor_pool, &variable_ds_alloc_info);
     m_ibo_descriptor_set->set_name("IBO Descriptor Set");
-    
+
     m_material_indices_descriptor_set = vk::DescriptorSet::create(backend, backend->buffer_array_descriptor_set_layout(), m_descriptor_pool, &variable_ds_alloc_info);
     m_material_indices_descriptor_set->set_name("Material Indices Descriptor Set");
-    
+
     variable_desc_count       = MAX_SCENE_MATERIAL_TEXTURE_COUNT;
     m_textures_descriptor_set = vk::DescriptorSet::create(backend, backend->combined_sampler_array_descriptor_set_layout(), m_descriptor_pool, &variable_ds_alloc_info);
     m_textures_descriptor_set->set_name("Textures Descriptor Set");
-    
+
     // Create light data buffer
     m_light_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(LightData) * MAX_SCENE_LIGHT_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 

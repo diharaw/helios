@@ -136,7 +136,7 @@ void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeli
         vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline_layout->handle(), 0, 7, descriptor_sets, 0, nullptr);
     }
 
-    VkDeviceSize group_size = vk::utilities::aligned_size(rt_pipeline_props.shaderGroupHandleSize, rt_pipeline_props.shaderGroupBaseAlignment);
+    VkDeviceSize group_size   = vk::utilities::aligned_size(rt_pipeline_props.shaderGroupHandleSize, rt_pipeline_props.shaderGroupBaseAlignment);
     VkDeviceSize group_stride = group_size;
 
     const VkStridedDeviceAddressRegionKHR raygen_sbt   = { pipeline->shader_binding_table_buffer()->device_address(), group_stride, group_size };

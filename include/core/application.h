@@ -87,6 +87,7 @@ protected:
 
 private:
     // Pre, Post frame methods for ImGUI updates, presentations etc.
+    bool                   handle_events();
     vk::CommandBuffer::Ptr begin_frame();
     void                   end_frame(vk::CommandBuffer::Ptr cmd_buffer);
 
