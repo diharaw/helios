@@ -125,6 +125,9 @@ bool Application::init_base(int argc, const char* argv[])
                                        true,
                                        settings.device_extensions);
 
+    m_renderer = std::unique_ptr<Renderer>(new Renderer(m_vk_backend));
+    m_resource_manager = std::unique_ptr<ResourceManager>(new ResourceManager(m_vk_backend));
+
     m_image_available_semaphores.resize(vk::Backend::kMaxFramesInFlight);
     m_render_finished_semaphores.resize(vk::Backend::kMaxFramesInFlight);
 
@@ -152,7 +155,7 @@ bool Application::init_base(int argc, const char* argv[])
     init_info.ImageCount      = m_vk_backend->swap_image_count();
     init_info.CheckVkResultFn = nullptr;
 
-    ImGui_ImplVulkan_Init(&init_info, m_vk_backend->swapchain_render_pass()->handle());
+    ImGui_ImplVulkan_Init(&init_info, m_renderer->swapchain_renderpass()->handle());
 
     vk::CommandBuffer::Ptr cmd_buf = m_vk_backend->allocate_graphics_command_buffer();
 
@@ -189,9 +192,6 @@ bool Application::init_base(int argc, const char* argv[])
     glfwGetFramebufferSize(m_window, &display_w, &display_h);
     m_width  = display_w;
     m_height = display_h;
-
-    m_renderer         = std::unique_ptr<Renderer>(new Renderer(m_vk_backend));
-    m_resource_manager = std::unique_ptr<ResourceManager>(new ResourceManager(m_vk_backend));
 
     ImVec4* colors = style->Colors;
 

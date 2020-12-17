@@ -100,6 +100,9 @@ public:
     void                            wait_for_frame(uint32_t idx);
     std::shared_ptr<Image>          swapchain_image();
     std::shared_ptr<ImageView>      swapchain_image_view();
+    std::vector<std::shared_ptr<ImageView>> swapchain_image_views();
+    std::shared_ptr<Image>          swapchain_depth_image();
+    std::shared_ptr<ImageView>      swapchain_depth_image_view();
     std::shared_ptr<Framebuffer>    swapchain_framebuffer();
     std::shared_ptr<RenderPass>     swapchain_render_pass();
     void                            recreate_swapchain();

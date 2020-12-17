@@ -2,6 +2,7 @@
 #include <utility/macros.h>
 #include <utility/profiler.h>
 #include <utility/logger.h>
+#include <resource/mesh.h>
 #include <vk_mem_alloc.h>
 #include <imgui.h>
 #include <examples/imgui_impl_vulkan.h>
@@ -29,6 +30,16 @@ struct ToneMapPushConstants
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+struct DebugVisualizationPushConstants
+{
+    glm::mat4 view_proj;
+    uint32_t  instance_id;
+    uint32_t  submesh_id;
+    uint32_t  debug_visualization;
+};
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 Renderer::Renderer(vk::Backend::Ptr backend) :
     m_backend(backend)
 {
@@ -36,11 +47,17 @@ Renderer::Renderer(vk::Backend::Ptr backend) :
 
     create_output_images();
     create_tone_map_render_pass();
+    create_swapchain_render_pass();
+    create_depth_prepass_render_pass();
     create_tone_map_framebuffer();
+    create_depth_prepass_framebuffer();
+    create_swapchain_framebuffers();
     create_tone_map_pipeline();
     create_copy_pipeline();
     create_ray_debug_buffers();
     create_ray_debug_pipeline();
+    create_debug_visualization_pipeline();
+    create_depth_prepass_pipeline();
     create_static_descriptor_sets();
     create_dynamic_descriptor_sets();
     update_dynamic_descriptor_sets();
@@ -58,6 +75,13 @@ Renderer::~Renderer()
         m_input_combined_sampler_ds[i].reset();
     }
 
+    m_swapchain_framebuffers.clear();
+    m_swapchain_renderpass.reset();
+    m_debug_visualization_pipeline.reset();
+    m_depth_prepass_pipeline.reset();
+    m_depth_prepass_framebuffer.reset();
+    m_depth_prepass_renderpass.reset();
+    m_debug_visualization_pipeline_layout.reset();
     m_save_to_disk_image.reset();
     m_tone_map_ds.reset();
     m_tone_map_image_view.reset();
@@ -160,7 +184,8 @@ void Renderer::render(RenderState& render_state)
     render_state.m_read_image_ds  = m_output_storage_image_ds[read_index];
     render_state.m_ray_debug_ds   = m_ray_debug_ds;
 
-    VkImageSubresourceRange subresource_range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    VkImageSubresourceRange color_subresource_range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    VkImageSubresourceRange depth_subresource_range = { VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1 };
 
     // Transition write image to general layout during the first frame
     if (m_output_image_recreated)
@@ -170,7 +195,7 @@ void Renderer::render(RenderState& render_state)
             m_output_images[write_index]->handle(),
             VK_IMAGE_LAYOUT_UNDEFINED,
             VK_IMAGE_LAYOUT_GENERAL,
-            subresource_range);
+            color_subresource_range);
     }
 
     // Transition the read image to general layout
@@ -179,7 +204,7 @@ void Renderer::render(RenderState& render_state)
         m_output_images[read_index]->handle(),
         m_output_image_recreated ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_IMAGE_LAYOUT_GENERAL,
-        subresource_range);
+        color_subresource_range);
 
     // Begin path trace iteration
     if (render_state.m_scene)
@@ -214,7 +239,7 @@ void Renderer::render(RenderState& render_state)
         m_output_images[write_index]->handle(),
         VK_IMAGE_LAYOUT_GENERAL,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        subresource_range);
+        color_subresource_range);
 
     // Tone map output
     tone_map(render_state.m_cmd_buffer, m_input_combined_sampler_ds[write_index]);
@@ -223,29 +248,31 @@ void Renderer::render(RenderState& render_state)
     if (m_save_image_to_disk)
         copy_and_save_tone_mapped_image(render_state.m_cmd_buffer);
 
+     vk::utilities::set_image_layout(
+        render_state.m_cmd_buffer->handle(),
+        backend->swapchain_depth_image()->handle(),
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        depth_subresource_range);
+
     // Render final onscreen passes
     auto extents = backend->swap_chain_extents();
 
-    VkClearValue clear_values[2];
+    VkClearValue clear_value;
 
-    clear_values[0].color.float32[0] = 0.0f;
-    clear_values[0].color.float32[1] = 0.0f;
-    clear_values[0].color.float32[2] = 0.0f;
-    clear_values[0].color.float32[3] = 1.0f;
-
-    clear_values[1].color.float32[0] = 1.0f;
-    clear_values[1].color.float32[1] = 1.0f;
-    clear_values[1].color.float32[2] = 1.0f;
-    clear_values[1].color.float32[3] = 1.0f;
+    clear_value.color.float32[0] = 0.0f;
+    clear_value.color.float32[1] = 0.0f;
+    clear_value.color.float32[2] = 0.0f;
+    clear_value.color.float32[3] = 1.0f;
 
     VkRenderPassBeginInfo info    = {};
     info.sType                    = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    info.renderPass               = backend->swapchain_render_pass()->handle();
-    info.framebuffer              = backend->swapchain_framebuffer()->handle();
+    info.renderPass               = m_swapchain_renderpass->handle();
+    info.framebuffer              = m_swapchain_framebuffers[backend->current_frame_idx()]->handle();
     info.renderArea.extent.width  = extents.width;
     info.renderArea.extent.height = extents.height;
-    info.clearValueCount          = 2;
-    info.pClearValues             = &clear_values[0];
+    info.clearValueCount          = 1;
+    info.pClearValues             = &clear_value;
 
     vkCmdBeginRenderPass(render_state.m_cmd_buffer->handle(), &info, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -413,6 +440,12 @@ void Renderer::render_ray_debug_views(RenderState& render_state)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+void Renderer::render_debug_visualization(RenderState& render_state)
+{
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 void Renderer::copy_and_save_tone_mapped_image(vk::CommandBuffer::Ptr cmd_buf)
 {
     auto backend = m_backend.lock();
@@ -501,6 +534,7 @@ void Renderer::on_window_resize()
 
     create_output_images();
     create_tone_map_framebuffer();
+    create_swapchain_framebuffers();
     update_dynamic_descriptor_sets();
 }
 
@@ -607,6 +641,168 @@ void Renderer::create_tone_map_framebuffer()
     backend->queue_object_deletion(m_tone_map_framebuffer);
 
     m_tone_map_framebuffer = vk::Framebuffer::create(backend, m_tone_map_render_pass, { m_tone_map_image_view }, extents.width, extents.height, 1);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_depth_prepass_render_pass()
+{
+    auto backend = m_backend.lock();
+
+    std::vector<VkAttachmentDescription> attachments(1);
+
+    // Depth attachment
+    attachments[0].format         = backend->swap_chain_depth_format();
+    attachments[0].samples        = VK_SAMPLE_COUNT_1_BIT;
+    attachments[0].loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[0].storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[0].stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[0].initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachments[0].finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depth_reference;
+    depth_reference.attachment = 0;
+    depth_reference.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    std::vector<VkSubpassDescription> subpass_description(1);
+
+    subpass_description[0].pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass_description[0].colorAttachmentCount    = 0;
+    subpass_description[0].pColorAttachments       = nullptr;
+    subpass_description[0].pDepthStencilAttachment = &depth_reference;
+    subpass_description[0].inputAttachmentCount    = 0;
+    subpass_description[0].pInputAttachments       = nullptr;
+    subpass_description[0].preserveAttachmentCount = 0;
+    subpass_description[0].pPreserveAttachments    = nullptr;
+    subpass_description[0].pResolveAttachments     = nullptr;
+
+    // Subpass dependencies for layout transitions
+    std::vector<VkSubpassDependency> dependencies(2);
+
+    dependencies[0].srcSubpass      = VK_SUBPASS_EXTERNAL;
+    dependencies[0].dstSubpass      = 0;
+    dependencies[0].srcStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[0].dstStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[0].srcAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[0].dstAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    dependencies[1].srcSubpass      = 0;
+    dependencies[1].dstSubpass      = VK_SUBPASS_EXTERNAL;
+    dependencies[1].srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[1].dstStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[1].srcAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[1].dstAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    m_depth_prepass_renderpass = vk::RenderPass::create(backend, attachments, subpass_description, dependencies);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_depth_prepass_framebuffer()
+{
+    auto backend = m_backend.lock();
+    auto extents = backend->swap_chain_extents();
+
+    backend->queue_object_deletion(m_depth_prepass_framebuffer);
+
+    m_depth_prepass_framebuffer = vk::Framebuffer::create(backend, m_depth_prepass_renderpass, { backend->swapchain_depth_image_view() }, extents.width, extents.height, 1);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_swapchain_render_pass()
+{
+    auto backend = m_backend.lock();
+    auto extents = backend->swap_chain_extents();
+
+    std::vector<VkAttachmentDescription> attachments(2);
+
+    // Color attachment
+    attachments[0].format         = backend->swap_chain_image_format();
+    attachments[0].samples        = VK_SAMPLE_COUNT_1_BIT;
+    attachments[0].loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[0].storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[0].stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[0].initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachments[0].finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    // Depth attachment
+    attachments[1].format         = backend->swap_chain_depth_format();
+    attachments[1].samples        = VK_SAMPLE_COUNT_1_BIT;
+    attachments[1].loadOp         = VK_ATTACHMENT_LOAD_OP_LOAD;
+    attachments[1].storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[1].stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[1].initialLayout  = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    attachments[1].finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference color_reference;
+    color_reference.attachment = 0;
+    color_reference.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depth_reference;
+    depth_reference.attachment = 1;
+    depth_reference.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    std::vector<VkSubpassDescription> subpass_description(1);
+
+    subpass_description[0].pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass_description[0].colorAttachmentCount    = 1;
+    subpass_description[0].pColorAttachments       = &color_reference;
+    subpass_description[0].pDepthStencilAttachment = &depth_reference;
+    subpass_description[0].inputAttachmentCount    = 0;
+    subpass_description[0].pInputAttachments       = nullptr;
+    subpass_description[0].preserveAttachmentCount = 0;
+    subpass_description[0].pPreserveAttachments    = nullptr;
+    subpass_description[0].pResolveAttachments     = nullptr;
+
+    // Subpass dependencies for layout transitions
+    std::vector<VkSubpassDependency> dependencies(2);
+
+    dependencies[0].srcSubpass      = VK_SUBPASS_EXTERNAL;
+    dependencies[0].dstSubpass      = 0;
+    dependencies[0].srcStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[0].dstStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[0].srcAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[0].dstAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    dependencies[1].srcSubpass      = 0;
+    dependencies[1].dstSubpass      = VK_SUBPASS_EXTERNAL;
+    dependencies[1].srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[1].dstStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[1].srcAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[1].dstAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    m_swapchain_renderpass = vk::RenderPass::create(backend, attachments, subpass_description, dependencies);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_swapchain_framebuffers()
+{
+    auto backend     = m_backend.lock();
+    auto extents     = backend->swap_chain_extents();
+    auto image_views = backend->swapchain_image_views();
+
+    m_swapchain_framebuffers.resize(image_views.size());
+
+    std::vector<vk::ImageView::Ptr> views(2);
+
+    views[1] = backend->swapchain_depth_image_view();
+
+    for (int i = 0; i < image_views.size(); i++)
+    {
+        backend->queue_object_deletion(m_swapchain_framebuffers[i]);
+
+        views[0]                    = image_views[i];
+        m_swapchain_framebuffers[i] = vk::Framebuffer::create(backend, m_swapchain_renderpass, views, extents.width, extents.height, 1);
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -725,7 +921,7 @@ void Renderer::create_ray_debug_pipeline()
     vk::DepthStencilStateDesc ds_state;
 
     ds_state.set_depth_test_enable(VK_FALSE)
-        .set_depth_write_enable(VK_TRUE)
+        .set_depth_write_enable(VK_FALSE)
         .set_depth_compare_op(VK_COMPARE_OP_LESS)
         .set_depth_bounds_test_enable(VK_FALSE)
         .set_stencil_test_enable(VK_FALSE);
@@ -785,6 +981,301 @@ void Renderer::create_ray_debug_pipeline()
     pso_desc.set_input_assembly_state(input_assembly_state_desc);
 
     m_ray_debug_pipeline = vk::GraphicsPipeline::create(backend, pso_desc);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_debug_visualization_pipeline()
+{
+    auto backend = m_backend.lock();
+
+    // ---------------------------------------------------------------------------
+    // Create shader modules
+    // ---------------------------------------------------------------------------
+
+    std::vector<char> spirv;
+
+    vk::ShaderModule::Ptr vs = vk::ShaderModule::create_from_file(backend, "assets/shader/debug_visualization.vert.spv");
+    vk::ShaderModule::Ptr fs = vk::ShaderModule::create_from_file(backend, "assets/shader/debug_visualization.frag.spv");
+
+    vk::GraphicsPipeline::Desc pso_desc;
+
+    pso_desc.add_shader_stage(VK_SHADER_STAGE_VERTEX_BIT, vs, "main")
+        .add_shader_stage(VK_SHADER_STAGE_FRAGMENT_BIT, fs, "main");
+
+    // ---------------------------------------------------------------------------
+    // Create vertex input state
+    // ---------------------------------------------------------------------------
+
+    vk::VertexInputStateDesc vertex_input_state_desc;
+
+    vertex_input_state_desc.add_binding_desc(0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX);
+
+    vertex_input_state_desc.add_attribute_desc(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
+    vertex_input_state_desc.add_attribute_desc(1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, tex_coord));
+    vertex_input_state_desc.add_attribute_desc(2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, normal));
+    vertex_input_state_desc.add_attribute_desc(3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, tangent));
+    vertex_input_state_desc.add_attribute_desc(4, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, bitangent));
+
+    pso_desc.set_vertex_input_state(vertex_input_state_desc);
+
+    // ---------------------------------------------------------------------------
+    // Create pipeline input assembly state
+    // ---------------------------------------------------------------------------
+
+    vk::InputAssemblyStateDesc input_assembly_state_desc;
+
+    input_assembly_state_desc.set_primitive_restart_enable(false);
+
+    // ---------------------------------------------------------------------------
+    // Create viewport state
+    // ---------------------------------------------------------------------------
+
+    vk::ViewportStateDesc vp_desc;
+
+    vp_desc.add_viewport(0.0f, 0.0f, 1024, 1024, 0.0f, 1.0f)
+        .add_scissor(0, 0, 1024, 1024);
+
+    pso_desc.set_viewport_state(vp_desc);
+
+    // ---------------------------------------------------------------------------
+    // Create rasterization state
+    // ---------------------------------------------------------------------------
+
+    vk::RasterizationStateDesc rs_state;
+
+    rs_state.set_depth_clamp(VK_FALSE)
+        .set_rasterizer_discard_enable(VK_FALSE)
+        .set_polygon_mode(VK_POLYGON_MODE_FILL)
+        .set_line_width(1.0f)
+        .set_cull_mode(VK_CULL_MODE_NONE)
+        .set_front_face(VK_FRONT_FACE_COUNTER_CLOCKWISE)
+        .set_depth_bias(VK_FALSE);
+
+    pso_desc.set_rasterization_state(rs_state);
+
+    // ---------------------------------------------------------------------------
+    // Create multisample state
+    // ---------------------------------------------------------------------------
+
+    vk::MultisampleStateDesc ms_state;
+
+    ms_state.set_sample_shading_enable(VK_FALSE)
+        .set_rasterization_samples(VK_SAMPLE_COUNT_1_BIT);
+
+    pso_desc.set_multisample_state(ms_state);
+
+    // ---------------------------------------------------------------------------
+    // Create depth stencil state
+    // ---------------------------------------------------------------------------
+
+    vk::DepthStencilStateDesc ds_state;
+
+    ds_state.set_depth_test_enable(VK_FALSE)
+        .set_depth_write_enable(VK_TRUE)
+        .set_depth_compare_op(VK_COMPARE_OP_LESS)
+        .set_depth_bounds_test_enable(VK_FALSE)
+        .set_stencil_test_enable(VK_FALSE);
+
+    pso_desc.set_depth_stencil_state(ds_state);
+
+    // ---------------------------------------------------------------------------
+    // Create color blend state
+    // ---------------------------------------------------------------------------
+
+    vk::ColorBlendAttachmentStateDesc blend_att_desc;
+
+    blend_att_desc.set_color_write_mask(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT)
+        .set_src_color_blend_factor(VK_BLEND_FACTOR_SRC_ALPHA)
+        .set_dst_color_blend_Factor(VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+        .set_src_alpha_blend_factor(VK_BLEND_FACTOR_ONE)
+        .set_dst_alpha_blend_factor(VK_BLEND_FACTOR_ZERO)
+        .set_color_blend_op(VK_BLEND_OP_ADD)
+        .set_blend_enable(VK_FALSE);
+
+    vk::ColorBlendStateDesc blend_state;
+
+    blend_state.set_logic_op_enable(VK_FALSE)
+        .set_logic_op(VK_LOGIC_OP_COPY)
+        .set_blend_constants(0.0f, 0.0f, 0.0f, 0.0f)
+        .add_attachment(blend_att_desc);
+
+    pso_desc.set_color_blend_state(blend_state);
+
+    // ---------------------------------------------------------------------------
+    // Create pipeline layout
+    // ---------------------------------------------------------------------------
+
+    vk::PipelineLayout::Desc pl_desc;
+
+    pl_desc.add_descriptor_set_layout(backend->scene_descriptor_set_layout());
+    pl_desc.add_descriptor_set_layout(backend->buffer_array_descriptor_set_layout());
+    pl_desc.add_descriptor_set_layout(backend->combined_sampler_array_descriptor_set_layout());
+    pl_desc.add_push_constant_range(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(DebugVisualizationPushConstants));
+
+    m_debug_visualization_pipeline_layout = vk::PipelineLayout::create(backend, pl_desc);
+
+    pso_desc.set_pipeline_layout(m_debug_visualization_pipeline_layout);
+
+    // ---------------------------------------------------------------------------
+    // Create dynamic state
+    // ---------------------------------------------------------------------------
+
+    pso_desc.add_dynamic_state(VK_DYNAMIC_STATE_VIEWPORT)
+        .add_dynamic_state(VK_DYNAMIC_STATE_SCISSOR);
+
+    pso_desc.set_render_pass(backend->swapchain_render_pass());
+
+    // ---------------------------------------------------------------------------
+    // Create line list pipeline
+    // ---------------------------------------------------------------------------
+
+    input_assembly_state_desc.set_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+    pso_desc.set_input_assembly_state(input_assembly_state_desc);
+
+    m_debug_visualization_pipeline = vk::GraphicsPipeline::create(backend, pso_desc);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::create_depth_prepass_pipeline()
+{
+    auto backend = m_backend.lock();
+
+    // ---------------------------------------------------------------------------
+    // Create shader modules
+    // ---------------------------------------------------------------------------
+
+    std::vector<char> spirv;
+
+    vk::ShaderModule::Ptr vs = vk::ShaderModule::create_from_file(backend, "assets/shader/depth_prepass.vert.spv");
+    vk::ShaderModule::Ptr fs = vk::ShaderModule::create_from_file(backend, "assets/shader/empty.frag.spv");
+
+    vk::GraphicsPipeline::Desc pso_desc;
+
+    pso_desc.add_shader_stage(VK_SHADER_STAGE_VERTEX_BIT, vs, "main")
+        .add_shader_stage(VK_SHADER_STAGE_FRAGMENT_BIT, fs, "main");
+
+    // ---------------------------------------------------------------------------
+    // Create vertex input state
+    // ---------------------------------------------------------------------------
+
+    vk::VertexInputStateDesc vertex_input_state_desc;
+
+    vertex_input_state_desc.add_binding_desc(0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX);
+
+    vertex_input_state_desc.add_attribute_desc(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0);
+    vertex_input_state_desc.add_attribute_desc(1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, tex_coord));
+    vertex_input_state_desc.add_attribute_desc(2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, normal));
+    vertex_input_state_desc.add_attribute_desc(3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, tangent));
+    vertex_input_state_desc.add_attribute_desc(4, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, bitangent));
+
+    pso_desc.set_vertex_input_state(vertex_input_state_desc);
+
+    // ---------------------------------------------------------------------------
+    // Create pipeline input assembly state
+    // ---------------------------------------------------------------------------
+
+    vk::InputAssemblyStateDesc input_assembly_state_desc;
+
+    input_assembly_state_desc.set_primitive_restart_enable(false);
+
+    // ---------------------------------------------------------------------------
+    // Create viewport state
+    // ---------------------------------------------------------------------------
+
+    vk::ViewportStateDesc vp_desc;
+
+    vp_desc.add_viewport(0.0f, 0.0f, 1024, 1024, 0.0f, 1.0f)
+        .add_scissor(0, 0, 1024, 1024);
+
+    pso_desc.set_viewport_state(vp_desc);
+
+    // ---------------------------------------------------------------------------
+    // Create rasterization state
+    // ---------------------------------------------------------------------------
+
+    vk::RasterizationStateDesc rs_state;
+
+    rs_state.set_depth_clamp(VK_FALSE)
+        .set_rasterizer_discard_enable(VK_FALSE)
+        .set_polygon_mode(VK_POLYGON_MODE_FILL)
+        .set_line_width(1.0f)
+        .set_cull_mode(VK_CULL_MODE_NONE)
+        .set_front_face(VK_FRONT_FACE_COUNTER_CLOCKWISE)
+        .set_depth_bias(VK_FALSE);
+
+    pso_desc.set_rasterization_state(rs_state);
+
+    // ---------------------------------------------------------------------------
+    // Create multisample state
+    // ---------------------------------------------------------------------------
+
+    vk::MultisampleStateDesc ms_state;
+
+    ms_state.set_sample_shading_enable(VK_FALSE)
+        .set_rasterization_samples(VK_SAMPLE_COUNT_1_BIT);
+
+    pso_desc.set_multisample_state(ms_state);
+
+    // ---------------------------------------------------------------------------
+    // Create depth stencil state
+    // ---------------------------------------------------------------------------
+
+    vk::DepthStencilStateDesc ds_state;
+
+    ds_state.set_depth_test_enable(VK_FALSE)
+        .set_depth_write_enable(VK_TRUE)
+        .set_depth_compare_op(VK_COMPARE_OP_LESS)
+        .set_depth_bounds_test_enable(VK_FALSE)
+        .set_stencil_test_enable(VK_FALSE);
+
+    pso_desc.set_depth_stencil_state(ds_state);
+
+    // ---------------------------------------------------------------------------
+    // Create color blend state
+    // ---------------------------------------------------------------------------
+
+    vk::ColorBlendAttachmentStateDesc blend_att_desc;
+
+    blend_att_desc.set_color_write_mask(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT)
+        .set_src_color_blend_factor(VK_BLEND_FACTOR_SRC_ALPHA)
+        .set_dst_color_blend_Factor(VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
+        .set_src_alpha_blend_factor(VK_BLEND_FACTOR_ONE)
+        .set_dst_alpha_blend_factor(VK_BLEND_FACTOR_ZERO)
+        .set_color_blend_op(VK_BLEND_OP_ADD)
+        .set_blend_enable(VK_FALSE);
+
+    vk::ColorBlendStateDesc blend_state;
+
+    blend_state.set_logic_op_enable(VK_FALSE)
+        .set_logic_op(VK_LOGIC_OP_COPY)
+        .set_blend_constants(0.0f, 0.0f, 0.0f, 0.0f)
+        .add_attachment(blend_att_desc);
+
+    pso_desc.set_color_blend_state(blend_state);
+
+    pso_desc.set_pipeline_layout(m_debug_visualization_pipeline_layout);
+
+    // ---------------------------------------------------------------------------
+    // Create dynamic state
+    // ---------------------------------------------------------------------------
+
+    pso_desc.add_dynamic_state(VK_DYNAMIC_STATE_VIEWPORT)
+        .add_dynamic_state(VK_DYNAMIC_STATE_SCISSOR);
+
+    pso_desc.set_render_pass(m_depth_prepass_renderpass);
+
+    // ---------------------------------------------------------------------------
+    // Create line list pipeline
+    // ---------------------------------------------------------------------------
+
+    input_assembly_state_desc.set_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+    pso_desc.set_input_assembly_state(input_assembly_state_desc);
+
+    m_depth_prepass_pipeline = vk::GraphicsPipeline::create(backend, pso_desc);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

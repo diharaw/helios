@@ -46,6 +46,13 @@ private:
     vk::PipelineLayout::Ptr    m_copy_pipeline_layout;
     vk::GraphicsPipeline::Ptr  m_ray_debug_pipeline;
     vk::PipelineLayout::Ptr    m_ray_debug_pipeline_layout;
+    vk::GraphicsPipeline::Ptr  m_debug_visualization_pipeline;
+    vk::GraphicsPipeline::Ptr  m_depth_prepass_pipeline;
+    vk::RenderPass::Ptr        m_depth_prepass_renderpass;
+    vk::Framebuffer::Ptr       m_depth_prepass_framebuffer;
+    vk::PipelineLayout::Ptr    m_debug_visualization_pipeline_layout;
+    vk::RenderPass::Ptr        m_swapchain_renderpass;
+    std::vector<vk::Framebuffer::Ptr> m_swapchain_framebuffers;
     vk::Buffer::Ptr            m_ray_debug_vbo;
     vk::Buffer::Ptr            m_ray_debug_draw_cmd;
     bool                       m_output_ping_pong       = false;
@@ -66,6 +73,7 @@ public:
     inline PathIntegrator::Ptr path_integrator() { return m_path_integrator; }
     inline ToneMapOperator     tone_map_operator() { return m_tone_map_operator; }
     inline float               exposure() { return m_exposure; }
+    inline vk::RenderPass::Ptr swapchain_renderpass() { return m_swapchain_renderpass; }
 
     void                             render(RenderState& render_state);
     void                             on_window_resize();
@@ -78,13 +86,20 @@ private:
     void tone_map(vk::CommandBuffer::Ptr cmd_buf, vk::DescriptorSet::Ptr read_image);
     void copy(vk::CommandBuffer::Ptr cmd_buf);
     void render_ray_debug_views(RenderState& render_state);
+    void render_debug_visualization(RenderState& render_state);
     void copy_and_save_tone_mapped_image(vk::CommandBuffer::Ptr cmd_buf);
     void create_output_images();
     void create_tone_map_render_pass();
     void create_tone_map_framebuffer();
+    void create_depth_prepass_render_pass();
+    void create_depth_prepass_framebuffer();
+    void create_swapchain_render_pass();
+    void create_swapchain_framebuffers();
     void create_tone_map_pipeline();
     void create_copy_pipeline();
     void create_ray_debug_pipeline();
+    void create_debug_visualization_pipeline();
+    void create_depth_prepass_pipeline();
     void create_ray_debug_buffers();
     void create_static_descriptor_sets();
     void create_dynamic_descriptor_sets();
