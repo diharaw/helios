@@ -5,11 +5,11 @@
 
 #include "common.glsl"
 
-#define DEBUG_VISUALIZATION_ALBEDO 0
-#define DEBUG_VISUALIZATION_NORMAL 1
-#define DEBUG_VISUALIZATION_ROUGHNESS 2
-#define DEBUG_VISUALIZATION_METALLIC 3
-#define DEBUG_VISUALIZATION_EMISSIVE 4
+#define OUTPUT_BUFFER_ALBEDO 0
+#define OUTPUT_BUFFER_NORMALS 1
+#define OUTPUT_BUFFER_ROUGHNESS 2
+#define OUTPUT_BUFFER_METALLIC 3
+#define OUTPUT_BUFFER_EMISSIVE 4
 
 // ------------------------------------------------------------------------
 // Inputs -----------------------------------------------------------------
@@ -64,7 +64,7 @@ layout(push_constant) uniform PushConstants
     mat4 view_proj;
     uint instance_id;
     uint submesh_id;
-    uint debug_visualization;
+    uint current_output_buffer;
 } u_PushConstants;
 
 // ------------------------------------------------------------------------
@@ -147,15 +147,15 @@ void main()
 
     vec4 color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
-    if (u_PushConstants.debug_visualization == DEBUG_VISUALIZATION_ALBEDO)
+    if (u_PushConstants.current_output_buffer == OUTPUT_BUFFER_ALBEDO)
         color.xyz = fetch_albedo(material, FS_IN_TexCoord);
-    else if (u_PushConstants.debug_visualization == DEBUG_VISUALIZATION_NORMAL)
+    else if (u_PushConstants.current_output_buffer == OUTPUT_BUFFER_NORMALS)
         color.xyz = fetch_normal(material, FS_IN_Tangent, FS_IN_Bitangent, FS_IN_Normal, FS_IN_TexCoord);
-    else if (u_PushConstants.debug_visualization == DEBUG_VISUALIZATION_ROUGHNESS) 
+    else if (u_PushConstants.current_output_buffer == OUTPUT_BUFFER_ROUGHNESS) 
         color.xyz = vec3(fetch_roughness(material, FS_IN_TexCoord));
-    else if (u_PushConstants.debug_visualization == DEBUG_VISUALIZATION_METALLIC) 
+    else if (u_PushConstants.current_output_buffer == OUTPUT_BUFFER_METALLIC) 
         color.xyz = vec3(fetch_metallic(material, FS_IN_TexCoord));
-    else if (u_PushConstants.debug_visualization == DEBUG_VISUALIZATION_EMISSIVE) 
+    else if (u_PushConstants.current_output_buffer == OUTPUT_BUFFER_EMISSIVE) 
         color.xyz = fetch_emissive(material, FS_IN_TexCoord);
 
     FS_OUT_Color = color;

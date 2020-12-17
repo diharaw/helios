@@ -23,6 +23,16 @@ enum ToneMapOperator
     TONE_MAP_OPERATOR_REINHARD
 };
 
+enum OutputBuffer
+{
+    OUTPUT_BUFFER_ALBEDO,
+    OUTPUT_BUFFER_NORMALS,
+    OUTPUT_BUFFER_ROUGHNESS,
+    OUTPUT_BUFFER_METALLIC,
+    OUTPUT_BUFFER_EMISSIVE,
+    OUTPUT_BUFFER_FINAL
+};
+
 class Renderer
 {
 private:
@@ -63,6 +73,7 @@ private:
     std::string                       m_image_save_path        = "";
     ToneMapOperator                   m_tone_map_operator      = TONE_MAP_OPERATOR_ACES;
     float                             m_exposure               = 1.0f;
+    OutputBuffer                      m_current_output_buffer  = OUTPUT_BUFFER_FINAL;
 
 public:
     Renderer(vk::Backend::Ptr backend);
@@ -70,8 +81,10 @@ public:
 
     inline void                set_tone_map_operator(const ToneMapOperator& tone_map) { m_tone_map_operator = tone_map; }
     inline void                set_exposure(const float& exposure) { m_exposure = exposure; }
+    inline void                set_current_output_buffer(OutputBuffer buffer) { m_current_output_buffer = buffer; }
     inline PathIntegrator::Ptr path_integrator() { return m_path_integrator; }
     inline ToneMapOperator     tone_map_operator() { return m_tone_map_operator; }
+    inline OutputBuffer        current_output_buffer() { return m_current_output_buffer; }
     inline float               exposure() { return m_exposure; }
     inline vk::RenderPass::Ptr swapchain_renderpass() { return m_swapchain_renderpass; }
 
@@ -87,6 +100,7 @@ private:
     void copy(vk::CommandBuffer::Ptr cmd_buf);
     void render_ray_debug_views(RenderState& render_state);
     void render_debug_visualization(RenderState& render_state);
+    void render_depth_prepass(RenderState& render_state);
     void copy_and_save_tone_mapped_image(vk::CommandBuffer::Ptr cmd_buf);
     void create_output_images();
     void create_tone_map_render_pass();

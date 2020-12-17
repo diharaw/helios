@@ -35,7 +35,7 @@ struct DebugVisualizationPushConstants
     glm::mat4 view_proj;
     uint32_t  instance_id;
     uint32_t  submesh_id;
-    uint32_t  debug_visualization;
+    uint32_t  current_output_buffer;
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -248,12 +248,17 @@ void Renderer::render(RenderState& render_state)
     if (m_save_image_to_disk)
         copy_and_save_tone_mapped_image(render_state.m_cmd_buffer);
 
-    vk::utilities::set_image_layout(
-        render_state.m_cmd_buffer->handle(),
-        backend->swapchain_depth_image()->handle(),
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        depth_subresource_range);
+    if (m_ray_debug_views.size() > 0)
+        render_depth_prepass(render_state);
+    else
+    {
+        vk::utilities::set_image_layout(
+            render_state.m_cmd_buffer->handle(),
+            backend->swapchain_depth_image()->handle(),
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            depth_subresource_range);
+    }
 
     // Render final onscreen passes
     auto extents = backend->swap_chain_extents();
@@ -276,16 +281,24 @@ void Renderer::render(RenderState& render_state)
 
     vkCmdBeginRenderPass(render_state.m_cmd_buffer->handle(), &info, VK_SUBPASS_CONTENTS_INLINE);
 
-    VkViewport vp;
+    if (m_ray_debug_views.size() == 0)
+    {
+        VkClearAttachment attachment;
 
-    vp.x        = 0.0f;
-    vp.y        = 0.0f;
-    vp.width    = (float)extents.width;
-    vp.height   = (float)extents.height;
-    vp.minDepth = 0.0f;
-    vp.maxDepth = 1.0f;
+        attachment.aspectMask                      = VK_IMAGE_ASPECT_DEPTH_BIT;
+        attachment.clearValue.depthStencil.depth   = 1.0f;
+        attachment.clearValue.depthStencil.stencil = 255;
 
-    vkCmdSetViewport(render_state.m_cmd_buffer->handle(), 0, 1, &vp);
+        VkClearRect rect;
+
+        rect.baseArrayLayer = 0;
+        rect.layerCount     = 1;
+        rect.rect.extent    = info.renderArea.extent;
+        rect.rect.offset.x  = 0;
+        rect.rect.offset.y  = 0;
+
+        vkCmdClearAttachments(render_state.m_cmd_buffer->handle(), 1, &attachment, 1, &rect);
+    }
 
     VkRect2D scissor_rect;
 
@@ -295,9 +308,12 @@ void Renderer::render(RenderState& render_state)
     scissor_rect.offset.y      = 0;
 
     vkCmdSetScissor(render_state.m_cmd_buffer->handle(), 0, 1, &scissor_rect);
-
+    
     // Copy tone mapped image to swapchain image
-    copy(render_state.m_cmd_buffer);
+    if (m_current_output_buffer == OUTPUT_BUFFER_FINAL)
+        copy(render_state.m_cmd_buffer);
+    else
+        render_debug_visualization(render_state);
 
     // If any ray debug views were added, render them
     if (m_ray_debug_views.size() > 0)
@@ -305,6 +321,17 @@ void Renderer::render(RenderState& render_state)
 
     {
         HELIOS_SCOPED_SAMPLE("UI");
+
+        VkViewport vp;
+
+        vp.x        = 0.0f;
+        vp.y        = 0.0f;
+        vp.width    = (float)extents.width;
+        vp.height   = (float)extents.height;
+        vp.minDepth = 0.0f;
+        vp.maxDepth = 1.0f;
+
+        vkCmdSetViewport(render_state.m_cmd_buffer->handle(), 0, 1, &vp);
 
         // Render ImGui
         ImGui::Render();
@@ -390,6 +417,20 @@ void Renderer::copy(vk::CommandBuffer::Ptr cmd_buf)
 {
     HELIOS_SCOPED_SAMPLE("Copy");
 
+    auto backend = m_backend.lock();
+    auto extents = backend->swap_chain_extents();
+
+    VkViewport vp;
+
+    vp.x        = 0.0f;
+    vp.y        = 0.0f;
+    vp.width    = (float)extents.width;
+    vp.height   = (float)extents.height;
+    vp.minDepth = 0.0f;
+    vp.maxDepth = 1.0f;
+
+    vkCmdSetViewport(cmd_buf->handle(), 0, 1, &vp);
+
     vkCmdBindPipeline(cmd_buf->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_copy_pipeline->handle());
 
     vkCmdBindDescriptorSets(cmd_buf->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_copy_pipeline_layout->handle(), 0, 1, &m_tone_map_ds->handle(), 0, nullptr);
@@ -417,15 +458,6 @@ void Renderer::render_ray_debug_views(RenderState& render_state)
 
     vkCmdSetViewport(render_state.m_cmd_buffer->handle(), 0, 1, &vp);
 
-    VkRect2D scissor_rect;
-
-    scissor_rect.extent.width  = extents.width;
-    scissor_rect.extent.height = extents.height;
-    scissor_rect.offset.x      = 0;
-    scissor_rect.offset.y      = 0;
-
-    vkCmdSetScissor(render_state.m_cmd_buffer->handle(), 0, 1, &scissor_rect);
-
     vkCmdBindPipeline(render_state.m_cmd_buffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_ray_debug_pipeline->handle());
 
     const VkDeviceSize offset = 0;
@@ -442,6 +474,146 @@ void Renderer::render_ray_debug_views(RenderState& render_state)
 
 void Renderer::render_debug_visualization(RenderState& render_state)
 {
+    HELIOS_SCOPED_SAMPLE("Debug Visualization");
+
+    auto backend = m_backend.lock();
+    auto extents = backend->swap_chain_extents();
+
+    VkViewport vp;
+
+    vp.x        = 0.0f;
+    vp.y        = (float)extents.height;
+    vp.width    = (float)extents.width;
+    vp.height   = -(float)extents.height;
+    vp.minDepth = 0.0f;
+    vp.maxDepth = 1.0f;
+
+    vkCmdSetViewport(render_state.m_cmd_buffer->handle(), 0, 1, &vp);
+
+    vkCmdBindPipeline(render_state.m_cmd_buffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_debug_visualization_pipeline->handle());
+
+    VkDescriptorSet descriptor_sets[] = {
+        render_state.scene_descriptor_set()->handle(),
+        render_state.material_indices_descriptor_set()->handle(),
+        render_state.texture_descriptor_set()->handle()
+    };
+
+    vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_debug_visualization_pipeline_layout->handle(), 0, 3, descriptor_sets, 0, nullptr);
+
+    const auto& meshes = render_state.meshes();
+
+    for (int mesh_idx = 0; mesh_idx < meshes.size(); mesh_idx++)
+    {
+        const auto& mesh = meshes[mesh_idx]->mesh();
+
+        const VkBuffer     buffer = mesh->vertex_buffer()->handle();
+        const VkDeviceSize size   = 0;
+        vkCmdBindVertexBuffers(render_state.cmd_buffer()->handle(), 0, 1, &buffer, &size);
+        vkCmdBindIndexBuffer(render_state.cmd_buffer()->handle(), mesh->index_buffer()->handle(), 0, VK_INDEX_TYPE_UINT32);
+
+        const auto& submeshes = mesh->sub_meshes();
+
+        for (int submesh_idx = 0; submesh_idx < submeshes.size(); submesh_idx++)
+        {
+            const auto& submesh = submeshes[submesh_idx];
+
+            DebugVisualizationPushConstants push_constants;
+            push_constants.view_proj   = render_state.camera()->projection_matrix() * render_state.camera()->view_matrix();
+            push_constants.instance_id = mesh_idx;
+            push_constants.submesh_id  = submesh_idx;
+            push_constants.current_output_buffer = m_current_output_buffer;
+
+            vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_debug_visualization_pipeline_layout->handle(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(DebugVisualizationPushConstants), &push_constants);
+
+            vkCmdDrawIndexed(render_state.cmd_buffer()->handle(), submesh.index_count, 1, submesh.base_index, submesh.base_vertex, 0);
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Renderer::render_depth_prepass(RenderState& render_state)
+{
+    HELIOS_SCOPED_SAMPLE("Depth Prepass");
+
+    auto backend = m_backend.lock();
+    auto extents = backend->swap_chain_extents();
+
+    VkClearValue clear_value;
+
+    clear_value.depthStencil.depth   = 1.0f;
+    clear_value.depthStencil.stencil = 255;
+
+    VkRenderPassBeginInfo info    = {};
+    info.sType                    = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    info.renderPass               = m_depth_prepass_renderpass->handle();
+    info.framebuffer              = m_depth_prepass_framebuffer->handle();
+    info.renderArea.extent.width  = extents.width;
+    info.renderArea.extent.height = extents.height;
+    info.clearValueCount          = 1;
+    info.pClearValues             = &clear_value;
+
+    vkCmdBeginRenderPass(render_state.m_cmd_buffer->handle(), &info, VK_SUBPASS_CONTENTS_INLINE);
+
+    VkViewport vp;
+
+    vp.x        = 0.0f;
+    vp.y        = (float)extents.height;
+    vp.width    = (float)extents.width;
+    vp.height   = -(float)extents.height;
+    vp.minDepth = 0.0f;
+    vp.maxDepth = 1.0f;
+
+    vkCmdSetViewport(render_state.m_cmd_buffer->handle(), 0, 1, &vp);
+
+    VkRect2D scissor_rect;
+
+    scissor_rect.extent.width  = extents.width;
+    scissor_rect.extent.height = extents.height;
+    scissor_rect.offset.x      = 0;
+    scissor_rect.offset.y      = 0;
+
+    vkCmdSetScissor(render_state.m_cmd_buffer->handle(), 0, 1, &scissor_rect);
+
+    vkCmdBindPipeline(render_state.m_cmd_buffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_depth_prepass_pipeline->handle());
+
+    VkDescriptorSet descriptor_sets[] = {
+        render_state.scene_descriptor_set()->handle(),
+        render_state.material_indices_descriptor_set()->handle(),
+        render_state.texture_descriptor_set()->handle()
+    };
+
+    vkCmdBindDescriptorSets(render_state.cmd_buffer()->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, m_debug_visualization_pipeline_layout->handle(), 0, 3, descriptor_sets, 0, nullptr);
+
+    const auto& meshes = render_state.meshes();
+
+    for (int mesh_idx = 0; mesh_idx < meshes.size(); mesh_idx++)
+    {
+        const auto& mesh = meshes[mesh_idx]->mesh();
+
+        const VkBuffer     buffer = mesh->vertex_buffer()->handle();
+        const VkDeviceSize size   = 0;
+        vkCmdBindVertexBuffers(render_state.cmd_buffer()->handle(), 0, 1, &buffer, &size);
+        vkCmdBindIndexBuffer(render_state.cmd_buffer()->handle(), mesh->index_buffer()->handle(), 0, VK_INDEX_TYPE_UINT32);
+
+        const auto& submeshes = mesh->sub_meshes();
+
+        for (int submesh_idx = 0; submesh_idx < submeshes.size(); submesh_idx++)
+        {
+            const auto& submesh = submeshes[submesh_idx];
+
+            DebugVisualizationPushConstants push_constants;
+            push_constants.view_proj = render_state.camera()->projection_matrix() * render_state.camera()->view_matrix();
+            push_constants.instance_id = mesh_idx;
+            push_constants.submesh_id  = submesh_idx;
+
+            vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_debug_visualization_pipeline_layout->handle(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(DebugVisualizationPushConstants), &push_constants);
+
+            vkCmdDrawIndexed(render_state.cmd_buffer()->handle(), submesh.index_count, 1, submesh.base_index, submesh.base_vertex, 0);
+        }
+    }
+
+    vkCmdEndRenderPass(render_state.m_cmd_buffer->handle());
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -535,6 +707,7 @@ void Renderer::on_window_resize()
     create_output_images();
     create_tone_map_framebuffer();
     create_swapchain_framebuffers();
+    create_depth_prepass_framebuffer();
     update_dynamic_descriptor_sets();
 }
 
@@ -683,16 +856,16 @@ void Renderer::create_depth_prepass_render_pass()
     dependencies[0].srcSubpass      = VK_SUBPASS_EXTERNAL;
     dependencies[0].dstSubpass      = 0;
     dependencies[0].srcStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    dependencies[0].dstStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[0].dstStageMask    = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependencies[0].srcAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
-    dependencies[0].dstAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[0].dstAccessMask   = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
     dependencies[1].srcSubpass      = 0;
     dependencies[1].dstSubpass      = VK_SUBPASS_EXTERNAL;
-    dependencies[1].srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[1].srcStageMask    = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependencies[1].dstStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    dependencies[1].srcAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[1].srcAccessMask   = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     dependencies[1].dstAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
     dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
@@ -920,8 +1093,8 @@ void Renderer::create_ray_debug_pipeline()
 
     vk::DepthStencilStateDesc ds_state;
 
-    ds_state.set_depth_test_enable(VK_FALSE)
-        .set_depth_write_enable(VK_FALSE)
+    ds_state.set_depth_test_enable(VK_TRUE)
+        .set_depth_write_enable(VK_TRUE)
         .set_depth_compare_op(VK_COMPARE_OP_LESS)
         .set_depth_bounds_test_enable(VK_FALSE)
         .set_stencil_test_enable(VK_FALSE);
@@ -1071,9 +1244,9 @@ void Renderer::create_debug_visualization_pipeline()
 
     vk::DepthStencilStateDesc ds_state;
 
-    ds_state.set_depth_test_enable(VK_FALSE)
+    ds_state.set_depth_test_enable(VK_TRUE)
         .set_depth_write_enable(VK_TRUE)
-        .set_depth_compare_op(VK_COMPARE_OP_LESS)
+        .set_depth_compare_op(VK_COMPARE_OP_LESS_OR_EQUAL)
         .set_depth_bounds_test_enable(VK_FALSE)
         .set_stencil_test_enable(VK_FALSE);
 
@@ -1225,7 +1398,7 @@ void Renderer::create_depth_prepass_pipeline()
 
     vk::DepthStencilStateDesc ds_state;
 
-    ds_state.set_depth_test_enable(VK_FALSE)
+    ds_state.set_depth_test_enable(VK_TRUE)
         .set_depth_write_enable(VK_TRUE)
         .set_depth_compare_op(VK_COMPARE_OP_LESS)
         .set_depth_bounds_test_enable(VK_FALSE)

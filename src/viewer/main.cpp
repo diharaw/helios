@@ -39,6 +39,15 @@ std::vector<std::string> tone_map_operators = {
     "Reinhard"
 };
 
+std::vector<std::string> output_buffers = {
+    "Albedo",
+    "Normals",
+    "Roughness",
+    "Metallic",
+    "Emissive",
+    "Final"
+};
+
 class Viewer : public Application
 {
 protected:
@@ -281,6 +290,21 @@ protected:
             {
                 m_renderer->path_integrator()->set_tiled(tiled);
                 m_renderer->path_integrator()->restart_bake();
+            }
+
+            if (ImGui::BeginCombo("Output Buffer", output_buffers[m_renderer->current_output_buffer()].c_str()))
+            {
+                for (uint32_t i = 0; i < output_buffers.size(); i++)
+                {
+                    const bool is_selected = (i == m_renderer->current_output_buffer());
+
+                    if (ImGui::Selectable(output_buffers[i].c_str(), is_selected))
+                        m_renderer->set_current_output_buffer((OutputBuffer)i);
+
+                    if (is_selected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
             }
 
             int32_t max_samples = m_renderer->path_integrator()->max_samples();
