@@ -248,7 +248,7 @@ void Renderer::render(RenderState& render_state)
     if (m_save_image_to_disk)
         copy_and_save_tone_mapped_image(render_state.m_cmd_buffer);
 
-     vk::utilities::set_image_layout(
+    vk::utilities::set_image_layout(
         render_state.m_cmd_buffer->handle(),
         backend->swapchain_depth_image()->handle(),
         VK_IMAGE_LAYOUT_UNDEFINED,

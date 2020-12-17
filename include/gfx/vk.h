@@ -71,41 +71,41 @@ public:
 
     ~Backend();
 
-    std::shared_ptr<DescriptorSet>  allocate_descriptor_set(std::shared_ptr<DescriptorSetLayout> layout);
-    std::shared_ptr<CommandBuffer>  allocate_graphics_command_buffer(bool begin = false);
-    std::shared_ptr<CommandBuffer>  allocate_compute_command_buffer(bool begin = false);
-    std::shared_ptr<CommandBuffer>  allocate_transfer_command_buffer(bool begin = false);
-    std::shared_ptr<CommandPool>    thread_local_graphics_command_pool();
-    std::shared_ptr<CommandPool>    thread_local_compute_command_pool();
-    std::shared_ptr<CommandPool>    thread_local_transfer_command_pool();
-    std::shared_ptr<DescriptorPool> thread_local_descriptor_pool();
-    void                            submit_graphics(const std::vector<std::shared_ptr<CommandBuffer>>& cmd_bufs,
-                                                    const std::vector<std::shared_ptr<Semaphore>>&     wait_semaphores,
-                                                    const std::vector<VkPipelineStageFlags>&           wait_stages,
-                                                    const std::vector<std::shared_ptr<Semaphore>>&     signal_semaphores);
-    void                            submit_compute(const std::vector<std::shared_ptr<CommandBuffer>>& cmd_bufs,
-                                                   const std::vector<std::shared_ptr<Semaphore>>&     wait_semaphores,
-                                                   const std::vector<VkPipelineStageFlags>&           wait_stages,
-                                                   const std::vector<std::shared_ptr<Semaphore>>&     signal_semaphores);
-    void                            submit_transfer(const std::vector<std::shared_ptr<CommandBuffer>>& cmd_bufs,
-                                                    const std::vector<std::shared_ptr<Semaphore>>&     wait_semaphores,
-                                                    const std::vector<VkPipelineStageFlags>&           wait_stages,
-                                                    const std::vector<std::shared_ptr<Semaphore>>&     signal_semaphores);
-    void                            flush_graphics(const std::vector<std::shared_ptr<CommandBuffer>>& cmd_bufs);
-    void                            flush_compute(const std::vector<std::shared_ptr<CommandBuffer>>& cmd_bufs);
-    void                            flush_transfer(const std::vector<std::shared_ptr<CommandBuffer>>& cmd_bufs);
-    void                            acquire_next_swap_chain_image(const std::shared_ptr<Semaphore>& semaphore);
-    void                            present(const std::vector<std::shared_ptr<Semaphore>>& semaphores);
-    bool                            is_frame_done(uint32_t idx);
-    void                            wait_for_frame(uint32_t idx);
-    std::shared_ptr<Image>          swapchain_image();
-    std::shared_ptr<ImageView>      swapchain_image_view();
+    std::shared_ptr<DescriptorSet>          allocate_descriptor_set(std::shared_ptr<DescriptorSetLayout> layout);
+    std::shared_ptr<CommandBuffer>          allocate_graphics_command_buffer(bool begin = false);
+    std::shared_ptr<CommandBuffer>          allocate_compute_command_buffer(bool begin = false);
+    std::shared_ptr<CommandBuffer>          allocate_transfer_command_buffer(bool begin = false);
+    std::shared_ptr<CommandPool>            thread_local_graphics_command_pool();
+    std::shared_ptr<CommandPool>            thread_local_compute_command_pool();
+    std::shared_ptr<CommandPool>            thread_local_transfer_command_pool();
+    std::shared_ptr<DescriptorPool>         thread_local_descriptor_pool();
+    void                                    submit_graphics(const std::vector<std::shared_ptr<CommandBuffer>>& cmd_bufs,
+                                                            const std::vector<std::shared_ptr<Semaphore>>&     wait_semaphores,
+                                                            const std::vector<VkPipelineStageFlags>&           wait_stages,
+                                                            const std::vector<std::shared_ptr<Semaphore>>&     signal_semaphores);
+    void                                    submit_compute(const std::vector<std::shared_ptr<CommandBuffer>>& cmd_bufs,
+                                                           const std::vector<std::shared_ptr<Semaphore>>&     wait_semaphores,
+                                                           const std::vector<VkPipelineStageFlags>&           wait_stages,
+                                                           const std::vector<std::shared_ptr<Semaphore>>&     signal_semaphores);
+    void                                    submit_transfer(const std::vector<std::shared_ptr<CommandBuffer>>& cmd_bufs,
+                                                            const std::vector<std::shared_ptr<Semaphore>>&     wait_semaphores,
+                                                            const std::vector<VkPipelineStageFlags>&           wait_stages,
+                                                            const std::vector<std::shared_ptr<Semaphore>>&     signal_semaphores);
+    void                                    flush_graphics(const std::vector<std::shared_ptr<CommandBuffer>>& cmd_bufs);
+    void                                    flush_compute(const std::vector<std::shared_ptr<CommandBuffer>>& cmd_bufs);
+    void                                    flush_transfer(const std::vector<std::shared_ptr<CommandBuffer>>& cmd_bufs);
+    void                                    acquire_next_swap_chain_image(const std::shared_ptr<Semaphore>& semaphore);
+    void                                    present(const std::vector<std::shared_ptr<Semaphore>>& semaphores);
+    bool                                    is_frame_done(uint32_t idx);
+    void                                    wait_for_frame(uint32_t idx);
+    std::shared_ptr<Image>                  swapchain_image();
+    std::shared_ptr<ImageView>              swapchain_image_view();
     std::vector<std::shared_ptr<ImageView>> swapchain_image_views();
-    std::shared_ptr<Image>          swapchain_depth_image();
-    std::shared_ptr<ImageView>      swapchain_depth_image_view();
-    std::shared_ptr<Framebuffer>    swapchain_framebuffer();
-    std::shared_ptr<RenderPass>     swapchain_render_pass();
-    void                            recreate_swapchain();
+    std::shared_ptr<Image>                  swapchain_depth_image();
+    std::shared_ptr<ImageView>              swapchain_depth_image_view();
+    std::shared_ptr<Framebuffer>            swapchain_framebuffer();
+    std::shared_ptr<RenderPass>             swapchain_render_pass();
+    void                                    recreate_swapchain();
 
     void             wait_idle();
     uint32_t         swap_image_count();

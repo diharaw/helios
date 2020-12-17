@@ -125,7 +125,7 @@ bool Application::init_base(int argc, const char* argv[])
                                        true,
                                        settings.device_extensions);
 
-    m_renderer = std::unique_ptr<Renderer>(new Renderer(m_vk_backend));
+    m_renderer         = std::unique_ptr<Renderer>(new Renderer(m_vk_backend));
     m_resource_manager = std::unique_ptr<ResourceManager>(new ResourceManager(m_vk_backend));
 
     m_image_available_semaphores.resize(vk::Backend::kMaxFramesInFlight);
