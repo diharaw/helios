@@ -733,7 +733,7 @@ private:
 
         float intensity = light_node->intensity();
 
-        ImGui::InputFloat("FOV", &intensity);
+        ImGui::InputFloat("Intensity", &intensity);
 
         if (intensity != light_node->intensity())
         {
@@ -773,7 +773,7 @@ private:
 
         float intensity = light_node->intensity();
 
-        ImGui::InputFloat("FOV", &intensity);
+        ImGui::InputFloat("Intensity", &intensity);
 
         if (intensity != light_node->intensity())
         {

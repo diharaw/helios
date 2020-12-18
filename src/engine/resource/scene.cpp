@@ -791,12 +791,15 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root, 
     m_instance_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(InstanceData) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
 
     update_static_descriptors();
+
+    m_sky_model = std::unique_ptr<HosekWilkieSkyModel>(new HosekWilkieSkyModel(backend));
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
 Scene::~Scene()
 {
+    m_sky_model.reset();
     m_textures_descriptor_set.reset();
     m_material_indices_descriptor_set.reset();
     m_ibo_descriptor_set.reset();
@@ -836,6 +839,11 @@ void Scene::update(RenderState& render_state)
 
     if (render_state.ibl_environment_map() && render_state.ibl_environment_map()->image())
         render_state.m_num_lights++;
+    else if (render_state.m_directional_lights.size() > 0)
+    {
+        render_state.m_num_lights++;
+        m_sky_model->update(render_state.cmd_buffer(), -render_state.m_directional_lights[0]->forward());
+    }
 
     if (m_force_update)
     {
@@ -1092,7 +1100,12 @@ void Scene::create_gpu_resources(RenderState& render_state)
             if (render_state.ibl_environment_map() && render_state.ibl_environment_map()->image())
                 environment_map_info.imageView = render_state.ibl_environment_map()->image()->image_view()->handle();
             else
-                environment_map_info.imageView = backend->default_cubemap()->handle();
+            {
+                if (render_state.m_directional_lights.size() > 0)
+                    environment_map_info.imageView = m_sky_model->cubemap()->handle();
+                else
+                    environment_map_info.imageView = backend->default_cubemap()->handle();
+            }
 
             environment_map_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -1172,7 +1185,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
             instance_data.normal_matrix = mesh_node->normal_matrix();
         }
 
-        if (render_state.ibl_environment_map() && render_state.ibl_environment_map()->image())
+        if ((render_state.ibl_environment_map() && render_state.ibl_environment_map()->image()) || render_state.m_directional_lights.size() > 0)
         {
             LightData& light_data = light_buffer[gpu_light_counter++];
 

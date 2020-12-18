@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gfx/vk.h>
+#include <gfx/hosek_wilkie_sky_model.h>
 #include <glm.hpp>
 #include <gtc/quaternion.hpp>
 #include <utility/macros.h>
@@ -426,6 +427,7 @@ public:
     inline std::string                path() { return m_path; }
     inline AccelerationStructureData& acceleration_structure_data() { return m_tlas; }
     inline void                       force_update() { m_force_update = true; }
+    inline HosekWilkieSkyModel*       sky_model() { return m_sky_model.get(); }
 
 private:
     Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root = nullptr, const std::string& path = "");
@@ -448,6 +450,7 @@ private:
     std::unordered_map<uint32_t, uint32_t> m_global_mesh_indices;
     size_t                                 m_camera_buffer_aligned_size;
     uint32_t                               m_num_area_lights = 0;
+    std::unique_ptr<HosekWilkieSkyModel>   m_sky_model;
     std::weak_ptr<vk::Backend>             m_backend;
     std::string                            m_name;
     std::string                            m_path;

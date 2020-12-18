@@ -2,6 +2,7 @@
 
 #include <resource/scene.h>
 #include <gfx/path_integrator.h>
+#include <gfx/hosek_wilkie_sky_model.h>
 
 namespace helios
 {
