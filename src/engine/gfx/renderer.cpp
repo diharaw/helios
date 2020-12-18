@@ -308,7 +308,7 @@ void Renderer::render(RenderState& render_state)
     scissor_rect.offset.y      = 0;
 
     vkCmdSetScissor(render_state.m_cmd_buffer->handle(), 0, 1, &scissor_rect);
-    
+
     // Copy tone mapped image to swapchain image
     if (m_current_output_buffer == OUTPUT_BUFFER_FINAL)
         copy(render_state.m_cmd_buffer);
@@ -518,9 +518,9 @@ void Renderer::render_debug_visualization(RenderState& render_state)
             const auto& submesh = submeshes[submesh_idx];
 
             DebugVisualizationPushConstants push_constants;
-            push_constants.view_proj   = render_state.camera()->projection_matrix() * render_state.camera()->view_matrix();
-            push_constants.instance_id = mesh_idx;
-            push_constants.submesh_id  = submesh_idx;
+            push_constants.view_proj             = render_state.camera()->projection_matrix() * render_state.camera()->view_matrix();
+            push_constants.instance_id           = mesh_idx;
+            push_constants.submesh_id            = submesh_idx;
             push_constants.current_output_buffer = m_current_output_buffer;
 
             vkCmdPushConstants(render_state.cmd_buffer()->handle(), m_debug_visualization_pipeline_layout->handle(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(DebugVisualizationPushConstants), &push_constants);
@@ -603,7 +603,7 @@ void Renderer::render_depth_prepass(RenderState& render_state)
             const auto& submesh = submeshes[submesh_idx];
 
             DebugVisualizationPushConstants push_constants;
-            push_constants.view_proj = render_state.camera()->projection_matrix() * render_state.camera()->view_matrix();
+            push_constants.view_proj   = render_state.camera()->projection_matrix() * render_state.camera()->view_matrix();
             push_constants.instance_id = mesh_idx;
             push_constants.submesh_id  = submesh_idx;
 

@@ -502,6 +502,8 @@ Node::Ptr ResourceManager::create_node(std::shared_ptr<ast::SceneNode> ast_node,
         return create_point_light_node(std::dynamic_pointer_cast<ast::PointLightNode>(ast_node), uploader);
     else if (ast_node->type == ast::SCENE_NODE_IBL)
         return create_ibl_node(std::dynamic_pointer_cast<ast::IBLNode>(ast_node), uploader);
+    else if (ast_node->type == ast::SCENE_NODE_ROOT)
+        return create_root_node(std::dynamic_pointer_cast<ast::TransformNode>(ast_node), uploader);
     else
         return nullptr;
 }
@@ -566,6 +568,7 @@ DirectionalLightNode::Ptr ResourceManager::create_directional_light_node(std::sh
 
     dir_light_node->set_color(ast_node->color);
     dir_light_node->set_intensity(ast_node->intensity);
+    dir_light_node->set_radius(ast_node->radius);
 
     populate_transform_node(dir_light_node, ast_node);
     populate_scene_node(dir_light_node, ast_node, uploader);
@@ -581,9 +584,9 @@ SpotLightNode::Ptr ResourceManager::create_spot_light_node(std::shared_ptr<ast::
 
     spot_light_node->set_color(ast_node->color);
     spot_light_node->set_intensity(ast_node->intensity);
-    spot_light_node->set_radius(ast_node->range);
-    //spot_light_node->set_inner_cone_angle(ast_node->cone_angle);
-    //spot_light_node->set_outer_cone_angle(ast_node->cone_angle);
+    spot_light_node->set_radius(ast_node->radius);
+    spot_light_node->set_inner_cone_angle(ast_node->inner_cone_angle);
+    spot_light_node->set_outer_cone_angle(ast_node->inner_cone_angle);
 
     populate_transform_node(spot_light_node, ast_node);
     populate_scene_node(spot_light_node, ast_node, uploader);
@@ -599,7 +602,7 @@ PointLightNode::Ptr ResourceManager::create_point_light_node(std::shared_ptr<ast
 
     point_light_node->set_color(ast_node->color);
     point_light_node->set_intensity(ast_node->intensity);
-    point_light_node->set_radius(ast_node->range);
+    point_light_node->set_radius(ast_node->radius);
 
     populate_transform_node(point_light_node, ast_node);
     populate_scene_node(point_light_node, ast_node, uploader);
@@ -628,6 +631,18 @@ IBLNode::Ptr ResourceManager::create_ibl_node(std::shared_ptr<ast::IBLNode> ast_
     populate_scene_node(ibl_node, ast_node, uploader);
 
     return ibl_node;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+RootNode::Ptr ResourceManager::create_root_node(std::shared_ptr<ast::TransformNode> ast_node, vk::BatchUploader& uploader)
+{
+    RootNode::Ptr transform_node = std::shared_ptr<RootNode>(new RootNode(ast_node->name));
+
+    populate_transform_node(transform_node, ast_node);
+    populate_scene_node(transform_node, ast_node, uploader);
+
+    return transform_node;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

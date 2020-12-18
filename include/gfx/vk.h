@@ -128,6 +128,7 @@ public:
     inline VkFormat                                           swap_chain_depth_format() { return m_swap_chain_depth_format; }
     inline VkExtent2D                                         swap_chain_extents() { return m_swap_chain_extent; }
     inline uint32_t                                           current_frame_idx() { return m_current_frame; }
+    inline uint32_t                                           swapchain_size() { return m_swap_chain_images.size(); }
     inline const QueueInfos&                                  queue_infos() { return m_selected_queues; }
     inline std::shared_ptr<DescriptorSetLayout>               scene_descriptor_set_layout() { return m_scene_descriptor_set_layout; }
     inline std::shared_ptr<DescriptorSetLayout>               buffer_array_descriptor_set_layout() { return m_buffer_array_descriptor_set_layout; }

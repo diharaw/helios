@@ -1,6 +1,7 @@
 #include <core/application.h>
 #include <utility/macros.h>
 #include <imgui_internal.h>
+#include <ImGuizmo.h>
 #include <utility/imgui_plot.h>
 #include <utility/profiler.h>
 #include <filesystem>
@@ -103,17 +104,43 @@ protected:
 
     void gui()
     {
+        ImGuizmo::BeginFrame();
+
         if (!m_show_gui)
             return;
 
-        bool open = true;
+        auto extents = m_vk_backend->swap_chain_extents();
 
-        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
-        ImGui::SetNextWindowSize(ImVec2(m_width * 0.3f, m_height));
+        if (m_scene)
+        {
+            CameraNode::Ptr    camera         = std::dynamic_pointer_cast<CameraNode>(m_scene->find_node("main_camera"));
+            TransformNode::Ptr transform_node = std::dynamic_pointer_cast<TransformNode>(m_selected_node);
+
+            if (camera && transform_node)
+            {
+                glm::mat4 view       = camera->view_matrix();
+                glm::mat4 projection = camera->projection_matrix();
+
+                ImGuizmo::SetOrthographic(false);
+                ImGuizmo::SetRect(0, 0, extents.width, extents.height);
+
+                glm::mat4 transform = transform_node->global_transform();
+
+                ImGuizmo::Manipulate(&view[0][0], &projection[0][0], (ImGuizmo::OPERATION)m_current_operation, (ImGuizmo::MODE)m_current_mode, &transform[0][0], NULL, m_use_snap ? &m_snap[0] : NULL);
+
+                if (ImGuizmo::IsUsing())
+                    transform_node->set_from_global_transform(transform);
+            }
+        }
+
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 
+        bool             open         = true;
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
+
+        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+        ImGui::SetNextWindowSize(ImVec2(m_width * 0.3f, m_height));
 
         ImGui::Begin("Editor", &open, window_flags);
 
@@ -144,6 +171,7 @@ protected:
                     free(out_path);
 
                     m_vk_backend->queue_object_deletion(m_scene);
+                    m_selected_node = nullptr;
 
                     m_scene = m_resource_manager->load_scene(path, true);
                 }
@@ -208,6 +236,8 @@ protected:
                         inspector_point_light();
                     else if (m_selected_node->type() == NODE_IBL)
                         inspector_ibl();
+                    else if (m_selected_node->type() == NODE_ROOT)
+                        inspector_transform(true, true, false);
 
                     ImGui::PopID();
                 }
@@ -326,13 +356,13 @@ protected:
                 m_renderer->path_integrator()->set_max_ray_bounces(max_ray_bounces);
                 m_renderer->path_integrator()->restart_bake();
             }
-            
+
             if (ImGui::BeginCombo("Tone Map Operator", tone_map_operators[m_renderer->tone_map_operator()].c_str()))
             {
                 for (uint32_t i = 0; i < tone_map_operators.size(); i++)
                 {
                     const bool is_selected = (i == m_renderer->tone_map_operator());
-                    
+
                     if (ImGui::Selectable(tone_map_operators[i].c_str(), is_selected))
                         m_renderer->set_tone_map_operator((ToneMapOperator)i);
 
@@ -652,7 +682,7 @@ private:
 
     void inspector_camera()
     {
-        inspector_transform();
+        inspector_transform(true, true, false);
         ImGui::Separator();
 
         CameraNode::Ptr camera_node = std::dynamic_pointer_cast<CameraNode>(m_selected_node);
@@ -696,7 +726,7 @@ private:
 
     void inspector_directional_light()
     {
-        inspector_transform();
+        inspector_transform(false, true, false);
         ImGui::Separator();
 
         DirectionalLightNode::Ptr light_node = std::dynamic_pointer_cast<DirectionalLightNode>(m_selected_node);
@@ -736,7 +766,7 @@ private:
 
     void inspector_spot_light()
     {
-        inspector_transform();
+        inspector_transform(true, true, false);
         ImGui::Separator();
 
         SpotLightNode::Ptr light_node = std::dynamic_pointer_cast<SpotLightNode>(m_selected_node);
@@ -776,7 +806,7 @@ private:
 
     void inspector_point_light()
     {
-        inspector_transform();
+        inspector_transform(true, false, false);
         ImGui::Separator();
 
         PointLightNode::Ptr light_node = std::dynamic_pointer_cast<PointLightNode>(m_selected_node);
@@ -847,30 +877,139 @@ private:
 
     // -----------------------------------------------------------------------------------------------------------------------------------
 
-    void inspector_transform()
+    void inspector_transform(bool use_translate = true, bool use_rotate = true, bool use_scale = true)
     {
+        bool is_single_operation = false;
+
+        if (use_translate && !use_rotate && !use_scale)
+        {
+            m_current_operation = ImGuizmo::TRANSLATE;
+            is_single_operation = true;
+        }
+        if (use_rotate && !use_translate && !use_scale)
+        {
+            m_current_operation = ImGuizmo::ROTATE;
+            is_single_operation = true;
+        }
+
+        if (!is_single_operation)
+        {
+            if (use_translate)
+            {
+                if (ImGui::RadioButton("Translate", m_current_operation == ImGuizmo::TRANSLATE))
+                    m_current_operation = ImGuizmo::TRANSLATE;
+
+                if (use_rotate || use_scale)
+                    ImGui::SameLine();
+            }
+
+            if (use_rotate)
+            {
+                if (ImGui::RadioButton("Rotate", m_current_operation == ImGuizmo::ROTATE))
+                    m_current_operation = ImGuizmo::ROTATE;
+
+                if (use_scale)
+                    ImGui::SameLine();
+            }
+
+            if (use_scale)
+            {
+                if (ImGui::RadioButton("Scale", m_current_operation == ImGuizmo::SCALE))
+                    m_current_operation = ImGuizmo::SCALE;
+            }
+        }
+
+        TransformNode::Ptr transform_node = std::dynamic_pointer_cast<TransformNode>(m_selected_node);
+
+        glm::vec3 position;
+        glm::vec3 rotation;
+        glm::vec3 scale;
+
+        glm::mat4 out_transform = transform_node->local_transform();
+
+        ImGuizmo::DecomposeMatrixToComponents(&out_transform[0][0], &position.x, &rotation.x, &scale.x);
+
+        bool is_edited = false;
+
+        if (use_translate)
+        {
+            if (ImGui::InputFloat3("Translation", &position.x, 3))
+                is_edited = true;
+        }
+        else
+            position = glm::vec3(0.0f);
+
+        if (use_rotate)
+        {
+            if (ImGui::InputFloat3("Rotation", &rotation.x, 3))
+                is_edited = true;
+        }
+        else
+            rotation = glm::vec3(0.0f);
+
+        if (use_scale)
+        {
+            if (ImGui::InputFloat3("Scale", &scale.x, 3))
+                is_edited = true;
+        }
+        else
+            scale = glm::vec3(1.0f);
+
+        ImGuizmo::RecomposeMatrixFromComponents(&position.x, &rotation.x, &scale.x, &out_transform[0][0]);
+
+        if (m_current_operation != ImGuizmo::SCALE)
+        {
+            if (ImGui::RadioButton("Local", m_current_mode == ImGuizmo::LOCAL))
+                m_current_mode = ImGuizmo::LOCAL;
+            ImGui::SameLine();
+            if (ImGui::RadioButton("World", m_current_mode == ImGuizmo::WORLD))
+                m_current_mode = ImGuizmo::WORLD;
+        }
+
+        ImGui::Checkbox("", &m_use_snap);
+        ImGui::SameLine();
+
+        switch (m_current_operation)
+        {
+            case ImGuizmo::TRANSLATE:
+                ImGui::InputFloat3("Snap", &m_snap[0]);
+                break;
+            case ImGuizmo::ROTATE:
+                ImGui::InputFloat("Angle Snap", &m_snap[0]);
+                break;
+            case ImGuizmo::SCALE:
+                ImGui::InputFloat("Scale Snap", &m_snap[0]);
+                break;
+        }
+
+        if (is_edited)
+            transform_node->set_from_local_transform(out_transform);
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------
 
 private:
-    RenderState m_render_state;
-    Scene::Ptr  m_scene;
-    bool        m_show_gui                    = true;
-    bool        m_mouse_look                  = false;
-    bool        m_ray_debug_mode              = false;
-    Node::Ptr   m_selected_node               = nullptr;
-    bool        m_should_remove_selected_node = false;
-    Node*       m_node_to_attach_to           = nullptr;
-    float       m_camera_yaw                  = 0.0f;
-    float       m_camera_pitch                = 0.0f;
-    float       m_heading_speed               = 0.0f;
-    float       m_sideways_speed              = 0.0f;
-    float       m_camera_sensitivity          = 0.05f;
-    float       m_camera_speed                = 5.0f;
-    float       m_smooth_frametime            = 0.0f;
-    int32_t     m_num_debug_rays              = 32;
-    std::string m_string_buffer;
+    ImGuizmo::OPERATION m_current_operation = ImGuizmo::TRANSLATE;
+    ImGuizmo::MODE      m_current_mode      = ImGuizmo::WORLD;
+    RenderState         m_render_state;
+    Scene::Ptr          m_scene;
+    glm::vec3           m_snap                        = glm::vec3(1.0f);
+    bool                m_use_snap                    = false;
+    bool                m_show_gui                    = true;
+    bool                m_mouse_look                  = false;
+    bool                m_ray_debug_mode              = false;
+    Node::Ptr           m_selected_node               = nullptr;
+    bool                m_should_remove_selected_node = false;
+    Node*               m_node_to_attach_to           = nullptr;
+    float               m_camera_yaw                  = 0.0f;
+    float               m_camera_pitch                = 0.0f;
+    float               m_heading_speed               = 0.0f;
+    float               m_sideways_speed              = 0.0f;
+    float               m_camera_sensitivity          = 0.05f;
+    float               m_camera_speed                = 5.0f;
+    float               m_smooth_frametime            = 0.0f;
+    int32_t             m_num_debug_rays              = 32;
+    std::string         m_string_buffer;
 };
 } // namespace helios
 

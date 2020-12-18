@@ -41,6 +41,7 @@ private:
     SpotLightNode::Ptr        create_spot_light_node(std::shared_ptr<ast::SpotLightNode> ast_node, vk::BatchUploader& uploader);
     PointLightNode::Ptr       create_point_light_node(std::shared_ptr<ast::PointLightNode> ast_node, vk::BatchUploader& uploader);
     IBLNode::Ptr              create_ibl_node(std::shared_ptr<ast::IBLNode> ast_node, vk::BatchUploader& uploader);
+    RootNode::Ptr             create_root_node(std::shared_ptr<ast::TransformNode> ast_node, vk::BatchUploader& uploader);
     void                      populate_scene_node(Node::Ptr node, std::shared_ptr<ast::SceneNode> ast_node, vk::BatchUploader& uploader);
     void                      populate_transform_node(TransformNode::Ptr node, std::shared_ptr<ast::TransformNode> ast_node);
 };

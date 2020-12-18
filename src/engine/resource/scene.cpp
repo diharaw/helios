@@ -4,8 +4,8 @@
 #include <resource/texture.h>
 #include <utility/profiler.h>
 #include <vk_mem_alloc.h>
-#include <unordered_map>
 #include <unordered_set>
+#include <gtx/matrix_decompose.hpp>
 
 namespace helios
 {
@@ -89,6 +89,13 @@ Node::Ptr Node::find_child(const std::string& name)
     {
         if (child->m_name == name)
             return child;
+        else
+        {
+            auto found = child->find_child(name);
+
+            if (found)
+                return found;
+        }
     }
 
     return nullptr;
@@ -171,10 +178,9 @@ void TransformNode::update(RenderState& render_state)
         TransformNode* parent_transform = dynamic_cast<TransformNode*>(m_parent);
 
         if (parent_transform)
-            m_model_matrix = m_model_matrix * parent_transform->m_model_matrix;
+            m_model_matrix = m_model_matrix * parent_transform->m_model_matrix_without_scale;
 
-        if (render_state.m_scene_state != SCENE_STATE_HIERARCHY_UPDATED)
-            render_state.m_scene_state = SCENE_STATE_TRANSFORMS_UPDATED;
+        render_state.m_scene_state = SCENE_STATE_HIERARCHY_UPDATED;
 
         m_is_transform_dirty = false;
     }
@@ -210,7 +216,19 @@ glm::vec3 TransformNode::position()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-glm::mat4 TransformNode::model_matrix()
+glm::mat4 TransformNode::global_transform()
+{
+    TransformNode* parent_transform = dynamic_cast<TransformNode*>(m_parent);
+
+    if (parent_transform)
+        return m_model_matrix * parent_transform->m_model_matrix_without_scale;
+    else
+        return m_model_matrix;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+glm::mat4 TransformNode::local_transform()
 {
     return m_model_matrix;
 }
@@ -220,6 +238,42 @@ glm::mat4 TransformNode::model_matrix()
 glm::mat4 TransformNode::normal_matrix()
 {
     return m_model_matrix_without_scale;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void TransformNode::set_from_local_transform(const glm::mat4& transform)
+{
+    mark_transforms_as_dirty();
+
+    glm::mat4 local_transform = transform;
+
+    glm::vec3 out_skew;
+    glm::vec4 out_persp;
+
+    glm::decompose(local_transform, m_scale, m_orientation, m_position, out_skew, out_persp);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void TransformNode::set_from_global_transform(const glm::mat4& transform)
+{
+    mark_transforms_as_dirty();
+
+    TransformNode* parent_transform = dynamic_cast<TransformNode*>(m_parent);
+
+    glm::mat4 local_transform = transform;
+
+    if (parent_transform)
+    {
+        glm::mat4 inverse_parent_transform = glm::inverse(parent_transform->m_model_matrix_without_scale);
+        local_transform                    = inverse_parent_transform * transform;
+    }
+
+    glm::vec3 out_skew;
+    glm::vec4 out_persp;
+
+    glm::decompose(local_transform, m_scale, m_orientation, m_position, out_skew, out_persp);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -310,6 +364,30 @@ void TransformNode::rotate_euler_xyz(const glm::vec3& e)
 
     glm::quat delta = pitch * yaw * roll;
     m_orientation   = m_orientation * delta;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+RootNode::RootNode(const std::string& name) :
+    TransformNode(NODE_ROOT, name)
+{
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+RootNode::~RootNode()
+{
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void RootNode::update(RenderState& render_state)
+{
+    if (m_is_enabled)
+    {
+        TransformNode::update(render_state);
+        update_children(render_state);
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -711,6 +789,8 @@ Scene::Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root, 
 
     // Create instance data buffer
     m_instance_data_buffer = vk::Buffer::create(backend, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(InstanceData) * MAX_SCENE_MESH_INSTANCE_COUNT, VMA_MEMORY_USAGE_CPU_TO_GPU, VMA_ALLOCATION_CREATE_MAPPED_BIT);
+
+    update_static_descriptors();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -791,16 +871,14 @@ void Scene::create_gpu_resources(RenderState& render_state)
             std::unordered_set<uint32_t>           processed_materials;
             std::unordered_set<uint32_t>           processed_textures;
             std::unordered_map<uint32_t, uint32_t> global_material_indices;
-            std::unordered_map<uint32_t, uint32_t> global_mesh_indices;
+            uint32_t                               mesh_index_counter = 0;
 
             std::vector<VkDescriptorBufferInfo> vbo_descriptors;
             std::vector<VkDescriptorBufferInfo> ibo_descriptors;
             std::vector<VkDescriptorImageInfo>  image_descriptors;
             std::vector<VkDescriptorBufferInfo> material_indices_descriptors;
-            uint32_t                            gpu_material_counter     = 0;
-            MaterialData*                       material_buffer          = (MaterialData*)m_material_data_buffer->mapped_ptr();
-            InstanceData*                       instance_buffer          = (InstanceData*)m_instance_data_buffer->mapped_ptr();
-            VkAccelerationStructureInstanceKHR* geometry_instance_buffer = (VkAccelerationStructureInstanceKHR*)m_tlas.instance_buffer_host->mapped_ptr();
+            uint32_t                            gpu_material_counter = 0;
+            MaterialData*                       material_buffer      = (MaterialData*)m_material_data_buffer->mapped_ptr();
 
             for (int mesh_node_idx = 0; mesh_node_idx < render_state.m_meshes.size(); mesh_node_idx++)
             {
@@ -813,7 +891,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
                 {
                     processed_meshes.insert(mesh->id());
 
-                    global_mesh_indices[mesh->id()] = global_mesh_indices.size();
+                    m_global_mesh_indices[mesh->id()] = mesh_index_counter++;
 
                     VkDescriptorBufferInfo ibo_info;
 
@@ -989,27 +1067,6 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
                 material_indices_descriptors.push_back(material_indice_info);
 
-                // Copy geometry instance data
-                VkAccelerationStructureInstanceKHR& rt_instance = geometry_instance_buffer[mesh_node_idx];
-
-                glm::mat3x4 transform = glm::mat3x4(glm::transpose(mesh_node->model_matrix()));
-
-                memcpy(&rt_instance.transform, &transform, sizeof(rt_instance.transform));
-
-                rt_instance.instanceCustomIndex                    = mesh_node_idx;
-                rt_instance.mask                                   = 0xFF;
-                rt_instance.instanceShaderBindingTableRecordOffset = 0;
-                rt_instance.flags                                  = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
-                rt_instance.accelerationStructureReference         = mesh->acceleration_structure()->device_address();
-
-                // Update instance data
-                InstanceData& instance_data = instance_buffer[mesh_node_idx];
-
-                // Set mesh data index
-                instance_data.mesh_index    = global_mesh_indices[mesh->id()];
-                instance_data.model_matrix  = mesh_node->model_matrix();
-                instance_data.normal_matrix = mesh_node->normal_matrix();
-
                 glm::uvec2* primitive_offsets_material_indices = (glm::uvec2*)mesh_node->material_indices_buffer()->mapped_ptr();
 
                 // Set submesh materials
@@ -1028,24 +1085,6 @@ void Scene::create_gpu_resources(RenderState& render_state)
                 }
             }
 
-            VkDescriptorBufferInfo material_buffer_info;
-
-            material_buffer_info.buffer = m_material_data_buffer->handle();
-            material_buffer_info.offset = 0;
-            material_buffer_info.range  = VK_WHOLE_SIZE;
-
-            VkDescriptorBufferInfo instance_buffer_info;
-
-            instance_buffer_info.buffer = m_instance_data_buffer->handle();
-            instance_buffer_info.offset = 0;
-            instance_buffer_info.range  = VK_WHOLE_SIZE;
-
-            VkDescriptorBufferInfo light_buffer_info;
-
-            light_buffer_info.buffer = m_light_data_buffer->handle();
-            light_buffer_info.offset = 0;
-            light_buffer_info.range  = VK_WHOLE_SIZE;
-
             VkDescriptorImageInfo environment_map_info;
 
             environment_map_info.sampler = backend->bilinear_sampler()->handle();
@@ -1057,89 +1096,80 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
             environment_map_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-            VkWriteDescriptorSet write_data[9];
+            VkWriteDescriptorSet write_data[5];
 
             HELIOS_ZERO_MEMORY(write_data[0]);
             HELIOS_ZERO_MEMORY(write_data[1]);
             HELIOS_ZERO_MEMORY(write_data[2]);
             HELIOS_ZERO_MEMORY(write_data[3]);
             HELIOS_ZERO_MEMORY(write_data[4]);
-            HELIOS_ZERO_MEMORY(write_data[5]);
-            HELIOS_ZERO_MEMORY(write_data[6]);
-            HELIOS_ZERO_MEMORY(write_data[7]);
-            HELIOS_ZERO_MEMORY(write_data[8]);
 
             write_data[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write_data[0].descriptorCount = 1;
-            write_data[0].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[0].pBufferInfo     = &material_buffer_info;
-            write_data[0].dstBinding      = 0;
+            write_data[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write_data[0].pImageInfo      = &environment_map_info;
+            write_data[0].dstBinding      = 4;
             write_data[0].dstSet          = m_scene_descriptor_set->handle();
 
             write_data[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[1].descriptorCount = 1;
+            write_data[1].descriptorCount = vbo_descriptors.size();
             write_data[1].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[1].pBufferInfo     = &instance_buffer_info;
-            write_data[1].dstBinding      = 1;
-            write_data[1].dstSet          = m_scene_descriptor_set->handle();
+            write_data[1].pBufferInfo     = vbo_descriptors.data();
+            write_data[1].dstBinding      = 0;
+            write_data[1].dstSet          = m_vbo_descriptor_set->handle();
 
             write_data[2].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[2].descriptorCount = 1;
+            write_data[2].descriptorCount = ibo_descriptors.size();
             write_data[2].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[2].pBufferInfo     = &light_buffer_info;
-            write_data[2].dstBinding      = 2;
-            write_data[2].dstSet          = m_scene_descriptor_set->handle();
-
-            VkWriteDescriptorSetAccelerationStructureKHR descriptor_as;
-
-            descriptor_as.sType                      = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
-            descriptor_as.pNext                      = nullptr;
-            descriptor_as.accelerationStructureCount = 1;
-            descriptor_as.pAccelerationStructures    = &m_tlas.tlas->handle();
+            write_data[2].pBufferInfo     = ibo_descriptors.data();
+            write_data[2].dstBinding      = 0;
+            write_data[2].dstSet          = m_ibo_descriptor_set->handle();
 
             write_data[3].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[3].pNext           = &descriptor_as;
-            write_data[3].descriptorCount = 1;
-            write_data[3].descriptorType  = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-            write_data[3].dstBinding      = 3;
-            write_data[3].dstSet          = m_scene_descriptor_set->handle();
+            write_data[3].descriptorCount = material_indices_descriptors.size();
+            write_data[3].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            write_data[3].pBufferInfo     = material_indices_descriptors.data();
+            write_data[3].dstBinding      = 0;
+            write_data[3].dstSet          = m_material_indices_descriptor_set->handle();
 
             write_data[4].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[4].descriptorCount = 1;
+            write_data[4].descriptorCount = image_descriptors.size();
             write_data[4].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            write_data[4].pImageInfo      = &environment_map_info;
-            write_data[4].dstBinding      = 4;
-            write_data[4].dstSet          = m_scene_descriptor_set->handle();
+            write_data[4].pImageInfo      = image_descriptors.data();
+            write_data[4].dstBinding      = 0;
+            write_data[4].dstSet          = m_textures_descriptor_set->handle();
 
-            write_data[5].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[5].descriptorCount = vbo_descriptors.size();
-            write_data[5].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[5].pBufferInfo     = vbo_descriptors.data();
-            write_data[5].dstBinding      = 0;
-            write_data[5].dstSet          = m_vbo_descriptor_set->handle();
+            vkUpdateDescriptorSets(backend->device(), image_descriptors.size() > 0 ? 5 : 4, write_data, 0, nullptr);
+        }
 
-            write_data[6].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[6].descriptorCount = ibo_descriptors.size();
-            write_data[6].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[6].pBufferInfo     = ibo_descriptors.data();
-            write_data[6].dstBinding      = 0;
-            write_data[6].dstSet          = m_ibo_descriptor_set->handle();
+        InstanceData*                       instance_buffer          = (InstanceData*)m_instance_data_buffer->mapped_ptr();
+        VkAccelerationStructureInstanceKHR* geometry_instance_buffer = (VkAccelerationStructureInstanceKHR*)m_tlas.instance_buffer_host->mapped_ptr();
 
-            write_data[7].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[7].descriptorCount = material_indices_descriptors.size();
-            write_data[7].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[7].pBufferInfo     = material_indices_descriptors.data();
-            write_data[7].dstBinding      = 0;
-            write_data[7].dstSet          = m_material_indices_descriptor_set->handle();
+        for (int mesh_node_idx = 0; mesh_node_idx < render_state.m_meshes.size(); mesh_node_idx++)
+        {
+            auto& mesh_node = render_state.m_meshes[mesh_node_idx];
+            auto& mesh      = mesh_node->mesh();
 
-            write_data[8].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[8].descriptorCount = image_descriptors.size();
-            write_data[8].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            write_data[8].pImageInfo      = image_descriptors.data();
-            write_data[8].dstBinding      = 0;
-            write_data[8].dstSet          = m_textures_descriptor_set->handle();
+            // Copy geometry instance data
+            VkAccelerationStructureInstanceKHR& rt_instance = geometry_instance_buffer[mesh_node_idx];
 
-            vkUpdateDescriptorSets(backend->device(), image_descriptors.size() > 0 ? 9 : 8, write_data, 0, nullptr);
+            glm::mat3x4 transform = glm::mat3x4(glm::transpose(mesh_node->global_transform()));
+
+            memcpy(&rt_instance.transform, &transform, sizeof(rt_instance.transform));
+
+            rt_instance.instanceCustomIndex                    = mesh_node_idx;
+            rt_instance.mask                                   = 0xFF;
+            rt_instance.instanceShaderBindingTableRecordOffset = 0;
+            rt_instance.flags                                  = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+            rt_instance.accelerationStructureReference         = mesh->acceleration_structure()->device_address();
+
+            // Update instance data
+            InstanceData& instance_data = instance_buffer[mesh_node_idx];
+
+            // Set mesh data index
+            instance_data.mesh_index    = m_global_mesh_indices[mesh->id()];
+            instance_data.model_matrix  = mesh_node->global_transform();
+            instance_data.normal_matrix = mesh_node->normal_matrix();
         }
 
         if (render_state.ibl_environment_map() && render_state.ibl_environment_map()->image())
@@ -1184,6 +1214,75 @@ void Scene::create_gpu_resources(RenderState& render_state)
             light_data.light_data3 = glm::vec4(cosf(glm::radians(light->inner_cone_angle())), cosf(glm::radians(light->outer_cone_angle())), 0.0f, 0.0f);
         }
     }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Scene::update_static_descriptors()
+{
+    auto backend = m_backend.lock();
+
+    VkDescriptorBufferInfo material_buffer_info;
+
+    material_buffer_info.buffer = m_material_data_buffer->handle();
+    material_buffer_info.offset = 0;
+    material_buffer_info.range  = VK_WHOLE_SIZE;
+
+    VkDescriptorBufferInfo instance_buffer_info;
+
+    instance_buffer_info.buffer = m_instance_data_buffer->handle();
+    instance_buffer_info.offset = 0;
+    instance_buffer_info.range  = VK_WHOLE_SIZE;
+
+    VkDescriptorBufferInfo light_buffer_info;
+
+    light_buffer_info.buffer = m_light_data_buffer->handle();
+    light_buffer_info.offset = 0;
+    light_buffer_info.range  = VK_WHOLE_SIZE;
+
+    VkWriteDescriptorSet write_data[4];
+
+    HELIOS_ZERO_MEMORY(write_data[0]);
+    HELIOS_ZERO_MEMORY(write_data[1]);
+    HELIOS_ZERO_MEMORY(write_data[2]);
+    HELIOS_ZERO_MEMORY(write_data[3]);
+
+    write_data[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write_data[0].descriptorCount = 1;
+    write_data[0].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    write_data[0].pBufferInfo     = &material_buffer_info;
+    write_data[0].dstBinding      = 0;
+    write_data[0].dstSet          = m_scene_descriptor_set->handle();
+
+    write_data[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write_data[1].descriptorCount = 1;
+    write_data[1].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    write_data[1].pBufferInfo     = &instance_buffer_info;
+    write_data[1].dstBinding      = 1;
+    write_data[1].dstSet          = m_scene_descriptor_set->handle();
+
+    write_data[2].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write_data[2].descriptorCount = 1;
+    write_data[2].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    write_data[2].pBufferInfo     = &light_buffer_info;
+    write_data[2].dstBinding      = 2;
+    write_data[2].dstSet          = m_scene_descriptor_set->handle();
+
+    VkWriteDescriptorSetAccelerationStructureKHR descriptor_as;
+
+    descriptor_as.sType                      = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+    descriptor_as.pNext                      = nullptr;
+    descriptor_as.accelerationStructureCount = 1;
+    descriptor_as.pAccelerationStructures    = &m_tlas.tlas->handle();
+
+    write_data[3].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write_data[3].pNext           = &descriptor_as;
+    write_data[3].descriptorCount = 1;
+    write_data[3].descriptorType  = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+    write_data[3].dstBinding      = 3;
+    write_data[3].dstSet          = m_scene_descriptor_set->handle();
+
+    vkUpdateDescriptorSets(backend->device(), 4, write_data, 0, nullptr);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

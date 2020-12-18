@@ -6,6 +6,7 @@
 #include <utility/macros.h>
 #include <memory>
 #include <vector>
+#include <unordered_map>
 
 namespace helios
 {
@@ -26,7 +27,8 @@ enum NodeType
     NODE_DIRECTIONAL_LIGHT,
     NODE_SPOT_LIGHT,
     NODE_POINT_LIGHT,
-    NODE_IBL
+    NODE_IBL,
+    NODE_ROOT
 };
 
 struct RenderState;
@@ -105,8 +107,11 @@ public:
     glm::vec3 up();
     glm::vec3 left();
     glm::vec3 position();
-    glm::mat4 model_matrix();
+    glm::mat4 global_transform();
+    glm::mat4 local_transform();
     glm::mat4 normal_matrix();
+    void      set_from_local_transform(const glm::mat4& transform);
+    void      set_from_global_transform(const glm::mat4& transform);
     void      set_orientation(const glm::quat& q);
     void      set_orientation_from_euler_yxz(const glm::vec3& e);
     void      set_orientation_from_euler_xyz(const glm::vec3& e);
@@ -115,6 +120,18 @@ public:
     void      move(const glm::vec3& displacement);
     void      rotate_euler_yxz(const glm::vec3& e);
     void      rotate_euler_xyz(const glm::vec3& e);
+};
+
+class RootNode : public TransformNode
+{
+public:
+    using Ptr = std::shared_ptr<RootNode>;
+
+public:
+    RootNode(const std::string& name);
+    ~RootNode();
+
+    void update(RenderState& render_state) override;
 };
 
 class MeshNode : public TransformNode
@@ -354,6 +371,47 @@ public:
 
     friend class ResourceManager;
 
+private:
+    struct GPUState
+    {
+    private:
+        bool     m_is_tlas_built                  = false;
+        uint32_t m_current_transform_update_index = 0;
+        uint32_t m_current_hierarchy_update_index = 0;
+
+        // Static resources
+        std::vector<vk::DescriptorPool::Ptr> m_descriptor_pool;
+        vk::AccelerationStructure::Ptr       m_tlas;
+        vk::Buffer::Ptr                      m_instance_buffer_device;
+        vk::Buffer::Ptr                      m_scratch_buffer;
+
+        // Dynamic resources
+        std::vector<vk::Buffer::Ptr>        m_light_data_buffer;
+        std::vector<vk::Buffer::Ptr>        m_material_data_buffer;
+        std::vector<vk::Buffer::Ptr>        m_instance_data_buffer;
+        std::vector<vk::Buffer::Ptr>        m_instance_buffer_host;
+        std::vector<vk::DescriptorSet::Ptr> m_scene_descriptor_set;
+        std::vector<vk::DescriptorSet::Ptr> m_vbo_descriptor_set;
+        std::vector<vk::DescriptorSet::Ptr> m_ibo_descriptor_set;
+        std::vector<vk::DescriptorSet::Ptr> m_material_indices_descriptor_set;
+        std::vector<vk::DescriptorSet::Ptr> m_textures_descriptor_set;
+
+    public:
+        inline std::vector<vk::DescriptorPool::Ptr> descriptor_pools() { return m_descriptor_pool; }
+        inline vk::AccelerationStructure::Ptr       tlas() { return m_tlas; }
+        inline vk::Buffer::Ptr                      instance_buffer_device() { return m_instance_buffer_device; }
+        inline vk::Buffer::Ptr                      scratch_buffer() { return m_scratch_buffer; }
+        inline vk::Buffer::Ptr                      light_data_buffer() { return m_light_data_buffer[m_current_transform_update_index]; }
+        inline vk::Buffer::Ptr                      material_data_buffer() { return m_material_data_buffer[m_current_transform_update_index]; }
+        inline vk::Buffer::Ptr                      instance_data_buffer() { return m_instance_data_buffer[m_current_hierarchy_update_index]; }
+        inline vk::Buffer::Ptr                      instance_buffer_host() { return m_instance_buffer_host[m_current_hierarchy_update_index]; }
+        inline vk::DescriptorSet::Ptr               scene_descriptor_set() { return m_scene_descriptor_set[m_current_hierarchy_update_index]; }
+        inline vk::DescriptorSet::Ptr               vbo_descriptor_set() { return m_vbo_descriptor_set[m_current_hierarchy_update_index]; }
+        inline vk::DescriptorSet::Ptr               ibo_descriptor_set() { return m_ibo_descriptor_set[m_current_hierarchy_update_index]; }
+        inline vk::DescriptorSet::Ptr               material_indices_descriptor_set() { return m_material_indices_descriptor_set[m_current_hierarchy_update_index]; }
+        inline vk::DescriptorSet::Ptr               textures_descriptor_set() { return m_textures_descriptor_set[m_current_hierarchy_update_index]; }
+    };
+
 public:
     static Scene::Ptr create(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root = nullptr, const std::string& path = "");
     ~Scene();
@@ -372,24 +430,27 @@ public:
 private:
     Scene(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root = nullptr, const std::string& path = "");
     void create_gpu_resources(RenderState& render_state);
+    void update_static_descriptors();
 
 private:
-    AccelerationStructureData  m_tlas;
-    Node::Ptr                  m_root;
-    vk::DescriptorPool::Ptr    m_descriptor_pool;
-    vk::DescriptorSet::Ptr     m_scene_descriptor_set;
-    vk::DescriptorSet::Ptr     m_vbo_descriptor_set;
-    vk::DescriptorSet::Ptr     m_ibo_descriptor_set;
-    vk::DescriptorSet::Ptr     m_material_indices_descriptor_set;
-    vk::DescriptorSet::Ptr     m_textures_descriptor_set;
-    vk::Buffer::Ptr            m_light_data_buffer;
-    vk::Buffer::Ptr            m_material_data_buffer;
-    vk::Buffer::Ptr            m_instance_data_buffer;
-    size_t                     m_camera_buffer_aligned_size;
-    uint32_t                   m_num_area_lights = 0;
-    std::weak_ptr<vk::Backend> m_backend;
-    std::string                m_name;
-    std::string                m_path;
-    bool                       m_force_update = false;
+    AccelerationStructureData              m_tlas;
+    Node::Ptr                              m_root;
+    vk::DescriptorPool::Ptr                m_descriptor_pool;
+    vk::DescriptorSet::Ptr                 m_scene_descriptor_set;
+    vk::DescriptorSet::Ptr                 m_vbo_descriptor_set;
+    vk::DescriptorSet::Ptr                 m_ibo_descriptor_set;
+    vk::DescriptorSet::Ptr                 m_material_indices_descriptor_set;
+    vk::DescriptorSet::Ptr                 m_textures_descriptor_set;
+    vk::Buffer::Ptr                        m_light_data_buffer;
+    vk::Buffer::Ptr                        m_material_data_buffer;
+    vk::Buffer::Ptr                        m_instance_data_buffer;
+    std::unordered_map<uint32_t, uint32_t> m_global_material_indices;
+    std::unordered_map<uint32_t, uint32_t> m_global_mesh_indices;
+    size_t                                 m_camera_buffer_aligned_size;
+    uint32_t                               m_num_area_lights = 0;
+    std::weak_ptr<vk::Backend>             m_backend;
+    std::string                            m_name;
+    std::string                            m_path;
+    bool                                   m_force_update = false;
 };
 } // namespace helios
