@@ -3,15 +3,15 @@
 # Helios
 A real-time unidirectional GPU path tracer using the cross-vendor Vulkan ray-tracing extensions.
 
-![Helios](data/screenshots_1.jpg)
+![Helios](data/screenshot_1.jpg)
 
-![Helios](data/screenshots_2.jpg)
+![Helios](data/screenshot_2.jpg)
 
-![Helios](data/screenshots_3.jpg)
+![Helios](data/screenshot_3.jpg)
 
-![Helios](data/screenshots_4.jpg)
+![Helios](data/screenshot_4.jpg)
 
-![Helios](data/screenshots_5.jpg)
+![Helios](data/screenshot_5.jpg)
 
 ## Features
 * Real-time progressive rendering
