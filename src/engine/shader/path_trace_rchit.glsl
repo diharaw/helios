@@ -275,9 +275,15 @@ void populate_surface_properties(out SurfaceProperties p)
 vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float pdf)
 {
     uint  ray_flags = gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT;
+
+    // Only use any-hit shaders at the first hit.
+    if (p_PathTracePayload.depth == 0)
+        ray_flags = 0;
+    
     uint  cull_mask = 0xFF;
     float tmin      = 0.0001;
     float tmax      = 10000.0;
+    vec3 origin = p.vertex.position.xyz + p.vertex.normal.xyz * EPSILON;
 
     vec3 Li = vec3(0.0f);
 
@@ -426,7 +432,7 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
                 VISIBILITY_CLOSEST_HIT_SHADER_IDX, 
                 0, 
                 VISIBILITY_MISS_SHADER_IDX, 
-                p.vertex.position.xyz, 
+                origin, 
                 tmin, 
                 Wi, 
                 tmax, 
@@ -502,6 +508,7 @@ vec3 indirect_lighting(in SurfaceProperties p)
     uint  cull_mask = 0xFF;
     float tmin      = 0.0001;
     float tmax      = 10000.0;  
+    vec3 origin = p.vertex.position.xyz + p.vertex.normal.xyz * EPSILON;
 
     // Trace Ray
     traceRayEXT(u_TopLevelAS, 
@@ -510,7 +517,7 @@ vec3 indirect_lighting(in SurfaceProperties p)
             PATH_TRACE_CLOSEST_HIT_SHADER_IDX, 
             0, 
             PATH_TRACE_MISS_SHADER_IDX, 
-            p.vertex.position.xyz, 
+            origin, 
             tmin, 
             Wi, 
             tmax, 

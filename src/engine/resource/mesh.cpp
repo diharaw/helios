@@ -72,7 +72,7 @@ Mesh::Mesh(vk::Backend::Ptr                       backend,
 
         VkGeometryFlagsKHR geometry_flags = 0;
 
-        if (material->type() == MATERIAL_OPAQUE || material->is_alpha_tested())
+        if (material->type() == MATERIAL_OPAQUE && !material->is_alpha_tested())
             geometry_flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
 
         geometry.sType                                       = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;

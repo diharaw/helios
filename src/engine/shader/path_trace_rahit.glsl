@@ -1,5 +1,4 @@
 #include "common.glsl"
-#include "sampling.glsl"
 
 // ------------------------------------------------------------------------
 // Set 0 ------------------------------------------------------------------
@@ -99,14 +98,67 @@ layout(push_constant) uniform PathTraceConsts
     uint num_lights;
     uint num_frames;
     uint debug_vis;
-    uint max_ray_bounces;
+    uint max_ray_bounces; 
 } u_PathTraceConsts;
 
 // ------------------------------------------------------------------------
-// Output Payload ---------------------------------------------------------
+// Hit Attributes ---------------------------------------------------------
 // ------------------------------------------------------------------------
 
-layout(location = 0) rayPayloadEXT PathTracePayload p_PathTracePayload;
+hitAttributeEXT vec2 b_HitAttribs;
+
+// ------------------------------------------------------------------------
+// Functions --------------------------------------------------------------
+// ------------------------------------------------------------------------
+
+Vertex get_vertex(uint mesh_idx, uint vertex_idx)
+{
+    return Vertices[nonuniformEXT(mesh_idx)].data[vertex_idx];
+}
+
+// ------------------------------------------------------------------------
+
+HitInfo fetch_hit_info()
+{
+    uvec2 primitive_offset_mat_idx = SubmeshInfo[nonuniformEXT(gl_InstanceCustomIndexEXT)].data[gl_GeometryIndexEXT];
+
+    HitInfo hit_info;
+
+    hit_info.mat_idx = primitive_offset_mat_idx.y;
+    hit_info.primitive_offset = primitive_offset_mat_idx.x;
+    hit_info.primitive_id = gl_PrimitiveID;
+
+    return hit_info;
+}
+
+// ------------------------------------------------------------------------
+
+Triangle fetch_triangle(in Instance instance, in HitInfo hit_info)
+{
+    Triangle tri;
+
+    uint primitive_id =  hit_info.primitive_id + hit_info.primitive_offset;
+
+    uvec3 idx = uvec3(Indices[nonuniformEXT(instance.mesh_idx)].data[3 * primitive_id], 
+                      Indices[nonuniformEXT(instance.mesh_idx)].data[3 * primitive_id + 1],
+                      Indices[nonuniformEXT(instance.mesh_idx)].data[3 * primitive_id + 2]);
+
+    tri.v0 = get_vertex(instance.mesh_idx, idx.x);
+    tri.v1 = get_vertex(instance.mesh_idx, idx.y);
+    tri.v2 = get_vertex(instance.mesh_idx, idx.z);
+
+    return tri;
+}
+
+// ------------------------------------------------------------------------
+
+vec4 fetch_albedo(in Material material, in vec2 tex_coord)
+{
+    if (material.texture_indices0.x == -1)
+        return material.albedo;
+    else
+        return textureLod(s_Textures[nonuniformEXT(material.texture_indices0.x)], tex_coord, 0.0);
+}
 
 // ------------------------------------------------------------------------
 // Main -------------------------------------------------------------------
@@ -114,85 +166,17 @@ layout(location = 0) rayPayloadEXT PathTracePayload p_PathTracePayload;
 
 void main()
 {
-    // Init Payload
-    p_PathTracePayload.L = vec3(0.0f);
-    p_PathTracePayload.T = vec3(1.0);
-    p_PathTracePayload.depth = 0;
-    p_PathTracePayload.rng = rng_init(gl_LaunchIDEXT.xy, u_PathTraceConsts.num_frames);
+    const Instance instance = Instances.data[gl_InstanceCustomIndexEXT];
+    const HitInfo hit_info = fetch_hit_info();
+    const Triangle triangle = fetch_triangle(instance, hit_info);
+    const Material material = Materials.data[hit_info.mat_idx];
 
-#if defined(RAY_DEBUG_VIEW)
-    p_PathTracePayload.debug_color = vec3(next_float(p_PathTracePayload.rng) * 0.5f + 0.5f, next_float(p_PathTracePayload.rng) * 0.5f + 0.5f, next_float(p_PathTracePayload.rng) * 0.5f + 0.5f);
-#endif
+    Vertex v = interpolated_vertex(triangle, b_HitAttribs);
 
-    // Compute Pixel Coordinates
-#if defined(RAY_DEBUG_VIEW)
-    const vec2 pixel_coord = vec2(u_PathTraceConsts.ray_debug_pixel_coord.xy) + vec2(0.5);
-#else
-    const vec2 pixel_coord = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
-#endif
-    const vec2 jittered_coord = pixel_coord + vec2(next_float(p_PathTracePayload.rng), next_float(p_PathTracePayload.rng)); 
-#if defined(RAY_DEBUG_VIEW)
-    const vec2 tex_coord = jittered_coord / vec2(u_PathTraceConsts.ray_debug_pixel_coord.zw);
-#else
-    const vec2 tex_coord = jittered_coord / vec2(gl_LaunchSizeEXT.xy);
-#endif
-    vec2 tex_coord_neg_to_pos = tex_coord * 2.0 - 1.0;
+    vec4 albedo = fetch_albedo(material, v.tex_coord.xy);
 
-    // Compute Ray Origin and Direction
-    vec4 origin = u_PathTraceConsts.view_inverse * vec4(0.0, 0.0, 0.0, 1.0);
-    vec4 target = u_PathTraceConsts.proj_inverse * vec4(tex_coord_neg_to_pos.x, tex_coord_neg_to_pos.y, 1.0, 1.0);
-    vec4 direction = u_PathTraceConsts.view_inverse * vec4(normalize(target.xyz), 0.0);
-
-    uint  ray_flags = 0;
-    uint  cull_mask = 0xFF;
-    float tmin      = 0.001;
-    float tmax      = 10000.0;
-
-    // Trace Ray
-    traceRayEXT(u_TopLevelAS, 
-                ray_flags, 
-                cull_mask, 
-                PATH_TRACE_CLOSEST_HIT_SHADER_IDX, 
-                0, 
-                PATH_TRACE_MISS_SHADER_IDX, 
-                origin.xyz, 
-                tmin, 
-                direction.xyz, 
-                tmax, 
-                0);
-
-#if !defined(RAY_DEBUG_VIEW)
-    // Blend current frames' result with the previous frame
-    vec3 clamped_color = min(p_PathTracePayload.L, RADIANCE_CLAMP_COLOR);
-
-    if (u_PathTraceConsts.num_frames == 0)
-    {
-        vec3 final_color = clamped_color;
-
-#if defined(VISUALIZE_NANS)
-        if (is_nan(final_color))
-            final_color = vec3(1.0, 0.0, 0.0);
-#endif
-
-        imageStore(i_CurrentColor, ivec2(gl_LaunchIDEXT.xy), vec4(final_color, 1.0));
-    }
-    else
-    {
-        vec3 prev_color = imageLoad(i_PreviousColor, ivec2(gl_LaunchIDEXT.xy)).rgb;
-
-        //vec3 accumulated_color = mix(p_PathTracePayload.color, prev_color, u_PathTraceConsts.accumulation); 
-        vec3 accumulated_color = prev_color + (clamped_color - prev_color) / float(u_PathTraceConsts.num_frames);
-
-        vec3 final_color = accumulated_color;
-
-#if defined(VISUALIZE_NANS)
-        if (is_nan(final_color))
-            final_color = vec3(1.0, 0.0, 0.0);
-#endif
-
-        imageStore(i_CurrentColor, ivec2(gl_LaunchIDEXT.xy), vec4(final_color, 1.0));
-    }
-#endif
+    if (albedo.a < 0.1f)
+        ignoreIntersectionEXT;
 }
 
 // ------------------------------------------------------------------------

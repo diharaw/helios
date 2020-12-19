@@ -159,6 +159,7 @@ void PathIntegrator::create_pipeline()
 
     vk::ShaderModule::Ptr rgen             = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace.rgen.spv");
     vk::ShaderModule::Ptr rchit            = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace.rchit.spv");
+    vk::ShaderModule::Ptr rahit            = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace.rahit.spv");
     vk::ShaderModule::Ptr rmiss            = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace.rmiss.spv");
     vk::ShaderModule::Ptr rchit_visibility = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace_shadow.rchit.spv");
     vk::ShaderModule::Ptr rmiss_visibility = vk::ShaderModule::create_from_file(backend, "assets/shader/path_trace_shadow.rmiss.spv");
@@ -166,8 +167,8 @@ void PathIntegrator::create_pipeline()
     vk::ShaderBindingTable::Desc sbt_desc;
 
     sbt_desc.add_ray_gen_group(rgen, "main");
-    sbt_desc.add_hit_group(rchit, "main");
-    sbt_desc.add_hit_group(rchit_visibility, "main");
+    sbt_desc.add_hit_group(rchit, "main", rahit, "main");
+    sbt_desc.add_hit_group(rchit_visibility, "main", rahit, "main");
     sbt_desc.add_miss_group(rmiss, "main");
     sbt_desc.add_miss_group(rmiss_visibility, "main");
 
