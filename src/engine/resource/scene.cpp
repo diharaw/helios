@@ -636,7 +636,7 @@ void CameraNode::update(RenderState& render_state)
         TransformNode::update(render_state);
 
         m_projection_matrix = glm::perspective(glm::radians(m_fov), float(render_state.viewport_width()) / float(render_state.viewport_height()), m_near_plane, m_far_plane);
-        m_view_matrix       = glm::inverse(m_model_matrix_without_scale);
+        m_view_matrix       = glm::inverse(global_transform_without_scale());
 
         if (!render_state.m_camera)
             render_state.m_camera = this;

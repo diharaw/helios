@@ -8,12 +8,12 @@
 
 namespace helios
 {
-std::vector<std::string> tone_map_operators = {
+static const std::vector<std::string> tone_map_operators = {
     "ACES",
     "Reinhard"
 };
 
-std::vector<std::string> output_buffers = {
+static const std::vector<std::string> output_buffers = {
     "Albedo",
     "Normals",
     "Roughness",
@@ -51,6 +51,8 @@ protected:
 
                 if (!m_scene)
                     return false;
+
+                set_default_camera_orientation();
             }
             else
                 return false;
@@ -119,6 +121,9 @@ protected:
                     m_vk_backend->queue_object_deletion(m_scene);
 
                     m_scene = m_resource_manager->load_scene(path, true);
+
+                    if (m_scene)
+                        set_default_camera_orientation();
                 }
             }
         }
@@ -314,6 +319,32 @@ protected:
     // -----------------------------------------------------------------------------------------------------------------------------------
 
 private:
+    void set_default_camera_orientation()
+    {
+        CameraNode::Ptr camera = m_scene->find_camera();
+
+        glm::vec3 euler_rad     = glm::eulerAngles(camera->orientation());
+        glm::vec3 euler_degrees = glm::vec3(glm::degrees(euler_rad.x), glm::degrees(euler_rad.y), glm::degrees(euler_rad.z));
+
+        if (euler_degrees.z == 180.0f || euler_degrees.z == -180.0f)
+        {
+            m_camera_pitch = -(180.0f + euler_degrees.x);
+            m_camera_yaw   = 180.0f + euler_degrees.y;
+
+            glm::quat frame_rotation = glm::angleAxis(glm::radians(-m_camera_yaw), glm::vec3(0.0f, 1.0f, 0.0f));
+            frame_rotation           = frame_rotation * glm::angleAxis(glm::radians(-m_camera_pitch), glm::vec3(1.0f, 0.0f, 0.0f));
+
+            camera->set_orientation(frame_rotation);
+        }
+        else
+        {
+            m_camera_pitch = -glm::degrees(euler_rad.x);
+            m_camera_yaw   = -glm::degrees(euler_rad.y);
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------------
+
     void update_camera()
     {
         if (m_scene)

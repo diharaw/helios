@@ -31,7 +31,7 @@ void PopDisabled()
 
 namespace helios
 {
-std::vector<std::string> node_types = {
+static const std::vector<std::string> node_types = {
     "Mesh",
     "Camera",
     "Directional Light",
@@ -40,12 +40,12 @@ std::vector<std::string> node_types = {
     "IBL"
 };
 
-std::vector<std::string> tone_map_operators = {
+static const std::vector<std::string> tone_map_operators = {
     "ACES",
     "Reinhard"
 };
 
-std::vector<std::string> output_buffers = {
+static const std::vector<std::string> output_buffers = {
     "Albedo",
     "Normals",
     "Roughness",
