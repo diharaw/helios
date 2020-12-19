@@ -84,7 +84,7 @@ bool Application::init_base(int argc, const char* argv[])
     bool maximized = settings.maximized;
     m_width        = settings.width;
     m_height       = settings.height;
-    m_title        = "Helios (c) 2020";
+    m_title        = settings.title;
 
     if (glfwInit() != GLFW_TRUE)
     {
@@ -124,7 +124,7 @@ bool Application::init_base(int argc, const char* argv[])
 #endif
                                        ,
                                        true,
-                                       settings.device_extensions);
+                                       {});
 
     m_renderer         = std::unique_ptr<Renderer>(new Renderer(m_vk_backend));
     m_resource_manager = std::unique_ptr<ResourceManager>(new ResourceManager(m_vk_backend));

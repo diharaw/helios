@@ -103,6 +103,26 @@ Node::Ptr Node::find_child(const std::string& name)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
+Node::Ptr Node::find_child(const NodeType& type)
+{
+    for (auto child : m_children)
+    {
+        if (child->type() == type)
+            return child;
+        else
+        {
+            auto found = child->find_child(type);
+
+            if (found)
+                return found;
+        }
+    }
+
+    return nullptr;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
 void Node::remove_child(const std::string& name)
 {
     m_is_heirarchy_dirty = true;
@@ -257,6 +277,20 @@ glm::mat4 TransformNode::local_transform()
 glm::mat4 TransformNode::normal_matrix()
 {
     return global_transform_without_scale();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+glm::quat TransformNode::orientation()
+{
+    return m_orientation;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+glm::vec3 TransformNode::scale()
+{
+    return m_scale;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -1370,6 +1404,16 @@ Node::Ptr Scene::find_node(const std::string& name)
         return m_root;
     else
         return m_root->find_child(name);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+CameraNode::Ptr Scene::find_camera()
+{
+    if (m_root->type() == NODE_CAMERA)
+        return std::dynamic_pointer_cast<CameraNode>(m_root);
+    else
+        return std::dynamic_pointer_cast<CameraNode>(m_root->find_child(NODE_CAMERA));
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

@@ -209,6 +209,19 @@ void Renderer::render(RenderState& render_state)
         VK_IMAGE_LAYOUT_GENERAL,
         color_subresource_range);
 
+    if (render_state.m_scene_state != SCENE_STATE_READY || m_path_integrator->num_accumulated_samples() == 0 && m_path_integrator->tile_idx() == 0)
+    {
+        VkClearColorValue color;
+
+        color.float32[0] = 0.0f;
+        color.float32[1] = 0.0f;
+        color.float32[2] = 0.0f;
+        color.float32[3] = 1.0f;
+
+        vkCmdClearColorImage(render_state.m_cmd_buffer->handle(), m_output_images[write_index]->handle(), VK_IMAGE_LAYOUT_GENERAL, &color, 1, &color_subresource_range);
+        vkCmdClearColorImage(render_state.m_cmd_buffer->handle(), m_output_images[read_index]->handle(), VK_IMAGE_LAYOUT_GENERAL, &color, 1, &color_subresource_range);
+    }
+
     // Begin path trace iteration
     if (render_state.m_scene)
         m_path_integrator->render(render_state);
@@ -712,6 +725,7 @@ void Renderer::on_window_resize()
     create_swapchain_framebuffers();
     create_depth_prepass_framebuffer();
     update_dynamic_descriptor_sets();
+    m_path_integrator->on_window_resize();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -1476,7 +1490,7 @@ void Renderer::create_output_images()
         backend->queue_object_deletion(m_output_image_views[i]);
         backend->queue_object_deletion(m_output_images[i]);
 
-        m_output_images[i]      = vk::Image::create(backend, VK_IMAGE_TYPE_2D, extents.width, extents.height, 1, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_SAMPLE_COUNT_1_BIT);
+        m_output_images[i]      = vk::Image::create(backend, VK_IMAGE_TYPE_2D, extents.width, extents.height, 1, 1, 1, VK_FORMAT_R32G32B32A32_SFLOAT, VMA_MEMORY_USAGE_GPU_ONLY, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_SAMPLE_COUNT_1_BIT);
         m_output_image_views[i] = vk::ImageView::create(backend, m_output_images[i], VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 

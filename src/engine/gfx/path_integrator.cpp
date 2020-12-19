@@ -4,6 +4,8 @@
 
 namespace helios
 {
+#define TILE_SIZE 128
+
 // -----------------------------------------------------------------------------------------------------------------------------------
 
 struct PushConstants
@@ -11,6 +13,7 @@ struct PushConstants
     glm::mat4  view_inverse;
     glm::mat4  proj_inverse;
     glm::ivec4 ray_debug_pixel_coord;
+    glm::uvec4 launch_id_size;
     float      accumulation;
     uint32_t   num_lights;
     uint32_t   num_frames;
@@ -25,6 +28,7 @@ PathIntegrator::PathIntegrator(vk::Backend::Ptr backend) :
 {
     create_pipeline();
     create_ray_debug_pipeline();
+    compute_tile_coords();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -40,9 +44,12 @@ void PathIntegrator::render(RenderState& render_state)
     HELIOS_SCOPED_SAMPLE("Path Trace");
 
     if (render_state.scene_state() != SCENE_STATE_READY)
+    {
+        m_tile_idx                = 0;
         m_num_accumulated_samples = 0;
+    }
 
-    if (m_num_accumulated_samples < m_max_samples)
+    if (m_tile_idx < m_tile_coords.size())
     {
         auto backend = m_backend.lock();
 
@@ -52,14 +59,21 @@ void PathIntegrator::render(RenderState& render_state)
                     m_path_trace_pipeline,
                     m_path_trace_pipeline_layout,
                     m_path_trace_sbt,
-                    extents.width,
-                    extents.height,
+                    m_tile_size.x,
+                    m_tile_size.y,
                     1,
                     render_state.camera()->view_matrix(),
                     render_state.camera()->projection_matrix(),
+                    m_tile_coords[m_tile_idx],
                     glm::ivec2(0));
 
         m_num_accumulated_samples++;
+    }
+
+    if (m_num_accumulated_samples == m_max_samples)
+    {
+        m_num_accumulated_samples = 0;
+        m_tile_idx++;
     }
 }
 
@@ -80,12 +94,29 @@ void PathIntegrator::gather_debug_rays(const glm::ivec2& pixel_coord, const uint
                 1,
                 view,
                 projection,
+                glm::uvec2(0, 0),
                 pixel_coord);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeline::Ptr pipeline, vk::PipelineLayout::Ptr pipeline_layout, vk::ShaderBindingTable::Ptr sbt, const uint32_t& x, const uint32_t& y, const uint32_t& z, const glm::mat4& view, const glm::mat4& projection, const glm::ivec2& pixel_coord)
+void PathIntegrator::on_window_resize()
+{
+    restart_bake();
+    compute_tile_coords();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void PathIntegrator::set_tiled(bool tiled)
+{
+    m_tiled = tiled;
+    compute_tile_coords();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeline::Ptr pipeline, vk::PipelineLayout::Ptr pipeline_layout, vk::ShaderBindingTable::Ptr sbt, const uint32_t& x, const uint32_t& y, const uint32_t& z, const glm::mat4& view, const glm::mat4& projection, const glm::ivec2& tile_coord, const glm::ivec2& pixel_coord)
 {
     auto backend = m_backend.lock();
 
@@ -99,6 +130,7 @@ void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeli
     PushConstants push_constants;
 
     push_constants.ray_debug_pixel_coord = glm::ivec4(pixel_coord.x, extents.height - pixel_coord.y, extents.width, extents.height);
+    push_constants.launch_id_size        = glm::ivec4(tile_coord.x, tile_coord.y, extents.width, extents.height);
     push_constants.view_inverse          = glm::inverse(view);
     push_constants.proj_inverse          = glm::inverse(projection);
     push_constants.num_lights            = render_state.num_lights();
@@ -253,6 +285,34 @@ void PathIntegrator::create_ray_debug_pipeline()
     desc.set_pipeline_layout(m_ray_debug_pipeline_layout);
 
     m_ray_debug_pipeline = vk::RayTracingPipeline::create(backend, desc);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void PathIntegrator::compute_tile_coords()
+{
+    auto backend = m_backend.lock();
+    auto extents = backend->swap_chain_extents();
+
+    m_tile_coords.clear();
+
+    if (m_tiled)
+    {
+        glm::uvec2 num_tiles = glm::uvec2(ceilf(float(extents.width) / float(TILE_SIZE)), ceilf(float(extents.height) / float(TILE_SIZE)));
+
+        for (int x = 0; x < num_tiles.x; x++)
+        {
+            for (int y = 0; y < num_tiles.y; y++)
+                m_tile_coords.push_back(glm::uvec2(x * TILE_SIZE, y * TILE_SIZE));
+        }
+
+        m_tile_size = glm::uvec2(TILE_SIZE, TILE_SIZE);
+    }
+    else
+    {
+        m_tile_coords.push_back(glm::uvec2(0, 0));
+        m_tile_size = glm::uvec2(extents.width, extents.height);
+    }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

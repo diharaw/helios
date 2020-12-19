@@ -68,6 +68,7 @@ public:
 
     void                                             add_child(Node::Ptr child);
     Node::Ptr                                        find_child(const std::string& name);
+    Node::Ptr                                        find_child(const NodeType& type);
     void                                             remove_child(const std::string& name);
     inline bool                                      is_enabled() { return m_is_enabled; }
     inline bool                                      is_transform_dirty() { return m_is_transform_dirty; }
@@ -113,6 +114,8 @@ public:
     glm::mat4 global_transform_without_scale();
     glm::mat4 local_transform();
     glm::mat4 normal_matrix();
+    glm::quat orientation();
+    glm::vec3 scale();
     void      set_from_local_transform(const glm::mat4& transform);
     void      set_from_global_transform(const glm::mat4& transform);
     void      set_orientation(const glm::quat& q);
@@ -419,10 +422,11 @@ public:
     static Scene::Ptr create(vk::Backend::Ptr backend, const std::string& name, Node::Ptr root = nullptr, const std::string& path = "");
     ~Scene();
 
-    void      update(RenderState& render_state);
-    void      set_root_node(Node::Ptr node);
-    Node::Ptr root_node();
-    Node::Ptr find_node(const std::string& name);
+    void            update(RenderState& render_state);
+    void            set_root_node(Node::Ptr node);
+    Node::Ptr       root_node();
+    Node::Ptr       find_node(const std::string& name);
+    CameraNode::Ptr find_camera();
 
     inline void                       set_name(const std::string& name) { m_name = name; }
     inline std::string                name() { return m_name; }

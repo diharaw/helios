@@ -15,6 +15,7 @@ else()
 endif()
 
 target_link_libraries(HeliosEditor Helios)
+target_link_libraries(HeliosEditor AssetCoreExporter)
 
 if (WIN32)
     set_property(TARGET HeliosEditor PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/$(Configuration)")

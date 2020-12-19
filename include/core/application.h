@@ -26,12 +26,12 @@ namespace helios
 {
 struct Settings
 {
-    bool                     resizable  = true;
-    bool                     maximized  = false;
-    bool                     enable_gui = false;
-    int                      width      = 800;
-    int                      height     = 600;
-    std::vector<const char*> device_extensions;
+    bool        resizable  = true;
+    bool        maximized  = false;
+    bool        enable_gui = false;
+    int         width      = 800;
+    int         height     = 600;
+    std::string title;
 };
 
 class Application

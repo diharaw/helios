@@ -94,11 +94,12 @@ layout(push_constant) uniform PathTraceConsts
     mat4 view_inverse;
     mat4 proj_inverse;
     ivec4 ray_debug_pixel_coord;
+    uvec4 launch_id_size;
     float accumulation;
     uint num_lights;
     uint num_frames;
     uint debug_vis;
-    uint max_ray_bounces; 
+    uint max_ray_bounces;
 } u_PathTraceConsts;
 
 // ------------------------------------------------------------------------
