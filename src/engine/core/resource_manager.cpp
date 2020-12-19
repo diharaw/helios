@@ -3,6 +3,8 @@
 #include <utility/utility.h>
 #include <loader/loader.h>
 #include <vk_mem_alloc.h>
+#include <imgui.h>
+#include <ImGuizmo.h>
 
 namespace helios
 {
@@ -662,9 +664,10 @@ void ResourceManager::populate_scene_node(Node::Ptr node, std::shared_ptr<ast::S
 
 void ResourceManager::populate_transform_node(TransformNode::Ptr node, std::shared_ptr<ast::TransformNode> ast_node)
 {
-    node->set_position(ast_node->position);
-    node->set_orientation_from_euler_yxz(ast_node->rotation);
-    node->set_scale(ast_node->scale);
+    glm::mat4 local_transform;
+    ImGuizmo::RecomposeMatrixFromComponents(&ast_node->position.x, &ast_node->rotation.x, &ast_node->scale.x, &local_transform[0][0]);
+
+    node->set_from_local_transform(local_transform);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------

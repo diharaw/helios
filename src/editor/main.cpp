@@ -418,12 +418,17 @@ protected:
 
             float exposure = m_renderer->exposure();
 
-            ImGui::InputFloat("Exposure", &exposure);
+            ImGui::SliderFloat("Exposure", &exposure, 0.1f, 10.0f);
 
             m_renderer->set_exposure(exposure);
 
             ImGui::SliderFloat("Camera Speed", &m_camera_speed, 20.0f, 200.0f);
             ImGui::SliderFloat("Look Sensitivity", &m_camera_sensitivity, 0.01f, 0.5f);
+
+            float fov = m_editor_camera->fov();
+
+            if (ImGui::InputFloat("Editor Camera FOV", &fov))
+                m_editor_camera->set_fov(fov);
         }
 
         if (m_ray_debug_mode)
@@ -769,8 +774,7 @@ private:
         }
 
         if (ImGui::Button("Apply Camera Transform", ImVec2(ImGui::GetContentRegionAvailWidth(), 30.0f)))
-        {
-        }
+            camera_node->set_from_global_transform(m_editor_camera->global_transform());
 
         pos = ImGui::GetCursorPos();
         ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
