@@ -2,6 +2,7 @@
 #include <utility/logger.h>
 #include <utility/macros.h>
 #include <utility/profiler.h>
+#include <IconsFontAwesome5Pro.h>
 #include <examples/imgui_impl_glfw.h>
 #include <examples/imgui_impl_vulkan.h>
 #include <iostream>
@@ -157,6 +158,30 @@ bool Application::init_base(int argc, const char* argv[])
 
     ImGui_ImplVulkan_Init(&init_info, m_renderer->swapchain_renderpass()->handle());
 
+    GLFWmonitor* primary = glfwGetPrimaryMonitor();
+
+    float xscale, yscale;
+    glfwGetMonitorContentScale(primary, &xscale, &yscale);
+
+    ImGuiIO& io = ImGui::GetIO();
+    io.Fonts->AddFontFromFileTTF("assets/fonts/Roboto-Medium.ttf", 16.0f);
+
+    ImGuiStyle* style = &ImGui::GetStyle();
+
+    style->ScaleAllSizes(xscale > yscale ? xscale : yscale);
+
+    io.FontGlobalScale = xscale > yscale ? xscale : yscale;
+
+    // merge in icons from Font Awesome
+    static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+    ImFontConfig         icons_config;
+    icons_config.MergeMode  = true;
+    icons_config.PixelSnapH = true;
+
+    std::string font_awesome_pro_path = "assets/fonts/" + std::string(FONT_ICON_FILE_NAME_FAR);
+
+    io.Fonts->AddFontFromFileTTF(font_awesome_pro_path.c_str(), 16.0f, &icons_config, icons_ranges);
+
     vk::CommandBuffer::Ptr cmd_buf = m_vk_backend->allocate_graphics_command_buffer();
 
     VkCommandBufferBeginInfo begin_info;
@@ -175,18 +200,6 @@ bool Application::init_base(int argc, const char* argv[])
     ImGui_ImplVulkan_DestroyFontUploadObjects();
 
     ImGui::StyleColorsDark();
-
-    GLFWmonitor* primary = glfwGetPrimaryMonitor();
-
-    float xscale, yscale;
-    glfwGetMonitorContentScale(primary, &xscale, &yscale);
-
-    ImGuiStyle* style = &ImGui::GetStyle();
-
-    style->ScaleAllSizes(xscale > yscale ? xscale : yscale);
-
-    ImGuiIO& io        = ImGui::GetIO();
-    io.FontGlobalScale = xscale > yscale ? xscale : yscale;
 
     int display_w, display_h;
     glfwGetFramebufferSize(m_window, &display_w, &display_h);

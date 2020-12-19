@@ -175,11 +175,6 @@ void TransformNode::update(RenderState& render_state)
         m_model_matrix_without_scale = T * R;
         m_model_matrix               = m_model_matrix_without_scale * S;
 
-        TransformNode* parent_transform = dynamic_cast<TransformNode*>(m_parent);
-
-        if (parent_transform)
-            m_model_matrix = m_model_matrix * parent_transform->m_model_matrix_without_scale;
-
         render_state.m_scene_state = SCENE_STATE_HIERARCHY_UPDATED;
 
         m_is_transform_dirty = false;
@@ -209,9 +204,21 @@ glm::vec3 TransformNode::left()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-glm::vec3 TransformNode::position()
+glm::vec3 TransformNode::local_position()
 {
     return m_position;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+glm::vec3 TransformNode::global_position()
+{
+    TransformNode* parent_transform = dynamic_cast<TransformNode*>(m_parent);
+
+    if (parent_transform)
+        return parent_transform->m_model_matrix_without_scale * glm::vec4(m_position, 1.0f);
+    else
+        return m_position;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -221,9 +228,21 @@ glm::mat4 TransformNode::global_transform()
     TransformNode* parent_transform = dynamic_cast<TransformNode*>(m_parent);
 
     if (parent_transform)
-        return m_model_matrix * parent_transform->m_model_matrix_without_scale;
+        return parent_transform->m_model_matrix_without_scale * m_model_matrix;
     else
         return m_model_matrix;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+glm::mat4 TransformNode::global_transform_without_scale()
+{
+    TransformNode* parent_transform = dynamic_cast<TransformNode*>(m_parent);
+
+    if (parent_transform)
+        return parent_transform->m_model_matrix_without_scale * m_model_matrix_without_scale;
+    else
+        return m_model_matrix_without_scale;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -237,7 +256,7 @@ glm::mat4 TransformNode::local_transform()
 
 glm::mat4 TransformNode::normal_matrix()
 {
-    return m_model_matrix_without_scale;
+    return global_transform_without_scale();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -411,7 +430,8 @@ void MeshNode::update(RenderState& render_state)
     {
         TransformNode::update(render_state);
 
-        render_state.m_meshes.push_back(this);
+        if (m_mesh)
+            render_state.m_meshes.push_back(this);
 
         update_children(render_state);
     }
@@ -1211,7 +1231,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
             light_data.light_data0 = glm::vec4(float(LIGHT_POINT), light->color());
             light_data.light_data1 = glm::vec4(0.0f, 0.0f, 0.0f, light->intensity());
-            light_data.light_data2 = glm::vec4(light->position(), light->radius());
+            light_data.light_data2 = glm::vec4(light->global_position(), light->radius());
             light_data.light_data3 = glm::vec4(0.0f);
         }
 
@@ -1223,7 +1243,7 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
             light_data.light_data0 = glm::vec4(float(LIGHT_SPOT), light->color());
             light_data.light_data1 = glm::vec4(light->forward(), light->intensity());
-            light_data.light_data2 = glm::vec4(light->position(), light->radius());
+            light_data.light_data2 = glm::vec4(light->global_position(), light->radius());
             light_data.light_data3 = glm::vec4(cosf(glm::radians(light->inner_cone_angle())), cosf(glm::radians(light->outer_cone_angle())), 0.0f, 0.0f);
         }
     }

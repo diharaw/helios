@@ -4,6 +4,7 @@
 #include <ImGuizmo.h>
 #include <utility/imgui_plot.h>
 #include <utility/profiler.h>
+#include <IconsFontAwesome5Pro.h>
 #include <filesystem>
 #include <nfd.h>
 
@@ -28,10 +29,10 @@ namespace helios
 {
 std::vector<std::string> node_types = {
     "Mesh",
+    "Camera",
     "Directional Light",
     "Spot Light",
     "Point Light",
-    "Camera",
     "IBL"
 };
 
@@ -204,11 +205,15 @@ protected:
                     m_node_to_attach_to = nullptr;
                 }
 
+                if (m_should_add_new_node)
+                    create_new_node();
+
                 if (m_should_remove_selected_node)
                 {
                     Node* parent = m_selected_node->parent();
                     parent->remove_child(m_selected_node->name());
 
+                    m_selected_node               = nullptr;
                     m_should_remove_selected_node = false;
                 }
             }
@@ -218,9 +223,17 @@ protected:
                 {
                     ImGui::PushID(m_selected_node->id());
 
+                    ImVec2 pos = ImGui::GetCursorPos();
+                    ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
+
                     m_string_buffer = m_selected_node->name();
 
-                    ImGui::InputText("Name", (char*)m_string_buffer.c_str(), 128);
+                    std::string name = icon_for_node_type(m_selected_node->type()) + " Name";
+
+                    ImGui::InputText(name.c_str(), (char*)m_string_buffer.c_str(), 128);
+
+                    pos = ImGui::GetCursorPos();
+                    ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
 
                     ImGui::Separator();
 
@@ -556,19 +569,27 @@ private:
         if (node)
         {
             ImGui::PushID(node->id());
+
+            std::string name = icon_for_node_type(node->type()) + " " + node->name();
+
             ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ((m_selected_node && node->name() == m_selected_node->name()) ? ImGuiTreeNodeFlags_Selected : 0);
-            bool               tree_open  = ImGui::TreeNodeEx(node->name().c_str(), node_flags);
+            bool               tree_open  = ImGui::TreeNodeEx(name.c_str(), node_flags);
             ImGui::PopID();
+
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Left) || ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                m_selected_node = node;
 
             ImGui::PushID(node->id());
             if (ImGui::BeginPopupContextItem())
             {
                 if (ImGui::BeginMenu("New Node"))
                 {
-                    for (auto type : node_types)
+                    for (int i = 0; i < node_types.size(); i++)
                     {
-                        if (ImGui::MenuItem(type.c_str()))
+                        if (ImGui::MenuItem(node_types[i].c_str()))
                         {
+                            m_should_add_new_node = true;
+                            m_node_type_to_add    = (NodeType)i;
                         }
                     }
 
@@ -580,9 +601,6 @@ private:
                 ImGui::EndPopup();
             }
             ImGui::PopID();
-
-            if (ImGui::IsItemClicked())
-                m_selected_node = node;
 
             if (ImGui::BeginDragDropTarget() && node->name() != m_selected_node->name())
             {
@@ -621,7 +639,9 @@ private:
     void inspector_mesh()
     {
         inspector_transform();
-        ImGui::Separator();
+        
+        ImVec2 pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
 
         MeshNode::Ptr mesh_node = std::dynamic_pointer_cast<MeshNode>(m_selected_node);
 
@@ -676,6 +696,11 @@ private:
                 m_scene->force_update();
             }
         }
+
+        pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
+
+        ImGui::Separator();
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------
@@ -683,7 +708,9 @@ private:
     void inspector_camera()
     {
         inspector_transform(true, true, false);
-        ImGui::Separator();
+        
+        ImVec2 pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
 
         CameraNode::Ptr camera_node = std::dynamic_pointer_cast<CameraNode>(m_selected_node);
 
@@ -720,6 +747,11 @@ private:
         if (ImGui::Button("Apply Camera Transform", ImVec2(ImGui::GetContentRegionAvailWidth(), 30.0f)))
         {
         }
+
+        pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
+
+        ImGui::Separator();
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------
@@ -727,7 +759,9 @@ private:
     void inspector_directional_light()
     {
         inspector_transform(false, true, false);
-        ImGui::Separator();
+        
+        ImVec2 pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
 
         DirectionalLightNode::Ptr light_node = std::dynamic_pointer_cast<DirectionalLightNode>(m_selected_node);
 
@@ -760,6 +794,11 @@ private:
             m_scene->force_update();
             light_node->set_radius(radius);
         }
+
+        pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
+
+        ImGui::Separator();
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------
@@ -767,7 +806,9 @@ private:
     void inspector_spot_light()
     {
         inspector_transform(true, true, false);
-        ImGui::Separator();
+
+        ImVec2 pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
 
         SpotLightNode::Ptr light_node = std::dynamic_pointer_cast<SpotLightNode>(m_selected_node);
 
@@ -800,6 +841,11 @@ private:
             m_scene->force_update();
             light_node->set_radius(radius);
         }
+
+        pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
+
+        ImGui::Separator();
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------
@@ -807,7 +853,9 @@ private:
     void inspector_point_light()
     {
         inspector_transform(true, false, false);
-        ImGui::Separator();
+        
+        ImVec2 pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
 
         PointLightNode::Ptr light_node = std::dynamic_pointer_cast<PointLightNode>(m_selected_node);
 
@@ -840,12 +888,20 @@ private:
             m_scene->force_update();
             light_node->set_radius(radius);
         }
+
+        pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
+
+        ImGui::Separator();
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------
 
     void inspector_ibl()
     {
+        ImVec2 pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
+
         IBLNode::Ptr ibl_node = std::dynamic_pointer_cast<IBLNode>(m_selected_node);
 
         m_string_buffer = "";
@@ -853,12 +909,12 @@ private:
         if (ibl_node->image())
             m_string_buffer = ibl_node->image()->path();
 
-        ImGui::InputText("Image", (char*)m_string_buffer.c_str(), 128, ImGuiInputTextFlags_ReadOnly);
+        ImGui::InputText("IBL Cubemap", (char*)m_string_buffer.c_str(), 128, ImGuiInputTextFlags_ReadOnly);
 
         if (ImGui::Button("Browse..."))
         {
             nfdchar_t*  out_path = NULL;
-            nfdresult_t result   = NFD_OpenDialog("json", NULL, &out_path);
+            nfdresult_t result   = NFD_OpenDialog("ast", NULL, &out_path);
 
             if (result == NFD_OKAY)
             {
@@ -867,18 +923,26 @@ private:
                 strcpy(path.data(), out_path);
                 free(out_path);
 
-                TextureCube::Ptr texture = m_resource_manager->load_texture_cube(path, true);
+                TextureCube::Ptr texture = m_resource_manager->load_texture_cube(path, false, true);
                 ibl_node->set_image(texture);
 
                 m_scene->force_update();
             }
         }
+
+        pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
+
+        ImGui::Separator();
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------
 
     void inspector_transform(bool use_translate = true, bool use_rotate = true, bool use_scale = true)
     {
+        ImVec2 pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
+
         bool is_single_operation = false;
 
         if (use_translate && !use_rotate && !use_scale)
@@ -984,6 +1048,58 @@ private:
 
         if (is_edited)
             transform_node->set_from_local_transform(out_transform);
+
+        pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
+
+        ImGui::Separator();
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------------
+
+    void create_new_node()
+    {
+        m_should_add_new_node = false;
+
+        Node::Ptr new_node;
+
+        if (m_node_type_to_add == NODE_MESH)
+            new_node = std::shared_ptr<MeshNode>(new MeshNode("New Node " + std::to_string(m_new_node_counter)));
+        else if (m_node_type_to_add == NODE_CAMERA)
+            new_node = std::shared_ptr<CameraNode>(new CameraNode("New Node " + std::to_string(m_new_node_counter)));
+        else if (m_node_type_to_add == NODE_DIRECTIONAL_LIGHT)
+            new_node = std::shared_ptr<DirectionalLightNode>(new DirectionalLightNode("New Node " + std::to_string(m_new_node_counter)));
+        else if (m_node_type_to_add == NODE_SPOT_LIGHT)
+            new_node = std::shared_ptr<SpotLightNode>(new SpotLightNode("New Node " + std::to_string(m_new_node_counter)));
+        else if (m_node_type_to_add == NODE_POINT_LIGHT)
+            new_node = std::shared_ptr<PointLightNode>(new PointLightNode("New Node " + std::to_string(m_new_node_counter)));
+        else if (m_node_type_to_add == NODE_IBL)
+            new_node = std::shared_ptr<IBLNode>(new IBLNode("New Node " + std::to_string(m_new_node_counter)));
+
+        m_new_node_counter++;
+
+        if (m_selected_node)
+            m_selected_node->add_child(new_node);
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------------------------
+
+    std::string icon_for_node_type(NodeType type)
+    {
+        if (type == NODE_MESH)
+            return ICON_FA_CUBE;
+        else if (type == NODE_CAMERA)
+            return ICON_FA_CAMERA;
+        else if (type == NODE_DIRECTIONAL_LIGHT)
+            return ICON_FA_SUN;
+        else if (type == NODE_SPOT_LIGHT)
+            return ICON_FA_FLASHLIGHT;
+        else if (type == NODE_POINT_LIGHT)
+            return ICON_FA_LIGHTBULB;
+        else if (type == NODE_IBL)
+            return ICON_FA_IMAGE;
+        else
+            return ICON_FA_SITEMAP;
     }
 
     // -----------------------------------------------------------------------------------------------------------------------------------
@@ -1000,6 +1116,8 @@ private:
     bool                m_ray_debug_mode              = false;
     Node::Ptr           m_selected_node               = nullptr;
     bool                m_should_remove_selected_node = false;
+    bool                m_should_add_new_node         = false;
+    NodeType            m_node_type_to_add            = NODE_MESH;
     Node*               m_node_to_attach_to           = nullptr;
     float               m_camera_yaw                  = 0.0f;
     float               m_camera_pitch                = 0.0f;
@@ -1009,6 +1127,7 @@ private:
     float               m_camera_speed                = 5.0f;
     float               m_smooth_frametime            = 0.0f;
     int32_t             m_num_debug_rays              = 32;
+    uint32_t            m_new_node_counter            = 0;
     std::string         m_string_buffer;
 };
 } // namespace helios

@@ -107,8 +107,10 @@ public:
     glm::vec3 forward();
     glm::vec3 up();
     glm::vec3 left();
-    glm::vec3 position();
+    glm::vec3 local_position();
+    glm::vec3 global_position();
     glm::mat4 global_transform();
+    glm::mat4 global_transform_without_scale();
     glm::mat4 local_transform();
     glm::mat4 normal_matrix();
     void      set_from_local_transform(const glm::mat4& transform);
@@ -171,9 +173,9 @@ public:
     using Ptr = std::shared_ptr<DirectionalLightNode>;
 
 private:
-    glm::vec3 m_color;
-    float     m_intensity;
-    float     m_radius = 0.1f;
+    glm::vec3 m_color     = glm::vec4(1.0f);
+    float     m_intensity = 1.0f;
+    float     m_radius    = 0.1f;
 
 public:
     DirectionalLightNode(const std::string& name);
@@ -194,11 +196,11 @@ class SpotLightNode : public TransformNode
 public:
     using Ptr = std::shared_ptr<SpotLightNode>;
 
-    glm::vec3 m_color;
+    glm::vec3 m_color            = glm::vec4(1.0f);
     float     m_inner_cone_angle = 40.0f;
     float     m_outer_cone_angle = 50.0f;
-    float     m_intensity;
-    float     m_radius = 5.0f;
+    float     m_intensity        = 1.0f;
+    float     m_radius           = 5.0f;
 
 public:
     SpotLightNode(const std::string& name);
@@ -224,9 +226,9 @@ public:
     using Ptr = std::shared_ptr<PointLightNode>;
 
 private:
-    glm::vec3 m_color;
-    float     m_intensity;
-    float     m_radius = 5.0f;
+    glm::vec3 m_color     = glm::vec4(1.0f);
+    float     m_intensity = 1.0f;
+    float     m_radius    = 5.0f;
 
 public:
     PointLightNode(const std::string& name);

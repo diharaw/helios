@@ -37,6 +37,7 @@ set(VMA_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/external/VulkanMemoryAllocator/src")
 set(NATIVEFILEDIALOG_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/external/nativefiledialog/src/include")
 set(STB_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/external/stb/")
 set(IMGUIZMO_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/external/ImGuizmo")
+set(ICONFONTCPP_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/external/IconFontCppHeaders")
 
 include_directories("${HELIOS_INCLUDE_DIRS}"
 					"${ASSET_CORE_INCLUDES}"
@@ -47,7 +48,8 @@ include_directories("${HELIOS_INCLUDE_DIRS}"
 					"${Vulkan_INCLUDE_DIR}"
 					"${NATIVEFILEDIALOG_INCLUDE_DIRS}"
 					"${STB_INCLUDE_DIRS}"
-					"${IMGUIZMO_INCLUDE_DIRS}")
+					"${IMGUIZMO_INCLUDE_DIRS}"
+					"${ICONFONTCPP_INCLUDE_DIRS}")
 
 add_subdirectory(src/engine)
 add_subdirectory(src/viewer)
