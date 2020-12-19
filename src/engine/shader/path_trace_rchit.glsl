@@ -284,7 +284,7 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
     uint  cull_mask = 0xFF;
     float tmin      = 0.0001;
     float tmax      = 10000.0;
-    vec3 origin = p.vertex.position.xyz + p.vertex.normal.xyz * EPSILON;
+    vec3 origin = p.vertex.position.xyz;// + p.vertex.normal.xyz * EPSILON;
 
     vec3 Li = vec3(0.0f);
 
@@ -509,7 +509,7 @@ vec3 indirect_lighting(in SurfaceProperties p)
     uint  cull_mask = 0xFF;
     float tmin      = 0.0001;
     float tmax      = 10000.0;  
-    vec3 origin = p.vertex.position.xyz + p.vertex.normal.xyz * EPSILON;
+    vec3 origin = p.vertex.position.xyz;// + p.vertex.normal.xyz * EPSILON;
 
     // Trace Ray
     traceRayEXT(u_TopLevelAS, 

@@ -218,7 +218,7 @@ protected:
 
             float exposure = m_renderer->exposure();
 
-            ImGui::InputFloat("Exposure", &exposure);
+            ImGui::SliderFloat("Exposure", &exposure, 0.1f, 10.0f);
 
             m_renderer->set_exposure(exposure);
 
