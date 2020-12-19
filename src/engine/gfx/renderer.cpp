@@ -114,13 +114,16 @@ void Renderer::render(RenderState& render_state)
     {
         auto& tlas_data = render_state.m_scene->acceleration_structure_data();
 
-        VkBufferCopy copy_region;
-        HELIOS_ZERO_MEMORY(copy_region);
+        if (render_state.m_meshes.size() > 0)
+        {
+            VkBufferCopy copy_region;
+            HELIOS_ZERO_MEMORY(copy_region);
 
-        copy_region.dstOffset = 0;
-        copy_region.size      = sizeof(VkAccelerationStructureInstanceKHR) * render_state.m_meshes.size();
+            copy_region.dstOffset = 0;
+            copy_region.size      = sizeof(VkAccelerationStructureInstanceKHR) * render_state.m_meshes.size();
 
-        vkCmdCopyBuffer(render_state.m_cmd_buffer->handle(), tlas_data.instance_buffer_host->handle(), tlas_data.instance_buffer_device->handle(), 1, &copy_region);
+            vkCmdCopyBuffer(render_state.m_cmd_buffer->handle(), tlas_data.instance_buffer_host->handle(), tlas_data.instance_buffer_device->handle(), 1, &copy_region);
+        }
 
         {
             VkMemoryBarrier memory_barrier;

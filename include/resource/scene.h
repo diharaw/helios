@@ -343,7 +343,7 @@ public:
     ~RenderState();
 
     void clear();
-    void setup(vk::CommandBuffer::Ptr cmd_buffer);
+    void setup(uint32_t width, uint32_t height, vk::CommandBuffer::Ptr cmd_buffer);
 
     inline const std::vector<MeshNode*>&             meshes() { return m_meshes; }
     inline const std::vector<DirectionalLightNode*>& directional_lights() { return m_directional_lights; }

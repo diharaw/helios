@@ -715,10 +715,12 @@ void RenderState::clear()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-void RenderState::setup(vk::CommandBuffer::Ptr cmd_buffer)
+void RenderState::setup(uint32_t width, uint32_t height, vk::CommandBuffer::Ptr cmd_buffer)
 {
     clear();
-    m_cmd_buffer = cmd_buffer;
+    m_viewport_width  = width;
+    m_viewport_height = height;
+    m_cmd_buffer      = cmd_buffer;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -839,7 +841,6 @@ Scene::~Scene()
 void Scene::update(RenderState& render_state)
 {
     auto backend = m_backend.lock();
-    auto extents = backend->swap_chain_extents();
 
     render_state.m_scene_ds            = m_scene_descriptor_set;
     render_state.m_vbo_ds              = m_vbo_descriptor_set;
@@ -847,8 +848,6 @@ void Scene::update(RenderState& render_state)
     render_state.m_material_indices_ds = m_material_indices_descriptor_set;
     render_state.m_texture_ds          = m_textures_descriptor_set;
     render_state.m_scene               = this;
-    render_state.m_viewport_width      = extents.width;
-    render_state.m_viewport_height     = extents.height;
 
     {
         HELIOS_SCOPED_SAMPLE("Gather Render State");
@@ -1129,50 +1128,78 @@ void Scene::create_gpu_resources(RenderState& render_state)
 
             environment_map_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-            VkWriteDescriptorSet write_data[5];
+            std::vector<VkWriteDescriptorSet> write_datas;
 
-            HELIOS_ZERO_MEMORY(write_data[0]);
-            HELIOS_ZERO_MEMORY(write_data[1]);
-            HELIOS_ZERO_MEMORY(write_data[2]);
-            HELIOS_ZERO_MEMORY(write_data[3]);
-            HELIOS_ZERO_MEMORY(write_data[4]);
+            VkWriteDescriptorSet write_data;
+            HELIOS_ZERO_MEMORY(write_data);
 
-            write_data[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[0].descriptorCount = 1;
-            write_data[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            write_data[0].pImageInfo      = &environment_map_info;
-            write_data[0].dstBinding      = 4;
-            write_data[0].dstSet          = m_scene_descriptor_set->handle();
+            write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_data.descriptorCount = 1;
+            write_data.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write_data.pImageInfo      = &environment_map_info;
+            write_data.dstBinding      = 4;
+            write_data.dstSet          = m_scene_descriptor_set->handle();
 
-            write_data[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[1].descriptorCount = vbo_descriptors.size();
-            write_data[1].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[1].pBufferInfo     = vbo_descriptors.data();
-            write_data[1].dstBinding      = 0;
-            write_data[1].dstSet          = m_vbo_descriptor_set->handle();
+            write_datas.push_back(write_data);
 
-            write_data[2].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[2].descriptorCount = ibo_descriptors.size();
-            write_data[2].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[2].pBufferInfo     = ibo_descriptors.data();
-            write_data[2].dstBinding      = 0;
-            write_data[2].dstSet          = m_ibo_descriptor_set->handle();
+            HELIOS_ZERO_MEMORY(write_data);
 
-            write_data[3].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[3].descriptorCount = material_indices_descriptors.size();
-            write_data[3].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            write_data[3].pBufferInfo     = material_indices_descriptors.data();
-            write_data[3].dstBinding      = 0;
-            write_data[3].dstSet          = m_material_indices_descriptor_set->handle();
+            if (vbo_descriptors.size() > 0)
+            {
+                write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                write_data.descriptorCount = vbo_descriptors.size();
+                write_data.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                write_data.pBufferInfo     = vbo_descriptors.data();
+                write_data.dstBinding      = 0;
+                write_data.dstSet          = m_vbo_descriptor_set->handle();
 
-            write_data[4].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write_data[4].descriptorCount = image_descriptors.size();
-            write_data[4].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            write_data[4].pImageInfo      = image_descriptors.data();
-            write_data[4].dstBinding      = 0;
-            write_data[4].dstSet          = m_textures_descriptor_set->handle();
+                write_datas.push_back(write_data);
+            }
 
-            vkUpdateDescriptorSets(backend->device(), image_descriptors.size() > 0 ? 5 : 4, write_data, 0, nullptr);
+            if (ibo_descriptors.size() > 0)
+            {
+                HELIOS_ZERO_MEMORY(write_data);
+
+                write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                write_data.descriptorCount = ibo_descriptors.size();
+                write_data.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                write_data.pBufferInfo     = ibo_descriptors.data();
+                write_data.dstBinding      = 0;
+                write_data.dstSet          = m_ibo_descriptor_set->handle();
+
+                write_datas.push_back(write_data);
+            }
+
+            if (material_indices_descriptors.size() > 0)
+            {
+                HELIOS_ZERO_MEMORY(write_data);
+
+                write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                write_data.descriptorCount = material_indices_descriptors.size();
+                write_data.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                write_data.pBufferInfo     = material_indices_descriptors.data();
+                write_data.dstBinding      = 0;
+                write_data.dstSet          = m_material_indices_descriptor_set->handle();
+
+                write_datas.push_back(write_data);
+            }
+
+            if (image_descriptors.size() > 0)
+            {
+                HELIOS_ZERO_MEMORY(write_data);
+
+                write_data.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                write_data.descriptorCount = image_descriptors.size();
+                write_data.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                write_data.pImageInfo      = image_descriptors.data();
+                write_data.dstBinding      = 0;
+                write_data.dstSet          = m_textures_descriptor_set->handle();
+
+                write_datas.push_back(write_data);
+            }
+
+            if (write_datas.size() > 0)
+                vkUpdateDescriptorSets(backend->device(), write_datas.size(), write_datas.data(), 0, nullptr);
         }
 
         InstanceData*                       instance_buffer          = (InstanceData*)m_instance_data_buffer->mapped_ptr();

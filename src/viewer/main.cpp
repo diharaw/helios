@@ -84,6 +84,9 @@ protected:
                 return false;
         }
 
+        m_editor_camera = std::unique_ptr<CameraNode>(new CameraNode("Editor Camera"));
+        m_editor_camera->set_position(glm::vec3(0.0f, 10.0f, 0.0f));
+
         return true;
     }
 
@@ -93,7 +96,9 @@ protected:
     {
         update_camera();
 
-        m_render_state.setup(cmd_buffer);
+        m_render_state.setup(m_width, m_height, cmd_buffer);
+
+        m_editor_camera->update(m_render_state);
 
         if (m_scene)
             m_scene->update(m_render_state);
@@ -114,13 +119,12 @@ protected:
 
         if (m_scene)
         {
-            CameraNode::Ptr    camera         = std::dynamic_pointer_cast<CameraNode>(m_scene->find_node("main_camera"));
             TransformNode::Ptr transform_node = std::dynamic_pointer_cast<TransformNode>(m_selected_node);
 
-            if (camera && transform_node)
+            if (transform_node)
             {
-                glm::mat4 view       = camera->view_matrix();
-                glm::mat4 projection = camera->projection_matrix();
+                glm::mat4 view       = m_editor_camera->view_matrix();
+                glm::mat4 projection = m_editor_camera->projection_matrix();
 
                 ImGuizmo::SetOrthographic(false);
                 ImGuizmo::SetRect(0, 0, extents.width, extents.height);
@@ -253,6 +257,16 @@ protected:
                         inspector_transform(true, true, false);
 
                     ImGui::PopID();
+                }
+                else
+                {
+                    ImVec2 pos = ImGui::GetCursorPos();
+                    ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
+
+                    ImGui::Text("Select Node from the Hierarchy to populate Inspector.");
+
+                    pos = ImGui::GetCursorPos();
+                    ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
                 }
             }
         }
@@ -408,6 +422,7 @@ protected:
 
     void shutdown() override
     {
+        m_editor_camera.reset();
         m_selected_node.reset();
         m_scene.reset();
     }
@@ -457,12 +472,8 @@ protected:
             if (code == GLFW_MOUSE_BUTTON_LEFT)
             {
                 if (m_scene)
-                {
-                    CameraNode::Ptr camera = std::dynamic_pointer_cast<CameraNode>(m_scene->find_node("main_camera"));
+                    m_renderer->add_ray_debug_view(glm::ivec2((int)m_mouse_x, (int)m_mouse_y), m_num_debug_rays, m_editor_camera->view_matrix(), m_editor_camera->projection_matrix());
 
-                    if (camera)
-                        m_renderer->add_ray_debug_view(glm::ivec2((int)m_mouse_x, (int)m_mouse_y), m_num_debug_rays, camera->view_matrix(), camera->projection_matrix());
-                }
                 m_ray_debug_mode = false;
             }
             else if (code == GLFW_MOUSE_BUTTON_RIGHT)
@@ -512,32 +523,27 @@ private:
     {
         if (m_scene)
         {
-            CameraNode::Ptr camera = std::dynamic_pointer_cast<CameraNode>(m_scene->find_node("main_camera"));
+            // Translate
+            float forward_delta  = m_heading_speed * m_delta_seconds;
+            float sideways_delta = m_sideways_speed * m_delta_seconds;
 
-            if (camera)
+            if (m_heading_speed != 0.0f || sideways_delta != 0.0f)
             {
-                // Translate
-                float forward_delta  = m_heading_speed * m_delta_seconds;
-                float sideways_delta = m_sideways_speed * m_delta_seconds;
+                m_editor_camera->move(m_editor_camera->camera_forward() * forward_delta);
+                m_editor_camera->move(m_editor_camera->camera_left() * sideways_delta);
+            }
 
-                if (m_heading_speed != 0.0f || sideways_delta != 0.0f)
-                {
-                    camera->move(camera->camera_forward() * forward_delta);
-                    camera->move(camera->camera_left() * sideways_delta);
-                }
+            if (m_mouse_look && (m_mouse_delta_x != 0.0f || m_mouse_delta_y != 0.0f))
+            {
+                // Rotate
+                m_camera_pitch += float(m_mouse_delta_y) * m_camera_sensitivity;
+                m_camera_pitch = glm::clamp(m_camera_pitch, -90.0f, 90.0f);
+                m_camera_yaw += float(m_mouse_delta_x) * m_camera_sensitivity;
 
-                if (m_mouse_look && (m_mouse_delta_x != 0.0f || m_mouse_delta_y != 0.0f))
-                {
-                    // Rotate
-                    m_camera_pitch += float(m_mouse_delta_y) * m_camera_sensitivity;
-                    m_camera_pitch = glm::clamp(m_camera_pitch, -90.0f, 90.0f);
-                    m_camera_yaw += float(m_mouse_delta_x) * m_camera_sensitivity;
+                glm::quat frame_rotation = glm::angleAxis(glm::radians(-m_camera_yaw), glm::vec3(0.0f, 1.0f, 0.0f));
+                frame_rotation           = frame_rotation * glm::angleAxis(glm::radians(-m_camera_pitch), glm::vec3(1.0f, 0.0f, 0.0f));
 
-                    glm::quat frame_rotation = glm::angleAxis(glm::radians(-m_camera_yaw), glm::vec3(0.0f, 1.0f, 0.0f));
-                    frame_rotation           = frame_rotation * glm::angleAxis(glm::radians(-m_camera_pitch), glm::vec3(1.0f, 0.0f, 0.0f));
-
-                    camera->set_orientation(frame_rotation);
-                }
+                m_editor_camera->set_orientation(frame_rotation);
             }
         }
     }
@@ -639,7 +645,7 @@ private:
     void inspector_mesh()
     {
         inspector_transform();
-        
+
         ImVec2 pos = ImGui::GetCursorPos();
         ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
 
@@ -708,7 +714,7 @@ private:
     void inspector_camera()
     {
         inspector_transform(true, true, false);
-        
+
         ImVec2 pos = ImGui::GetCursorPos();
         ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
 
@@ -759,7 +765,7 @@ private:
     void inspector_directional_light()
     {
         inspector_transform(false, true, false);
-        
+
         ImVec2 pos = ImGui::GetCursorPos();
         ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
 
@@ -853,7 +859,7 @@ private:
     void inspector_point_light()
     {
         inspector_transform(true, false, false);
-        
+
         ImVec2 pos = ImGui::GetCursorPos();
         ImGui::SetCursorPos(ImVec2(pos.x, pos.y + 25.0f));
 
@@ -1129,6 +1135,7 @@ private:
     int32_t             m_num_debug_rays              = 32;
     uint32_t            m_new_node_counter            = 0;
     std::string         m_string_buffer;
+    CameraNode::Ptr     m_editor_camera;
 };
 } // namespace helios
 
