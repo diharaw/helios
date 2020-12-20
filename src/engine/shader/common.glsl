@@ -127,10 +127,8 @@ bool is_black(vec3 c)
 
 // ------------------------------------------------------------------------
 
-Vertex interpolated_vertex(in Triangle tri, in vec2 hit_attribs)
+Vertex interpolated_vertex(in Triangle tri, in vec3 barycentrics)
 {;
-    const vec3 barycentrics = vec3(1.0 - hit_attribs.x - hit_attribs.y, hit_attribs.x, hit_attribs.y);
-
     Vertex o;
 
     o.position = vec4(tri.v0.position.xyz * barycentrics.x + tri.v1.position.xyz * barycentrics.y + tri.v2.position.xyz * barycentrics.z, 1.0);

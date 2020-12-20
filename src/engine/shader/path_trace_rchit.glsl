@@ -254,8 +254,10 @@ void populate_surface_properties(out SurfaceProperties p)
     const Triangle triangle = fetch_triangle(instance, hit_info);
     const Material material = Materials.data[hit_info.mat_idx];
 
-    p.vertex = interpolated_vertex(triangle, b_HitAttribs);
-    
+    const vec3 barycentrics = vec3(1.0 - b_HitAttribs.x - b_HitAttribs.y, b_HitAttribs.x, b_HitAttribs.y);
+
+    p.vertex = interpolated_vertex(triangle, barycentrics);
+
     transform_vertex(instance, p.vertex);
 
     fetch_albedo(material, p);
@@ -284,7 +286,7 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
     uint  cull_mask = 0xFF;
     float tmin      = 0.0001;
     float tmax      = 10000.0;
-    vec3 origin = p.vertex.position.xyz;// + p.vertex.normal.xyz * EPSILON;
+    vec3 origin = p.vertex.position.xyz;
 
     vec3 Li = vec3(0.0f);
 
@@ -307,6 +309,9 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
         Wi = normalize(light_dir + disk_point.x * light_tangent + disk_point.y * light_bitangent);
         Li = punctual_light_color(light) * punctual_light_intensity(light);
         pdf = 0.0f;
+
+        if (dot(p.normal , Wi) <= 0.0f)
+            return vec3(0.0f);
     }
     else if (type == LIGHT_SPOT)
     {
@@ -332,6 +337,9 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
         Li = punctual_light_color(light) * punctual_light_intensity(light) * angle_attenuation /  (light_distance * light_distance);
         pdf = 0.0f;
         tmax = light_distance;
+
+        if (dot(p.normal , Wi) <= 0.0f)
+            return vec3(0.0f); 
     }
     else if (type == LIGHT_POINT)
     {
@@ -354,6 +362,9 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
         Li = punctual_light_color(light) * punctual_light_intensity(light)  / (light_distance * light_distance);    
         pdf = 0.0f;
         tmax = light_distance;
+
+        if (dot(p.normal , Wi) <= 0.0f)
+            return vec3(0.0f); 
     }
     else if (type == LIGHT_ENVIRONMENT_MAP)
     {

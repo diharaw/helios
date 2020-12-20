@@ -172,7 +172,8 @@ void main()
     const Triangle triangle = fetch_triangle(instance, hit_info);
     const Material material = Materials.data[hit_info.mat_idx];
 
-    Vertex v = interpolated_vertex(triangle, b_HitAttribs);
+    const vec3 barycentrics = vec3(1.0 - b_HitAttribs.x - b_HitAttribs.y, b_HitAttribs.x, b_HitAttribs.y);
+    Vertex v = interpolated_vertex(triangle, barycentrics);
 
     vec4 albedo = fetch_albedo(material, v.tex_coord.xy);
 
