@@ -44,6 +44,13 @@ Prerequisites
 * CMake 3.8 or higher
 * Vulkan SDK 1.2.162.0 or higher
 
+### Controls
+
+* `W`/`A`/`S`/`D` - camera movement.
+* `RMB` - hold to look around.
+* `G` - toggle UI.
+* `ESC` - close application
+
 ```
 git clone --recursive https://github.com/diharaw/Helios.git
 cd Helios
@@ -60,13 +67,6 @@ A GPU that supports the following Vulkan Extensions:
 * VK_EXT_descriptor_indexing
 
 Requires the latest NVIDIA/AMD drivers.
-
-## Controls
-
-* *W*/*A*/*S*/*D* for camera movement
-* Hold *right mouse button* look around
-* *G* to toggle UI
-* *Esc* to close application
 
 ## Dependencies
 * [glfw](https://github.com/glfw/glfw)
