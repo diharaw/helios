@@ -310,9 +310,6 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
         Wi = normalize(light_dir + disk_point.x * light_tangent + disk_point.y * light_bitangent);
         Li = punctual_light_color(light) * punctual_light_intensity(light);
         pdf = 0.0f;
-
-        if (dot(p.normal , Wi) <= 0.0f)
-            return vec3(0.0f);
     }
     else if (type == LIGHT_SPOT)
     {
@@ -338,9 +335,6 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
         Li = punctual_light_color(light) * punctual_light_intensity(light) * angle_attenuation /  (light_distance * light_distance);
         pdf = 0.0f;
         tmax = light_distance;
-
-        if (dot(p.normal , Wi) <= 0.0f)
-            return vec3(0.0f); 
     }
     else if (type == LIGHT_POINT)
     {
@@ -363,9 +357,6 @@ vec3 sample_light(in SurfaceProperties p, in Light light, out vec3 Wi, out float
         Li = punctual_light_color(light) * punctual_light_intensity(light)  / (light_distance * light_distance);    
         pdf = 0.0f;
         tmax = light_distance;
-
-        if (dot(p.normal , Wi) <= 0.0f)
-            return vec3(0.0f); 
     }
     else if (type == LIGHT_ENVIRONMENT_MAP)
     {
