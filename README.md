@@ -34,6 +34,13 @@ A real-time unidirectional GPU path tracer using the cross-vendor Vulkan ray-tra
 3. Run HeliosViewer.exe or HeliosEditor.exe.
 4. Open a sample scene located in the *<helios_root>/assets/scene* folder via the file open prompt at startup.
 
+### Controls
+
+* `W`/`A`/`S`/`D` - camera movement.
+* `RMB` - hold to look around.
+* `G` - toggle UI.
+* `ESC` - close application
+
 ## Building
 
 ### Windows
@@ -43,13 +50,6 @@ Prerequisites
 * MSVC 19.00 or higher
 * CMake 3.8 or higher
 * Vulkan SDK 1.2.162.0 or higher
-
-### Controls
-
-* `W`/`A`/`S`/`D` - camera movement.
-* `RMB` - hold to look around.
-* `G` - toggle UI.
-* `ESC` - close application
 
 ```
 git clone --recursive https://github.com/diharaw/Helios.git
