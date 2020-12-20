@@ -14,6 +14,8 @@ else()
     add_executable(HeliosViewer "main.cpp") 
 endif()
 
+add_custom_command(TARGET HeliosViewer POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/data/fonts $<TARGET_FILE_DIR:HeliosViewer>/assets/fonts)
+
 target_link_libraries(HeliosViewer Helios)
 
 if (WIN32)

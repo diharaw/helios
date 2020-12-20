@@ -14,6 +14,8 @@ else()
     add_executable(HeliosEditor "main.cpp") 
 endif()
 
+add_custom_command(TARGET HeliosEditor POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/data/fonts $<TARGET_FILE_DIR:HeliosEditor>/assets/fonts)
+
 target_link_libraries(HeliosEditor Helios)
 target_link_libraries(HeliosEditor AssetCoreExporter)
 

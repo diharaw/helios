@@ -411,7 +411,7 @@ private:
     float           m_heading_speed      = 0.0f;
     float           m_sideways_speed     = 0.0f;
     float           m_camera_sensitivity = 0.05f;
-    float           m_camera_speed       = 5.0f;
+    float           m_camera_speed       = 50.0f;
     float           m_smooth_frametime   = 0.0f;
     int32_t         m_num_debug_rays     = 32;
     std::string     m_string_buffer;
