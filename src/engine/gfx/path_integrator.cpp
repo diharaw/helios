@@ -19,6 +19,7 @@ struct PushConstants
     uint32_t   num_frames;
     uint32_t   debug_vis;
     uint32_t   max_ray_bounces;
+    float      shadow_ray_bias;
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -137,6 +138,7 @@ void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeli
     push_constants.num_frames            = m_num_accumulated_samples;
     push_constants.accumulation          = float(push_constants.num_frames) / float(push_constants.num_frames + 1);
     push_constants.max_ray_bounces       = m_max_ray_bounces;
+    push_constants.shadow_ray_bias       = m_shadow_ray_bias;
 
     vkCmdPushConstants(render_state.cmd_buffer()->handle(), pipeline_layout->handle(), push_constant_stages, 0, sizeof(PushConstants), &push_constants);
 

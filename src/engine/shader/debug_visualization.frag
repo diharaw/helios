@@ -150,7 +150,7 @@ void main()
     if (u_PushConstants.current_output_buffer == OUTPUT_BUFFER_ALBEDO)
         color.xyz = fetch_albedo(material, FS_IN_TexCoord);
     else if (u_PushConstants.current_output_buffer == OUTPUT_BUFFER_NORMALS)
-        color.xyz = fetch_normal(material, FS_IN_Tangent, FS_IN_Bitangent, FS_IN_Normal, FS_IN_TexCoord);
+        color.xyz = fetch_normal(material, FS_IN_Tangent, FS_IN_Bitangent, FS_IN_Normal, FS_IN_TexCoord) * vec3(0.5) + vec3(0.5);
     else if (u_PushConstants.current_output_buffer == OUTPUT_BUFFER_ROUGHNESS) 
         color.xyz = vec3(fetch_roughness(material, FS_IN_TexCoord));
     else if (u_PushConstants.current_output_buffer == OUTPUT_BUFFER_METALLIC) 

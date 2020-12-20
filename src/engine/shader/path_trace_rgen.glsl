@@ -101,6 +101,7 @@ layout(push_constant) uniform PathTraceConsts
     uint num_frames;
     uint debug_vis;
     uint max_ray_bounces;
+    float shadow_ray_bias;
 } u_PathTraceConsts;
 
 // ------------------------------------------------------------------------

@@ -401,6 +401,14 @@ protected:
                 m_renderer->path_integrator()->restart_bake();
             }
 
+            float shadow_ray_bias = m_renderer->path_integrator()->shadow_ray_bias();
+
+            if (ImGui::SliderFloat("Shadow Ray Bias", &shadow_ray_bias, 0.0f, 5.0f))
+            {
+                m_renderer->path_integrator()->set_shadow_ray_bias(shadow_ray_bias);
+                m_renderer->path_integrator()->restart_bake();
+            }
+
             if (ImGui::BeginCombo("Tone Map Operator", tone_map_operators[m_renderer->tone_map_operator()].c_str()))
             {
                 for (uint32_t i = 0; i < tone_map_operators.size(); i++)

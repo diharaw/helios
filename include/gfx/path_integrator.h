@@ -21,6 +21,7 @@ public:
     inline uint32_t num_target_samples() { return m_max_samples * m_tile_coords.size(); }
     inline uint32_t tile_idx() { return m_tile_idx; }
     inline bool     is_tiled() { return m_tiled; }
+    inline float    shadow_ray_bias() { return m_shadow_ray_bias; }
     inline void     restart_bake()
     {
         m_num_accumulated_samples = 0;
@@ -28,6 +29,7 @@ public:
     }
     inline void set_max_ray_bounces(const uint32_t& n) { m_max_ray_bounces = n; }
     inline void set_max_samples(const uint32_t& n) { m_max_samples = n; }
+    inline void set_shadow_ray_bias(const float& bias) { m_shadow_ray_bias = bias; }
 
     void render(RenderState& render_state);
     void gather_debug_rays(const glm::ivec2& pixel_coord, const uint32_t& num_debug_rays, const glm::mat4& view, const glm::mat4& projection, RenderState& render_state);
@@ -46,6 +48,7 @@ private:
     uint32_t                    m_max_samples             = 5000;
     uint32_t                    m_num_accumulated_samples = 0;
     uint32_t                    m_tile_idx                = 0;
+    float                       m_shadow_ray_bias         = 0.0f;
     glm::uvec2                  m_tile_size;
     std::vector<glm::uvec2>     m_tile_coords;
     std::weak_ptr<vk::Backend>  m_backend;
