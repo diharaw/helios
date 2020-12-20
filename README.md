@@ -39,7 +39,7 @@ A real-time unidirectional GPU path tracer using the cross-vendor Vulkan ray-tra
 * `W`/`A`/`S`/`D` - camera movement.
 * `RMB` - hold to look around.
 * `G` - toggle UI.
-* `ESC` - close application
+* `ESC` - close application.
 
 ## Building
 
