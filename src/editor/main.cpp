@@ -64,7 +64,7 @@ protected:
         m_string_buffer.reserve(256);
 
         if (std::filesystem::exists("assets/scene/default.json"))
-            m_scene = m_resource_manager->load_scene("scene/default.json", false);
+            m_scene = m_resource_manager->load_scene("scene/default.json");
         else
         {
             nfdchar_t*  out_path = NULL;
@@ -79,7 +79,7 @@ protected:
 
                 m_vk_backend->queue_object_deletion(m_scene);
 
-                m_scene = m_resource_manager->load_scene(path, true);
+                m_scene = m_resource_manager->load_scene(path);
 
                 if (!m_scene)
                     return false;
@@ -182,7 +182,7 @@ protected:
                     m_vk_backend->queue_object_deletion(m_scene);
                     m_selected_node = nullptr;
 
-                    m_scene = m_resource_manager->load_scene(path, true);
+                    m_scene = m_resource_manager->load_scene(path);
                 }
             }
 
@@ -701,7 +701,7 @@ private:
                 strcpy(path.data(), out_path);
                 free(out_path);
 
-                Mesh::Ptr mesh = m_resource_manager->load_mesh(path, true);
+                Mesh::Ptr mesh = m_resource_manager->load_mesh(path);
                 mesh_node->set_mesh(mesh);
 
                 m_scene->force_update();
@@ -727,7 +727,7 @@ private:
                 strcpy(path.data(), out_path);
                 free(out_path);
 
-                Material::Ptr material = m_resource_manager->load_material(path, true);
+                Material::Ptr material = m_resource_manager->load_material(path);
                 mesh_node->set_material_override(material);
 
                 m_scene->force_update();
@@ -959,7 +959,7 @@ private:
                 strcpy(path.data(), out_path);
                 free(out_path);
 
-                TextureCube::Ptr texture = m_resource_manager->load_texture_cube(path, false, true);
+                TextureCube::Ptr texture = m_resource_manager->load_texture_cube(path, false);
                 ibl_node->set_image(texture);
 
                 m_scene->force_update();

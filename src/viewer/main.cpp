@@ -32,7 +32,7 @@ protected:
         m_string_buffer.reserve(256);
 
         if (std::filesystem::exists("assets/scene/default.json"))
-            m_scene = m_resource_manager->load_scene("scene/default.json", false);
+            m_scene = m_resource_manager->load_scene("scene/default.json");
         else
         {
             nfdchar_t*  out_path = NULL;
@@ -47,7 +47,7 @@ protected:
 
                 m_vk_backend->queue_object_deletion(m_scene);
 
-                m_scene = m_resource_manager->load_scene(path, true);
+                m_scene = m_resource_manager->load_scene(path);
 
                 if (!m_scene)
                     return false;
@@ -120,7 +120,7 @@ protected:
 
                     m_vk_backend->queue_object_deletion(m_scene);
 
-                    m_scene = m_resource_manager->load_scene(path, true);
+                    m_scene = m_resource_manager->load_scene(path);
 
                     if (m_scene)
                         set_default_camera_orientation();

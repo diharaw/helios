@@ -5,6 +5,7 @@
 #include <vk_mem_alloc.h>
 #include <imgui.h>
 #include <ImGuizmo.h>
+#include <filesystem>
 
 namespace helios
 {
@@ -120,13 +121,13 @@ ResourceManager::~ResourceManager()
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Texture2D::Ptr ResourceManager::load_texture_2d(const std::string& path, bool srgb, bool absolute)
+Texture2D::Ptr ResourceManager::load_texture_2d(const std::string& path, bool srgb)
 {
     if (!m_backend.expired())
     {
         vk::BatchUploader uploader(m_backend.lock());
 
-        auto resource = load_texture_2d_internal(path, srgb, absolute, uploader);
+        auto resource = load_texture_2d_internal(path, srgb, uploader);
 
         uploader.submit();
 
@@ -138,13 +139,13 @@ Texture2D::Ptr ResourceManager::load_texture_2d(const std::string& path, bool sr
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-TextureCube::Ptr ResourceManager::load_texture_cube(const std::string& path, bool srgb, bool absolute)
+TextureCube::Ptr ResourceManager::load_texture_cube(const std::string& path, bool srgb)
 {
     if (!m_backend.expired())
     {
         vk::BatchUploader uploader(m_backend.lock());
 
-        auto resource = load_texture_cube_internal(path, srgb, absolute, uploader);
+        auto resource = load_texture_cube_internal(path, srgb, uploader);
 
         uploader.submit();
 
@@ -156,13 +157,13 @@ TextureCube::Ptr ResourceManager::load_texture_cube(const std::string& path, boo
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Material::Ptr ResourceManager::load_material(const std::string& path, bool absolute)
+Material::Ptr ResourceManager::load_material(const std::string& path)
 {
     if (!m_backend.expired())
     {
         vk::BatchUploader uploader(m_backend.lock());
 
-        auto resource = load_material_internal(path, absolute, uploader);
+        auto resource = load_material_internal(path, uploader);
 
         uploader.submit();
 
@@ -174,13 +175,13 @@ Material::Ptr ResourceManager::load_material(const std::string& path, bool absol
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Mesh::Ptr ResourceManager::load_mesh(const std::string& path, bool absolute)
+Mesh::Ptr ResourceManager::load_mesh(const std::string& path)
 {
     if (!m_backend.expired())
     {
         vk::BatchUploader uploader(m_backend.lock());
 
-        auto resource = load_mesh_internal(path, absolute, uploader);
+        auto resource = load_mesh_internal(path, uploader);
 
         uploader.submit();
 
@@ -192,7 +193,7 @@ Mesh::Ptr ResourceManager::load_mesh(const std::string& path, bool absolute)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Scene::Ptr ResourceManager::load_scene(const std::string& path, bool absolute)
+Scene::Ptr ResourceManager::load_scene(const std::string& path)
 {
     if (!m_backend.expired())
     {
@@ -200,7 +201,7 @@ Scene::Ptr ResourceManager::load_scene(const std::string& path, bool absolute)
         vk::BatchUploader uploader(backend);
 
         ast::Scene  ast_scene;
-        std::string full_path = absolute ? path : utility::path_for_resource("assets/" + path);
+        std::string full_path = std::filesystem::path(path).is_absolute() ? path : utility::path_for_resource("assets/" + path);
 
         if (ast::load_scene(full_path, ast_scene))
         {
@@ -222,7 +223,7 @@ Scene::Ptr ResourceManager::load_scene(const std::string& path, bool absolute)
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Texture2D::Ptr ResourceManager::load_texture_2d_internal(const std::string& path, bool srgb, bool absolute, vk::BatchUploader& uploader)
+Texture2D::Ptr ResourceManager::load_texture_2d_internal(const std::string& path, bool srgb, vk::BatchUploader& uploader)
 {
     if (m_textures_2d.find(path) != m_textures_2d.end())
         return m_textures_2d[path];
@@ -230,7 +231,7 @@ Texture2D::Ptr ResourceManager::load_texture_2d_internal(const std::string& path
     {
         vk::Backend::Ptr backend = m_backend.lock();
         ast::Image       ast_image;
-        std::string      full_path = absolute ? path : utility::path_for_resource("assets/" + path);
+        std::string      full_path = std::filesystem::path(path).is_absolute() ? path : utility::path_for_resource("assets/" + path);
 
         if (ast::load_image(full_path, ast_image))
         {
@@ -257,7 +258,7 @@ Texture2D::Ptr ResourceManager::load_texture_2d_internal(const std::string& path
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-TextureCube::Ptr ResourceManager::load_texture_cube_internal(const std::string& path, bool srgb, bool absolute, vk::BatchUploader& uploader)
+TextureCube::Ptr ResourceManager::load_texture_cube_internal(const std::string& path, bool srgb, vk::BatchUploader& uploader)
 {
     if (m_textures_cube.find(path) != m_textures_cube.end())
         return m_textures_cube[path];
@@ -265,7 +266,7 @@ TextureCube::Ptr ResourceManager::load_texture_cube_internal(const std::string& 
     {
         vk::Backend::Ptr backend = m_backend.lock();
         ast::Image       ast_image;
-        std::string      full_path = absolute ? path : utility::path_for_resource("assets/" + path);
+        std::string      full_path = std::filesystem::path(path).is_absolute() ? path : utility::path_for_resource("assets/" + path);
 
         if (ast::load_image(full_path, ast_image))
         {
@@ -292,7 +293,7 @@ TextureCube::Ptr ResourceManager::load_texture_cube_internal(const std::string& 
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Material::Ptr ResourceManager::load_material_internal(const std::string& path, bool absolute, vk::BatchUploader& uploader)
+Material::Ptr ResourceManager::load_material_internal(const std::string& path, vk::BatchUploader& uploader)
 {
     if (m_materials.find(path) != m_materials.end())
         return m_materials[path];
@@ -300,7 +301,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
     {
         vk::Backend::Ptr backend = m_backend.lock();
         ast::Material    ast_material;
-        std::string      full_path = absolute ? path : utility::path_for_resource("assets/" + path);
+        std::string      full_path = std::filesystem::path(path).is_absolute() ? path : utility::path_for_resource("assets/" + path);
 
         if (ast::load_material(full_path, ast_material))
         {
@@ -328,7 +329,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
                 {
                     if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
                     {
-                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, true, uploader);
+                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, uploader);
 
                         texture_index_map[ast_texture.path] = textures.size();
 
@@ -342,7 +343,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
                 {
                     if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
                     {
-                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, true, uploader);
+                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, uploader);
 
                         texture_index_map[ast_texture.path] = textures.size();
 
@@ -356,7 +357,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
                 {
                     if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
                     {
-                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, true, uploader);
+                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, uploader);
 
                         texture_index_map[ast_texture.path] = textures.size();
 
@@ -370,7 +371,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
                 {
                     if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
                     {
-                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, true, uploader);
+                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, uploader);
 
                         texture_index_map[ast_texture.path] = textures.size();
 
@@ -384,7 +385,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
                 {
                     if (texture_index_map.find(ast_texture.path) == texture_index_map.end())
                     {
-                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, true, uploader);
+                        Texture2D::Ptr texture = load_texture_2d_internal(ast_texture.path, ast_texture.srgb, uploader);
 
                         texture_index_map[ast_texture.path] = textures.size();
 
@@ -424,7 +425,7 @@ Material::Ptr ResourceManager::load_material_internal(const std::string& path, b
 
 // -----------------------------------------------------------------------------------------------------------------------------------
 
-Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool absolute, vk::BatchUploader& uploader)
+Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, vk::BatchUploader& uploader)
 {
     if (m_meshes.find(path) != m_meshes.end())
         return m_meshes[path];
@@ -432,7 +433,7 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
     {
         vk::Backend::Ptr backend = m_backend.lock();
         ast::Mesh        ast_mesh;
-        std::string      full_path = absolute ? path : utility::path_for_resource("assets/" + path);
+        std::string      full_path = std::filesystem::path(path).is_absolute() ? path : utility::path_for_resource("assets/" + path);
 
         if (ast::load_mesh(full_path, ast_mesh))
         {
@@ -472,7 +473,7 @@ Mesh::Ptr ResourceManager::load_mesh_internal(const std::string& path, bool abso
             }
 
             for (int i = 0; i < ast_mesh.material_paths.size(); i++)
-                materials[i] = load_material_internal(ast_mesh.material_paths[i], true, uploader);
+                materials[i] = load_material_internal(ast_mesh.material_paths[i], uploader);
 
             Mesh::Ptr mesh = Mesh::create(backend, vertices, ast_mesh.indices, submeshes, materials, uploader, full_path);
 
@@ -520,7 +521,7 @@ MeshNode::Ptr ResourceManager::create_mesh_node(std::shared_ptr<ast::MeshNode> a
 
     if (ast_node->mesh != "")
     {
-        mesh = load_mesh_internal(ast_node->mesh, false, uploader);
+        mesh = load_mesh_internal(ast_node->mesh, uploader);
 
         if (mesh)
             mesh_node->set_mesh(mesh);
@@ -531,7 +532,7 @@ MeshNode::Ptr ResourceManager::create_mesh_node(std::shared_ptr<ast::MeshNode> a
 
         if (ast_node->material_override != "")
         {
-            material_override = load_material_internal(ast_node->material_override, false, uploader);
+            material_override = load_material_internal(ast_node->material_override, uploader);
 
             if (!material_override)
                 HELIOS_LOG_ERROR("Failed to load material override: " + ast_node->material_override);
@@ -622,7 +623,7 @@ IBLNode::Ptr ResourceManager::create_ibl_node(std::shared_ptr<ast::IBLNode> ast_
 
     if (ast_node->image != "")
     {
-        texture_cube = load_texture_cube_internal(ast_node->image, false, false, uploader);
+        texture_cube = load_texture_cube_internal(ast_node->image, false, uploader);
 
         if (texture_cube)
             ibl_node->set_image(texture_cube);
