@@ -96,6 +96,9 @@ private:
     void update_base(double delta);
     void shutdown_base();
 
+    // Internal initialization
+    void setup_imgui();
+
 protected:
     uint32_t                            m_width;
     uint32_t                            m_height;

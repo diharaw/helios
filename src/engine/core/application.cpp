@@ -138,6 +138,71 @@ bool Application::init_base(int argc, const char* argv[])
         m_render_finished_semaphores[i] = vk::Semaphore::create(m_vk_backend);
     }
 
+    setup_imgui();
+
+    int display_w, display_h;
+    glfwGetFramebufferSize(m_window, &display_w, &display_h);
+    m_width  = display_w;
+    m_height = display_h;
+
+    profiler::initialize(m_vk_backend);
+
+    if (!init(argc, argv))
+        return false;
+
+    return true;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Application::update_base(double delta)
+{
+    if (handle_events())
+    {
+        vk::CommandBuffer::Ptr cmd_buffer = begin_frame();
+        update(cmd_buffer);
+        end_frame(cmd_buffer);
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Application::shutdown_base()
+{
+    // Execute user-side shutdown method.
+    shutdown();
+
+    profiler::shutdown();
+
+    // Shutdown ImGui.
+    ImGui_ImplVulkan_Shutdown();
+
+    for (int i = 0; i < vk::Backend::kMaxFramesInFlight; i++)
+    {
+        m_image_available_semaphores[i].reset();
+        m_render_finished_semaphores[i].reset();
+    }
+
+    m_resource_manager.reset();
+    m_renderer.reset();
+    m_vk_backend->~Backend();
+
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
+    // Shutdown GLFW.
+    glfwDestroyWindow(m_window);
+    glfwTerminate();
+
+    // Close logger streams.
+    logger::close_file_stream();
+    logger::close_console_stream();
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------
+
+void Application::setup_imgui()
+{
     ImGui::CreateContext();
 
     ImGui_ImplGlfw_InitForVulkan(m_window, false);
@@ -198,13 +263,6 @@ bool Application::init_base(int argc, const char* argv[])
     m_vk_backend->flush_graphics({ cmd_buf });
 
     ImGui_ImplVulkan_DestroyFontUploadObjects();
-
-    ImGui::StyleColorsDark();
-
-    int display_w, display_h;
-    glfwGetFramebufferSize(m_window, &display_w, &display_h);
-    m_width  = display_w;
-    m_height = display_h;
 
     ImVec4* colors = style->Colors;
 
@@ -267,59 +325,6 @@ bool Application::init_base(int argc, const char* argv[])
     style->TabBorderSize     = 1.0f;
     style->TabRounding       = 0.0f;
     style->WindowRounding    = 4.0f;
-
-    profiler::initialize(m_vk_backend);
-
-    if (!init(argc, argv))
-        return false;
-
-    return true;
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-void Application::update_base(double delta)
-{
-    if (handle_events())
-    {
-        vk::CommandBuffer::Ptr cmd_buffer = begin_frame();
-        update(cmd_buffer);
-        end_frame(cmd_buffer);
-    }
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------
-
-void Application::shutdown_base()
-{
-    // Execute user-side shutdown method.
-    shutdown();
-
-    profiler::shutdown();
-
-    // Shutdown ImGui.
-    ImGui_ImplVulkan_Shutdown();
-
-    for (int i = 0; i < vk::Backend::kMaxFramesInFlight; i++)
-    {
-        m_image_available_semaphores[i].reset();
-        m_render_finished_semaphores[i].reset();
-    }
-
-    m_resource_manager.reset();
-    m_renderer.reset();
-    m_vk_backend->~Backend();
-
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-
-    // Shutdown GLFW.
-    glfwDestroyWindow(m_window);
-    glfwTerminate();
-
-    // Close logger streams.
-    logger::close_file_stream();
-    logger::close_console_stream();
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------
