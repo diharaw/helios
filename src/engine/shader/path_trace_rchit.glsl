@@ -464,7 +464,7 @@ vec3 direct_lighting(in SurfaceProperties p)
     Wh = normalize(Wo + Wi);
 
     vec3 brdf = evaluate_uber(p, Wo, Wh, Wi);
-    float cos_theta = clamp(dot(p.normal, Wo), 0.0, 1.0);
+    float cos_theta = clamp(dot(p.normal, Wi), 0.0, 1.0);
 
     if (!is_black(Li))
     {

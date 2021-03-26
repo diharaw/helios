@@ -177,7 +177,7 @@ void main()
             vec3 final_color = clamped_color;
 
     #if defined(VISUALIZE_NANS)
-            if (is_nan(final_color))
+            if (is_nan(p_PathTracePayload.L))
                 final_color = vec3(1.0, 0.0, 0.0);
     #endif
 
@@ -193,7 +193,7 @@ void main()
             vec3 final_color = accumulated_color;
 
     #if defined(VISUALIZE_NANS)
-            if (is_nan(final_color))
+            if (is_nan(p_PathTracePayload.L))
                 final_color = vec3(1.0, 0.0, 0.0);
     #endif
 
