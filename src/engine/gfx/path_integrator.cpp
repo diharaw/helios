@@ -133,11 +133,11 @@ void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeli
 
     int32_t push_constant_stages = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR;
 
-    glm::vec3 right = glm::vec3(view * glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
-    glm::vec3 up = glm::vec3(view * glm::vec4(0.0f, 1.0f, 0.0f, 0.0f));
-    glm::vec3 forward = glm::vec3(view * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f));
-
-    glm::vec3 camera_focal_plane_point = render_state.camera()->global_position() + forward * render_state.camera()->focal_length();
+    glm::vec3 right                    = render_state.camera()->left();
+    glm::vec3 up                       = render_state.camera()->up();
+    glm::vec3 forward                  = -render_state.camera()->forward();
+    glm::vec3 camera_pos               = render_state.camera()->global_position();
+    glm::vec3 camera_focal_plane_point = camera_pos + forward * render_state.camera()->focal_length();
     glm::vec4 focal_plane = glm::vec4(-forward, 0.0f);
     focal_plane.w         = -(focal_plane.x * camera_focal_plane_point.x + focal_plane.y * camera_focal_plane_point.y + focal_plane.z * camera_focal_plane_point.z);
 

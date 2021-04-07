@@ -440,13 +440,19 @@ protected:
 
             float focal_length = m_editor_camera->focal_length();
 
-            if (ImGui::SliderFloat("Editor Camera Focal Length", &focal_length, 0.0f, 15.0f))
+            if (ImGui::SliderFloat("Editor Camera Focal Length", &focal_length, m_editor_camera->near_plane(), m_editor_camera->far_plane()))
+            {
                 m_editor_camera->set_focal_length(focal_length);
+                m_renderer->path_integrator()->restart_bake();
+            }
 
             float aperture_radius = m_editor_camera->aperture_radius();
 
             if (ImGui::SliderFloat("Editor Camera Aperture Radius", &aperture_radius, 0.001f, 1.0f))
+            {
                 m_editor_camera->set_aperture_radius(aperture_radius);
+                m_renderer->path_integrator()->restart_bake();
+            }
         }
 
         if (m_ray_debug_mode)
@@ -793,7 +799,7 @@ private:
 
         float focal_length = camera_node->focal_length();
 
-        if (ImGui::SliderFloat("Focal Length", &focal_length, 0.0f, 15.0f))
+        if (ImGui::SliderFloat("Focal Length", &focal_length, camera_node->near_plane(), camera_node->far_plane()))
             camera_node->set_focal_length(focal_length);
 
         float aperture_radius = camera_node->aperture_radius();

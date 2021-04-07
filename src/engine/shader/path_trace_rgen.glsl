@@ -154,8 +154,10 @@ Ray generate_ray(in uvec2 launch_id, in uvec2 launch_size)
     ray.direction = normalize(target.xyz - ray.origin);
 
     // Aperture Offset
-    vec2 offset = (vec2(next_float(p_PathTracePayload.rng), next_float(p_PathTracePayload.rng)) * 2.0f - 1.0f) * u_PathTraceConsts.aperture_radius;
-    float aperture_area = 4.0f * u_PathTraceConsts.aperture_radius;
+    float angle = next_float(p_PathTracePayload.rng) * 2.0f * M_PI;
+    float radius = sqrt(next_float(p_PathTracePayload.rng));
+    vec2 offset = vec2(cos(angle), sin(angle)) * radius * u_PathTraceConsts.aperture_radius;
+    float aperture_area = M_PI * u_PathTraceConsts.aperture_radius * u_PathTraceConsts.aperture_radius;
 
     // Aperture Pos
     vec3 aperture_pos = u_PathTraceConsts.camera_pos.xyz + u_PathTraceConsts.right_direction.xyz * offset.x + u_PathTraceConsts.up_direction.xyz * offset.y;
