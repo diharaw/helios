@@ -256,6 +256,8 @@ private:
     float     m_near_plane        = 1.0f;
     float     m_far_plane         = 1000.0f;
     float     m_fov               = 60.0f;
+    float     m_focal_length      = 8.0f;
+    float     m_aperture_radius   = 0.1f;
     glm::mat4 m_view_matrix       = glm::mat4(1.0f);
     glm::mat4 m_projection_matrix = glm::mat4(1.0f);
 
@@ -270,9 +272,13 @@ public:
     inline void      set_near_plane(const float& near_plane) { m_near_plane = near_plane; }
     inline void      set_far_plane(const float& far_plane) { m_far_plane = far_plane; }
     inline void      set_fov(const float& fov) { m_fov = fov; }
+    inline void      set_focal_length(const float& focal_length) { m_focal_length = focal_length; }
+    inline void      set_aperture_radius(const float& aperture_radius) { m_aperture_radius = aperture_radius; }
     inline float     near_plane() { return m_near_plane; }
     inline float     far_plane() { return m_far_plane; }
     inline float     fov() { return m_fov; }
+    inline float     focal_length() { return m_focal_length; }
+    inline float     aperture_radius() { return m_aperture_radius; }
     inline glm::mat4 view_matrix() { return m_view_matrix; }
     inline glm::mat4 projection_matrix() { return m_projection_matrix; }
 };

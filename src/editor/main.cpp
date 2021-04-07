@@ -437,6 +437,16 @@ protected:
 
             if (ImGui::InputFloat("Editor Camera FOV", &fov))
                 m_editor_camera->set_fov(fov);
+
+            float focal_length = m_editor_camera->focal_length();
+
+            if (ImGui::SliderFloat("Editor Camera Focal Length", &focal_length, 0.0f, 15.0f))
+                m_editor_camera->set_focal_length(focal_length);
+
+            float aperture_radius = m_editor_camera->aperture_radius();
+
+            if (ImGui::SliderFloat("Editor Camera Aperture Radius", &aperture_radius, 0.001f, 1.0f))
+                m_editor_camera->set_aperture_radius(aperture_radius);
         }
 
         if (m_ray_debug_mode)
@@ -780,6 +790,16 @@ private:
             m_scene->force_update();
             camera_node->set_fov(fov);
         }
+
+        float focal_length = camera_node->focal_length();
+
+        if (ImGui::SliderFloat("Focal Length", &focal_length, 0.0f, 15.0f))
+            camera_node->set_focal_length(focal_length);
+
+        float aperture_radius = camera_node->aperture_radius();
+
+        if (ImGui::SliderFloat("Aperture Radius", &aperture_radius, 0.001f, 1.0f))
+            camera_node->set_aperture_radius(aperture_radius);
 
         if (ImGui::Button("Apply Camera Transform", ImVec2(ImGui::GetContentRegionAvailWidth(), 30.0f)))
             camera_node->set_from_global_transform(m_editor_camera->global_transform());

@@ -92,8 +92,11 @@ layout(set = 6, binding = 0, rgba32f) writeonly uniform image2D i_CurrentColor;
 
 layout(push_constant) uniform PathTraceConsts
 {
-    mat4 view_inverse;
-    mat4 proj_inverse;
+    mat4 view_proj_inverse;
+    vec4 camera_pos;
+    vec4 up_direction;
+    vec4 right_direction;
+    vec4 focal_plane;
     ivec4 ray_debug_pixel_coord;
     uvec4 launch_id_size;
     float accumulation;
@@ -102,6 +105,8 @@ layout(push_constant) uniform PathTraceConsts
     uint debug_vis;
     uint max_ray_bounces;
     float shadow_ray_bias;
+    float focal_length;
+    float aperture_radius;
 } u_PathTraceConsts;
 
 // ------------------------------------------------------------------------
@@ -487,7 +492,7 @@ vec3 indirect_lighting(in SurfaceProperties p)
 
     vec3 brdf = sample_uber(p, Wo, p_PathTracePayload.rng, Wi, pdf);
 
-    float cos_theta = clamp(dot(p.normal, Wo), 0.0, 1.0);
+    float cos_theta = clamp(dot(p.normal, Wi), 0.0, 1.0);
 
     p_IndirectPayload.L = vec3(0.0f);
     p_IndirectPayload.T = p_PathTracePayload.T *  (brdf * cos_theta) / pdf;

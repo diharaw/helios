@@ -10,8 +10,11 @@ namespace helios
 
 struct PushConstants
 {
-    glm::mat4  view_inverse;
-    glm::mat4  proj_inverse;
+    glm::mat4  view_proj_inverse;
+    glm::vec4  camera_pos;
+    glm::vec4  up_direction;
+    glm::vec4  right_direction;
+    glm::vec4  focal_plane;
     glm::ivec4 ray_debug_pixel_coord;
     glm::uvec4 launch_id_size;
     float      accumulation;
@@ -20,6 +23,8 @@ struct PushConstants
     uint32_t   debug_vis;
     uint32_t   max_ray_bounces;
     float      shadow_ray_bias;
+    float      focal_length;
+    float      aperture_radius;
 };
 
 // -----------------------------------------------------------------------------------------------------------------------------------
@@ -128,17 +133,30 @@ void PathIntegrator::launch_rays(RenderState& render_state, vk::RayTracingPipeli
 
     int32_t push_constant_stages = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR;
 
+    glm::vec3 right = glm::vec3(view * glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
+    glm::vec3 up = glm::vec3(view * glm::vec4(0.0f, 1.0f, 0.0f, 0.0f));
+    glm::vec3 forward = glm::vec3(view * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f));
+
+    glm::vec3 camera_focal_plane_point = render_state.camera()->global_position() + forward * render_state.camera()->focal_length();
+    glm::vec4 focal_plane = glm::vec4(-forward, 0.0f);
+    focal_plane.w         = -(focal_plane.x * camera_focal_plane_point.x + focal_plane.y * camera_focal_plane_point.y + focal_plane.z * camera_focal_plane_point.z);
+
     PushConstants push_constants;
 
     push_constants.ray_debug_pixel_coord = glm::ivec4(pixel_coord.x, extents.height - pixel_coord.y, extents.width, extents.height);
     push_constants.launch_id_size        = glm::ivec4(tile_coord.x, tile_coord.y, extents.width, extents.height);
-    push_constants.view_inverse          = glm::inverse(view);
-    push_constants.proj_inverse          = glm::inverse(projection);
+    push_constants.camera_pos            = glm::vec4(render_state.camera()->global_position(), 0.0f);
+    push_constants.up_direction          = glm::vec4(up, 0.0f);
+    push_constants.right_direction       = glm::vec4(right, 0.0f);
+    push_constants.focal_plane           = focal_plane;
+    push_constants.view_proj_inverse     = glm::inverse(projection * view);
     push_constants.num_lights            = render_state.num_lights();
     push_constants.num_frames            = m_num_accumulated_samples;
     push_constants.accumulation          = float(push_constants.num_frames) / float(push_constants.num_frames + 1);
     push_constants.max_ray_bounces       = m_max_ray_bounces;
     push_constants.shadow_ray_bias       = m_shadow_ray_bias;
+    push_constants.focal_length       = render_state.camera()->focal_length();
+    push_constants.aperture_radius       = render_state.camera()->aperture_radius();
 
     vkCmdPushConstants(render_state.cmd_buffer()->handle(), pipeline_layout->handle(), push_constant_stages, 0, sizeof(PushConstants), &push_constants);
 
