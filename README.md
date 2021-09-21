@@ -29,7 +29,7 @@ A real-time unidirectional GPU path tracer using the cross-vendor Vulkan ray-tra
 
 ## Usage
 
-1. Download the latest release [here](https://github.com/diharaw/Helios/releases/download/release_v1.0.0/Helios.1.0.0.zip).
+1. Download the latest release [here](https://github.com/diharaw/Helios/releases/download/1.0.0/Helios_1.0.0.zip).
 2. Extract archive contents.
 3. Run HeliosViewer.exe or HeliosEditor.exe.
 4. Open a sample scene located in the *<helios_root>/assets/scene* folder via the file open prompt at startup.
